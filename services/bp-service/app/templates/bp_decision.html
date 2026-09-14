@@ -1,0 +1,11 @@
+{% extends "bp_tab.html" %}
+
+{# Вкладка «Решение» бизнес-плана. #}
+
+{% block tab_content %}
+{% include "bp/_risks.html" %}
+{% include "bp/_summary.html" %}
+{% include "bp/_workflow.html" %}
+{% include "bp/_approvals.html" %}
+{% include "bp/_export.html" %}
+{% endblock %}

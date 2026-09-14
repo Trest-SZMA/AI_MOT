@@ -1,0 +1,48 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card" id="sec-ladder">
+  <div class="sec-head">
+    <h2><span class="sec-num">11</span> Аукционная лестница</h2>
+    <div class="sec-aside"><span class="role-tag">Экономика по шагам торгов</span></div>
+  </div>
+  {% if ladder['steps'] %}
+  {% if ladder['max_ok_step'] is not none %}
+  <p class="info-line">Торговаться можно до <b>шага {{ ladder['max_ok_step'] }}</b>
+    ({{ money(ladder['steps'][ladder['max_ok_step']]['lot_cost']) }} руб).
+    Дальше рентабельность продаж падает ниже порога {{ '%.0f' % ladder.get('threshold', 0) }}%.</p>
+  {% else %}
+  <p class="info-line danger-text">Уже на стартовой цене рентабельность ниже порога
+    {{ '%.0f' % ladder.get('threshold', 0) }}%.</p>
+  {% endif %}
+  <details>
+    <summary>Показать лестницу
+      ({{ ladder['steps'] | length }} шагов)</summary>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>Шаг</th>
+          <th class="num" data-tip="Стоимость лота без НДС — порог закупки плюс шаг × номер шага.">Лот без НДС, руб</th>
+          <th class="num" data-tip="Та же стоимость с НДС {{ '%.0f' % ladder['vat_rate'] }}% — в этих ценах идут торги.">Лот с НДС, руб</th>
+          <th class="num">Закупка, руб/тн</th>
+          <th class="num" data-tip="Цена закупки с НДС — ориентир для сравнения с ценой площадки.">руб/тн с НДС</th>
+          <th class="num">Чистая прибыль, руб</th><th class="num">ЧП, руб/тн</th>
+          <th class="num">ROS, %</th><th>Статус</th></tr></thead>
+      <tbody>
+      {% for s in ladder['steps'] %}
+      <tr class="{% if s['step'] == ladder['max_ok_step'] %}row-accent{% endif %}">
+        <td>{{ s['step'] }}</td>
+        <td class="num">{{ money(s['lot_cost']) }}</td>
+        <td class="calc num">{{ money(s['lot_cost_vat']) }}</td>
+        <td class="num">{{ '%.0f' % s['price_per_t'] }}</td>
+        <td class="calc num">{{ '%.0f' % s['price_per_t_vat'] }}</td>
+        <td class="num {{ 'pos' if s['net_profit'] >= 0 else 'neg' }}">
+          {{ money(s['net_profit']) }}</td>
+        <td class="num">{{ '%.0f' % s['net_profit_per_t'] }}</td>
+        <td class="num">{{ '%.1f' % s['ros_pct'] }}</td>
+        <td>{% if s['ok'] %}<span class="pill ok">проходит</span>{% else %}<span class="pill bad">ниже порога</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+  {% endif %}
+</div>

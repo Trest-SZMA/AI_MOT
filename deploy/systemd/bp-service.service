@@ -1,0 +1,27 @@
+[Unit]
+Description=МетОптТорг — Сервис бизнес-планов (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bpservice
+Group=bpservice
+WorkingDirectory=/opt/bp-service
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Yekaterinburg
+Environment=BP_ALLOWED_NETWORKS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12
+EnvironmentFile=/etc/bp-service.env
+# Порт 8093 — свой, свободный. Соседи: fines(8077), logistmot(8080),
+# ostatki(8090), kp(8091), realizaciya(8092), parser-bp(8094), портал(8079).
+ExecStart=/opt/bp-service/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8093 --workers 1
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=yes
+ReadWritePaths=/opt/bp-service
+
+[Install]
+WantedBy=multi-user.target

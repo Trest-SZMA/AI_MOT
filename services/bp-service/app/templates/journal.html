@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% set action_labels = {
+  'login': 'вход', 'login_failed': 'неудачный вход', 'logout': 'выход',
+  'password_change': 'смена пароля', 'user_add': 'создан пользователь',
+  'user_update': 'изменён пользователь', 'user_password': 'задан пароль',
+  'create': 'создан БП', 'import_bp': 'импорт книги', 'edit_section': 'правка раздела',
+  'update_prices': 'правка цен', 'update_costs': 'правка затрат',
+  'export': 'выгрузка', 'status': 'смена статуса' } %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Журнал действий</h1>
+    <div class="muted">Кто и что менял. Показаны последние 500 записей.</div>
+  </div>
+  {% if role == 'admin' %}
+  <div class="page-actions"><a class="btn" href="/users">{{ icon('lock') }} Пользователи</a></div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <form method="get" action="/journal" class="row-form">
+    <div style="flex:1 1 320px"><label for="q">Поиск по автору, БП и подробностям</label>
+      <input id="q" name="q" value="{{ q }}" placeholder="например: ivanov, БП-0018-2026"></div>
+    <div><label for="action">Действие</label>
+      <select id="action" name="action">
+        <option value="">все</option>
+        {% for a in actions %}
+        <option value="{{ a['action'] }}" {% if a['action'] == action %}selected{% endif %}>
+          {{ action_labels.get(a['action'], a['action']) }} ({{ a['n'] }})</option>
+        {% endfor %}
+      </select></div>
+    <div><button type="submit">{{ icon('search') }} Показать</button></div>
+    {% if q or action %}<div><a class="btn btn-sm" href="/journal">Сбросить</a></div>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-scroll tall">
+  <table>
+    <thead><tr>
+      <th style="width:150px">Когда (UTC)</th><th style="width:190px">Кто</th>
+      <th style="width:150px">Действие</th><th style="width:130px">БП</th>
+      <th>Подробности</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="muted">{{ r['ts'] }}</td>
+      <td>{{ r['full_name'] or r['user_name'] or '-' }}
+        {% if r['full_name'] %}<div class="muted">{{ r['user_name'] }}</div>{% endif %}</td>
+      <td>{% if r['action'] == 'login_failed' %}
+          <span class="warn-note">{{ icon('warn', 'icon-s') }} неудачный вход</span>
+          {% else %}{{ action_labels.get(r['action'], r['action']) }}{% endif %}</td>
+      {# БП мог быть удалён — тогда номера нет и ссылка вела бы в никуда. #}
+      <td>{% if r['bp_number'] %}<a href="/bp/{{ r['bp_id'] }}">{{ r['bp_number'] }}</a>
+          {% elif r['bp_id'] %}<span class="muted">удалён (id {{ r['bp_id'] }})</span>
+          {% else %}<span class="muted">-</span>{% endif %}</td>
+      <td class="muted">{{ r['details'] or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">Записей нет.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

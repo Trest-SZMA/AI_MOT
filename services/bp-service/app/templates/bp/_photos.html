@@ -1,0 +1,57 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['items'] %}locked{% endif %}" id="sec-photos">
+  <div class="sec-head">
+    <h2><span class="sec-num">7</span> Фотографии лота</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Менеджер / логист</span>
+      <span class="role-tag">{{ photos | length }} фото</span>
+      {% if not can_edit['items'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <p class="muted">Фото с места — обоснование оценки: состояние лома, реальный
+    засор, подъездные пути. Дата съёмки берётся из свойств снимка (EXIF),
+    при её отсутствии — указывается вручную.</p>
+
+  {% if photos %}
+  <div class="photo-grid">
+    {% for ph in photos %}
+    <figure class="photo-card">
+      <a href="/bp/{{ bp['id'] }}/photo/{{ ph['id'] }}" target="_blank"
+         data-tip="Открыть оригинал: {{ ph['filename'] }}">
+        <img src="/bp/{{ bp['id'] }}/photo/{{ ph['id'] }}?thumb=1" loading="lazy"
+             alt="Фото лота {{ ph['filename'] }}">
+      </a>
+      <figcaption>
+        <span class="photo-date">
+          {% if ph['taken_at'] %}{{ ph['taken_at'][:16] }}
+          {% else %}<span class="warn-note">дата не указана</span>{% endif %}
+        </span>
+        {% if ph['note'] %}<span class="muted">{{ ph['note'] }}</span>{% endif %}
+        {% if can_edit['items'] %}
+        <form method="post" action="/bp/{{ bp['id'] }}/photos/{{ ph['id'] }}/delete">
+          <button class="danger btn-icon" data-tip="Удалить фотографию">{{ icon('trash') }}</button>
+        </form>
+        {% endif %}
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Фотографий пока нет. По лотам со спорным засором (как 1785)
+    снимки с датой — главный аргумент при согласовании.</p>
+  {% endif %}
+
+  {% if can_edit['items'] %}
+  <form method="post" action="/bp/{{ bp['id'] }}/photos"
+        enctype="multipart/form-data" class="upload-panel" data-no-dirty>
+    <div><label>Фотографии (jpg, png, heic)</label>
+      <input type="file" name="photos" accept="image/*" multiple required
+             class="file-input"></div>
+    <div><label data-tip="Заполните, если в свойствах снимка нет даты съёмки.">Дата съёмки (если нет в EXIF)</label>
+      <input type="date" name="taken_at"></div>
+    <div><label>Подпись</label>
+      <input name="note" placeholder="что на снимке: база, засор, подъезд"></div>
+    <button type="submit">{{ icon('upload') }} Загрузить фотографии</button>
+  </form>
+  {% endif %}
+</div>

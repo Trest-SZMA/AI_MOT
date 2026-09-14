@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro money(v) %}{{ '{:,.0f}'.format(v or 0).replace(',', ' ') }}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ bp['bp_number'] }} — что дальше
+      <span class="status {{ bp['status'] }}">{{ bp['status'] }}</span></h1>
+    <div class="muted">
+      {% if bp['source_name'] %}Книга «{{ bp['source_name'] }}» разобрана.
+      {% endif %}Сверьте, что распозналось, и заполните недостающее —
+      сервис показывает, что без чего не посчитается.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/bp/{{ bp['id'] }}/deal">{{ icon('arrow-left') }} К сделке</a>
+  </div>
+</div>
+
+{# Что уже есть: цифры, по которым видно, что книга разобрана верно. #}
+<div class="kpi-bar">
+  <div class="kpi">
+    <div class="k-label">Позиций</div>
+    <div class="k-value">{{ facts['count'] }}</div>
+    <div class="k-sub">{{ '%.3f' % facts['volume'] }} тн</div>
+  </div>
+  <div class="kpi">
+    <div class="k-label">Стоимость лота</div>
+    <div class="k-value">{{ money(bp['lot_cost']) }} <span class="k-unit">руб</span></div>
+    <div class="k-sub">{{ bp['seller_name'] or 'продавец не указан' }}</div>
+  </div>
+  <div class="kpi {{ 'good' if facts['control_ok'] else '' }}">
+    <div class="k-label">Чистая прибыль</div>
+    <div class="k-value">{{ money(pnl['net_profit']) }} <span class="k-unit">руб</span></div>
+    <div class="k-sub">
+      {% if facts['control_ok'] is none %}контрольной суммы в книге нет
+      {% elif facts['control_ok'] %}сходится с книгой
+      {% else %}расходится с книгой на {{ money(facts['control_diff']) }} руб{% endif %}</div>
+  </div>
+  <div class="kpi">
+    <div class="k-label">Варианты расчёта</div>
+    <div class="k-value">{{ 'ДСП + Лукойл' if bp['has_luk'] else 'только ДСП' }}</div>
+    <div class="k-sub">{{ facts['sales'] }} строк плана продажи</div>
+  </div>
+  <div class="kpi {{ 'bad' if total_gaps else 'good' }}">
+    <div class="k-label">Не заполнено</div>
+    <div class="k-value">{{ total_gaps }}</div>
+    <div class="k-sub">пунктов по всем разделам</div>
+  </div>
+</div>
+
+{% if total_gaps %}
+{% for t in tabs %}
+{% if t.gaps %}
+<div class="card">
+  <div class="sec-head">
+    <h2>{{ t.title }}</h2>
+    <div class="sec-aside">
+      <a class="btn btn-sm" href="/bp/{{ bp['id'] }}/{{ t.code }}">
+        Открыть раздел {{ icon('arrow-left', 'icon-s') }}</a>
+    </div>
+  </div>
+  <p class="muted">{{ t.hint }}</p>
+  <ul class="start-gaps {{ 'stop' if t.blocking else '' }}">
+    {% for g in t.gaps %}<li>{{ g }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endfor %}
+{% else %}
+<div class="card">
+  <p class="info-line">Пробелов нет: сделка, лот, логистика и экономика
+    заполнены. Можно передавать на проверку в разделе «Решение».</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="sec-head"><h2>Порядок работы</h2></div>
+  <ol class="start-steps">
+    <li><b>Сделка</b> — стороны, стоимость лота, срок и месяц вывоза, ставки.
+      Заводится один раз, дальше почти не меняется.</li>
+    <li><b>Лот</b> — цены реализации, группы учёта, план продажи, сопоставление
+      с номенклатурой 1С. Без сопоставления выгрузка в 1С не примется.</li>
+    <li><b>Логистика</b> — пункты отгрузки и плечи; от них считаются рейсы,
+      машины и транспортные затраты.</li>
+    <li><b>Экономика</b> — статьи затрат, P&amp;L, экономика по базам,
+      аукционная лестница и сценарии.</li>
+    <li><b>Решение</b> — риски, рекомендация, статус и выгрузка документов.</li>
+  </ol>
+</div>
+
+<style>
+  .start-gaps { margin: 6px 0 0; padding-left: 20px; font-size: 13px; }
+  .start-gaps li { margin: 4px 0; }
+  .start-gaps.stop li { color: var(--danger); font-weight: 700; }
+  .start-steps { margin: 4px 0 0; padding-left: 22px; font-size: 13.5px;
+                 line-height: 1.6; }
+  .start-steps b { color: var(--brand-900); }
+</style>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card" id="sec-export">
+  <div class="sec-head">
+    <h2><span class="sec-num">17</span> Подготовка выгрузки</h2>
+    <div class="sec-aside"><span class="role-tag">Предпросмотр таблиц</span></div>
+  </div>
+  <p class="muted">{{ icon('warn', 'icon-s') }} Заглушка: состав колонок будет приведён к шаблонам Excel
+    (ожидаются). Экспорт на этом экране пока не выполняется.</p>
+
+  <details open>
+    <summary><b>Таблица 1. Выручка</b>
+      <span class="muted">({{ pnl['rows'] | length }} строк)</span></summary>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>№</th><th>Покупатель</th><th>Номенклатура 1С</th>
+          <th title="Из справочника «Группа аналитического учёта» (файл 1С)">
+            Группа аналит. учёта</th>
+          <th class="num">Объём продажи, тн</th><th class="num">Цена реализации, руб/тн</th>
+          <th class="num">Сумма без НДС, руб</th></tr></thead>
+      <tbody>
+      {% for r in pnl['rows'] %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{% if r['buyer'] %}{{ r['buyer'] }}{% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }} не указан</span>{% endif %}</td>
+        {# По id позиции, а не по номеру строки: при разбивке позиции между
+           покупателями строк расчёта больше, чем позиций. #}
+        {% set src = items_by_id.get(r['id']) %}
+        <td>{% if src and src['nomen_1c'] %}{{ src['nomen_1c'] }}{% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }} не сопоставлено</span>{% endif %}</td>
+        <td>{{ analytic_groups.get(r['id']) or '-' }}</td>
+        <td class="num">{{ '%.3f' % r['sale_volume_t'] }}</td>
+        <td class="num">{{ '%.0f' % r['sale_price'] }}</td>
+        <td class="calc num">{{ money(r['revenue']) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">Нет позиций. Заполните блок 3.</td></tr>
+      {% endfor %}
+      </tbody>
+      {% if pnl['rows'] %}
+      <tfoot>
+      <tr><td colspan="6"><b>ИТОГО</b></td>
+          <td class="calc num"><b>{{ money(pnl['revenue']) }}</b></td></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+    </div>
+    <button type="button" disabled title="Появится после согласования шаблона Excel"
+            class="secondary">{{ icon('download') }} Выгрузить «Выручка» (скоро)</button>
+  </details>
+
+  <details open class="details-gap">
+    <summary><b>Таблица 2. Заказ поставщика</b>
+      <span class="muted">(закупка у {{ bp['seller_name'] or 'продавца' }})</span></summary>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>№</th><th>Поставщик</th><th>Номенклатура 1С</th><th>Склад</th>
+          <th class="num">Кол-во, тн</th><th class="num">Цена закупки, руб/тн</th><th class="num">Сумма без НДС, руб</th></tr></thead>
+      <tbody>
+      {% for r in pnl['rows'] %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ bp['seller_name'] or r['supplier'] or '-' }}</td>
+        {% set src = items_by_id.get(r['id']) %}
+        <td>{% if src and src['nomen_1c'] %}{{ src['nomen_1c'] }}{% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }} не сопоставлено</span>{% endif %}</td>
+        <td>{{ (src['warehouse'] if src else None) or r['division'] or '-' }}</td>
+        <td class="num">{{ '%.3f' % r['volume_t'] }}</td>
+        <td class="num">{{ '%.0f' % r['purchase_price'] }}</td>
+        <td class="calc num">{{ money(r['purchase_cost']) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">Нет позиций. Заполните блок 3.</td></tr>
+      {% endfor %}
+      </tbody>
+      {% if pnl['rows'] %}
+      <tfoot>
+      <tr><td colspan="6"><b>ИТОГО (стоимость лота)</b></td>
+          <td class="calc num"><b>{{ money(pnl['lot_cost']) }}</b></td></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+    </div>
+    <button type="button" disabled title="Появится после согласования шаблона Excel"
+            class="secondary">{{ icon('download') }} Выгрузить «Заказ поставщика» (скоро)</button>
+  </details>
+</div>

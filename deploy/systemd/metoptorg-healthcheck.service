@@ -1,0 +1,6 @@
+[Unit]
+Description=МетОптТорг — проверка здоровья сервисов (алерт в Telegram при изменении)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/metoptorg-healthcheck

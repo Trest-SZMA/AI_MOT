@@ -1,0 +1,3149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#142248">
+<title>ЛогистМОТ · Живая панель</title>
+<style>
+/* ==========================================================================
+   ЛогистМОТ — панель логиста МетОптТорг. Направление «Диспетчерская»:
+   панель это очередь звонков, а не витрина. Логист пришёл позвонить —
+   телефон самый крупный интерактивный элемент, необработанные отклики идут
+   первыми, обработанные уходят под разделитель.
+
+   Один файл, без внешних ресурсов: панель работает в локальной сети без
+   интернета. Шрифт системный (Lato, если установлен), иконки — эмодзи и
+   инлайн-SVG.
+
+   Контраст всех пар проверен численно и проходит WCAG AA:
+     текст-3 #5F6B85 на белом 5.35 · на фоне 4.68
+     #177A50 на #E6F4EC 4.70 · #9A6A0B на #FEF9F0 4.51 · #B23A2F на #FBEAE7 5.09
+     контур органа управления #7A88A6 — 3.56 на белом, 3.12 на фоне (норма 3.0)
+   ========================================================================== */
+:root{
+  color-scheme:light;
+
+  /* --- пространство: база 4px --- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+
+  /* --- типографика: отношение ~1.25, шесть ступеней, ни одной промежуточной --- */
+  --f-xs:11px;   /* капслок-метки, служебное */
+  --f-sm:12px;   /* мета: время, маршрут, подписи */
+  --f-md:14px;   /* база */
+  --f-lg:16px;   /* имена, заголовки строк */
+  --f-xl:20px;   /* заголовки разделов */
+  --f-2xl:28px;  /* цифры KPI */
+  --font:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         "Helvetica Neue",Arial,sans-serif;
+
+  /* --- радиусы --- */
+  --r1:6px; --r2:10px; --r3:14px;
+
+  /* --- глубина: одна тень на все карточки, одно кольцо фокуса --- */
+  --shadow:0 1px 2px rgba(20,34,72,.05), 0 10px 28px -18px rgba(20,34,72,.28);
+  --focus:0 0 0 3px rgba(63,90,138,.26);
+
+  /* --- поверхности: одна нейтраль, различает граница, а не тень --- */
+  --bg:#EDF0F5; --surface:#FFFFFF; --surface-2:#F5F7FB;
+  --line:#D6DEEA;      /* разделитель, декоративный */
+  --edge:#7A88A6;      /* контур органа управления, 3.56:1 */
+
+  /* --- фирменные --- */
+  --navy:#142248; --steel:#3F5A8A; --steel-tint:#EDF1F8;
+  --on-navy:#B9C4DE;   /* приглушённый текст на навy, 8.88:1 */
+
+  /* --- текст: четыре уровня --- */
+  --text:#141D33; --text-2:#4C5871; --text-3:#5F6B85; --text-4:#8894AC;
+
+  /* --- семантика: цвет + подложка, обе проверены --- */
+  --good:#177A50; --good-tint:#E6F4EC;
+  --warn:#9A6A0B; --warn-tint:#FEF9F0;
+  --crit:#B23A2F; --crit-tint:#FBEAE7;
+
+  --ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+/* ⚠️ ГЛОБАЛЬНО И С !important — И ЭТО НЕ ЛЕНЬ.
+   Браузерное `[hidden]{display:none}` живёт в UA-стилях, поэтому ЛЮБОЕ наше
+   правило с `display` его перебивает. На этом файле поймано трижды: кнопка
+   загрузки прайса светилась гостям, список людей не прятался за формой
+   пароля, селектор «я — …» оставался у логиста со своим аккаунтом. Одна
+   строка закрывает весь класс ошибок; точечные пары `.селектор[hidden]`
+   ниже оставлены как есть — они не мешают. */
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
+  font-size:var(--f-md);line-height:1.45;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden}
+/* цифры в рабочем инструменте не должны прыгать по ширине */
+.tnum{font-variant-numeric:tabular-nums}
+p{margin:0}
+
+/* доступность: фокус виден всегда и везде */
+:focus-visible{outline:2px solid var(--steel);outline-offset:2px;border-radius:var(--r1)}
+.top :focus-visible{outline-color:#fff}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+
+/* ============================ ШАПКА ============================ */
+/* Шапка повторяет портал: глубокий градиент вместо плоского navy и тонкие
+   светлые линии по краям — они и отделяют шапку от листа, без жирной
+   полосы. */
+.top{background:linear-gradient(160deg,#16264F 0%,#142248 58%,#101C3C 100%);
+  color:#fff;position:relative;overflow:hidden}
+.top::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent)}
+.top::after{content:"";position:absolute;inset:auto 0 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+.top-in{max-width:1280px;margin:0 auto;padding:var(--s4) var(--s5);
+  display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+/* настоящий фирменный знак МетОптТорг — те же 12 фигур, что на портале */
+.mark{width:46px;height:46px;flex:none;display:grid;place-items:center;color:#fff}
+.mark svg{display:block;width:100%;height:auto}
+.brand h1,.brand-h1{margin:0;font-size:var(--f-xl);font-weight:800;line-height:1.1;
+  letter-spacing:-.01em;display:block;color:#fff}
+.brand p,.brand-p{margin:1px 0 0;font-size:var(--f-sm);color:var(--on-navy);display:block}
+/* логотип возвращает на главный экран */
+.home-btn{display:flex;text-decoration:none;align-items:center;gap:var(--s3);cursor:pointer;
+  background:none;border:1px solid transparent;padding:4px 8px 4px 4px;
+  border-radius:var(--r2);font:inherit;text-align:left;
+  transition:background .12s var(--ease)}
+.home-btn:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22)}
+.grow{flex:1 1 20px}
+
+/* Пульс — одна тихая строка под названием, а не два ярких «маяка» рядом с
+   логотипом. Состояние «всё хорошо» не должно кричать: на него смотрят
+   десятки раз в день. */
+.pulse{display:inline-flex;align-items:center;gap:var(--s2);margin-top:6px;
+  font-size:var(--f-sm);color:var(--on-navy);flex-wrap:wrap}
+.pulse .dot{width:8px;height:8px;border-radius:999px;background:#4BB985;flex:none;
+  position:relative}
+.pulse .dot::after{content:"";position:absolute;inset:0;border-radius:999px;
+  background:inherit;animation:ring 2.6s var(--ease-out,cubic-bezier(.23,1,.32,1)) infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
+.pulse b{color:#fff;font-weight:700}
+.pulse .sep{opacity:.45}
+
+/* Кто вошёл — как на портале, справа в шапке. Раньше имя жило в строке
+   вкладок и обрезалось при нехватке места. */
+.who{display:inline-flex;align-items:center;gap:var(--s2);font-size:var(--f-sm);
+  color:var(--on-navy);border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.09);padding:6px 6px 6px var(--s3);
+  border-radius:999px;min-height:36px}
+.who[hidden]{display:none}
+.who .av{width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.18);
+  display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+.who-t{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.who-t b{color:#fff;font-weight:800;white-space:nowrap}
+.who-t i{font-style:normal;font-size:var(--f-xs);opacity:.8;white-space:nowrap}
+.who-out{font:inherit;font-size:var(--f-xs);font-weight:800;cursor:pointer;
+  color:var(--on-navy);background:rgba(255,255,255,.10);border-radius:999px;
+  border:1px solid rgba(255,255,255,.20);padding:5px var(--s3);margin-left:var(--s2)}
+.who-out:hover{background:rgba(255,255,255,.20);color:#fff}
+.who-out[hidden]{display:none}
+
+.wrap{max-width:1280px;margin:0 auto;padding:var(--s5) var(--s5) var(--s7)}
+/* Фон — как на портале: два мягких пятна фирменного тона, а не плоская
+   заливка. Прикреплён к окну, чтобы не ехал при прокрутке длинных таблиц. */
+body{background:
+    radial-gradient(980px 520px at 12% -12%, rgba(72,94,136,.14), transparent 62%),
+    radial-gradient(760px 420px at 96% 2%, rgba(20,34,72,.07), transparent 58%),
+    var(--bg);
+  background-attachment:fixed}
+
+/* ============================ KPI ============================
+   Справочная полоса, а не главный элемент: логист приходит за очередью
+   звонков, а не за «людьми в базе». Цифра крупная, но не во весь экран. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:var(--s2);margin-bottom:var(--s4)}
+.kpis[hidden]{display:none}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);
+  padding:var(--s3) var(--s4);display:flex;flex-direction:column;gap:2px}
+/* Цветная планка во всю высоту ушла: справочные цифры кричали громче
+   очереди звонков, за которой логист сюда и приходит. Осталась точка перед
+   подписью — её хватает, чтобы «молчуны» читались как тревожные. */
+.kpi-l{font-size:var(--f-xs);font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-3);line-height:1.3;
+  display:flex;align-items:center;gap:6px}
+.kpi-l::before{content:"";width:7px;height:7px;border-radius:999px;flex:none;
+  background:var(--c,var(--steel))}
+.kpi-v{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15;
+  color:var(--navy)}
+
+/* ============================ ВКЛАДКИ РАЗДЕЛОВ ============================ */
+/* ⚠️ Вкладки ПЕРЕНОСЯТСЯ, а не прокручиваются. Было `overflow-x:auto` со
+   спрятанным ползунком — крайняя вкладка обрезалась на полуслове («Запис…»),
+   и понять, что строка прокручивается, было нельзя. Разделов максимум семь,
+   они спокойно встают в две строки. */
+.nav-tabs{display:flex;gap:var(--s2);position:sticky;top:0;z-index:20;
+  flex-wrap:wrap;align-items:center;
+  padding:var(--s3) 0;margin-bottom:var(--s3);
+  background:color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter:saturate(1.4) blur(8px);
+  -webkit-backdrop-filter:saturate(1.4) blur(8px)}
+/* Тёмная обводка у каждого органа управления делала страницу проволочной.
+   Вкладки — пилюли: покой держит тень, а не контур. */
+.nav-tab{font:inherit;font-size:var(--f-md);font-weight:800;cursor:pointer;
+  color:var(--text-2);background:var(--surface);border:1px solid #D8E0EE;
+  padding:0 var(--s4);min-height:38px;border-radius:999px;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:var(--s2);
+  box-shadow:0 1px 2px rgba(20,34,72,.06);
+  transition:background .12s var(--ease),color .12s var(--ease),
+    border-color .12s var(--ease)}
+.nav-tab:hover{color:var(--navy);background:var(--steel-tint);border-color:#B9C7E0}
+.nav-tab[aria-selected="true"]{color:#fff;background:var(--navy);border-color:var(--navy);
+  box-shadow:0 6px 14px -8px rgba(20,34,72,.55)}
+.nav-tab .cnt{font-size:var(--f-sm);font-weight:800;padding:1px 7px;border-radius:999px;
+  background:var(--steel-tint);color:var(--steel);font-variant-numeric:tabular-nums}
+.nav-tab[aria-selected="true"] .cnt{background:rgba(255,255,255,.18);color:#fff}
+.tab-section{display:none}
+.tab-section.on{display:block}
+/* [hidden] должен побеждать display:inline-flex у вкладок */
+.nav-tab[hidden]{display:none}
+/* вход/смена пользователя — ссылка, а не вкладка раздела */
+.nav-login{text-decoration:none;color:var(--steel);border-style:dashed;
+  border-color:var(--steel);font-size:var(--f-sm)}
+.nav-login:hover{background:var(--steel-tint);color:var(--navy)}
+
+/* ============================ ПАНЕЛИ ============================
+   Глубина границами, не тенями: плотный рабочий инструмент. */
+.panel{background:var(--surface);border:1px solid #DBE2EF;
+  border-radius:var(--r3);overflow:hidden;box-shadow:var(--shadow)}
+.panel + .panel{margin-top:var(--s4)}
+/* привычка этого файла: к каждому display — пара для [hidden] */
+.panel[hidden]{display:none}
+/* Шапка карточки — на белом. Серые подложки у каждой шапки резали
+   страницу на коробки и старили её лет на десять. */
+.panel-head{display:flex;align-items:center;justify-content:space-between;
+  gap:var(--s3);flex-wrap:wrap;padding:var(--s4) var(--s4) var(--s3);
+  border-bottom:1px solid var(--line)}
+.panel-head h2{margin:0;font-size:var(--f-lg);font-weight:800;letter-spacing:-.01em;
+  color:var(--navy)}
+.panel-head .sub{font-size:var(--f-sm);color:var(--text-3);font-weight:600}
+.panel-body{padding:var(--s2) var(--s4) var(--s3)}
+.grid-2{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);
+  gap:var(--s4);align-items:start}
+
+/* пустое состояние — не серая пустота, а объяснение */
+.empty{color:var(--text-3);font-size:var(--f-md);padding:var(--s6) var(--s4);
+  text-align:center;line-height:1.6}
+.empty b{display:block;color:var(--text-2);font-size:var(--f-lg);margin-bottom:2px}
+
+/* ============================ ОЧЕРЕДЬ ЗВОНКОВ ============================
+   Ведущее число экрана: сколько людей ждут звонка. Ради него сюда заходят. */
+.queue{display:flex;align-items:baseline;gap:var(--s2)}
+.queue-n{font-size:var(--f-xl);font-weight:800;color:var(--navy);
+  font-variant-numeric:tabular-nums;line-height:1}
+.queue-n.zero{color:var(--good)}
+
+/* быстрые даты в форме заявки */
+.date-quick{display:inline-flex;gap:4px;margin-left:var(--s2);vertical-align:middle}
+.dq{font:inherit;font-size:var(--f-xs);font-weight:800;cursor:pointer;
+  color:var(--steel);background:var(--steel-tint);border:1px solid #C9D6EC;
+  border-radius:999px;padding:1px 8px;text-transform:none;letter-spacing:0}
+.dq:hover{background:#E3EAF7}
+/* карточка, к которой пришли по ссылке из уведомления MAX */
+.flash{box-shadow:0 0 0 3px var(--steel),var(--shadow);transition:box-shadow .6s}
+/* регион у города: подсказка под полем маршрута */
+.geo-hint{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:4px;
+  font-size:var(--f-xs);font-weight:600;color:var(--text-4);line-height:1.6;
+  text-transform:none;letter-spacing:0}
+.geo-hint span{text-transform:none;letter-spacing:0}
+.geo-row{display:flex;gap:6px;align-items:stretch}
+.geo-row input{flex:1;width:auto;min-width:0}
+.btn-map{white-space:nowrap;padding-inline:var(--s3)}
+/* карта: точка «как в такси» */
+#map-dlg{max-width:min(840px,calc(100vw - 32px))}
+#map{height:min(62vh,520px);background:#E8EEF7;border-top:1px solid var(--edge);
+  border-bottom:1px solid var(--edge)}
+.map-note{padding:var(--s2) var(--s4) 0;min-height:1.6em;font-weight:600;color:var(--text-2)}
+.map-pin{width:18px;height:18px;border-radius:50%;background:var(--steel);
+  border:3px solid #fff;box-shadow:0 2px 8px rgba(20,34,72,.45);cursor:grab}
+.geo-hint .dq{font-weight:700}
+.geo-hint .geo-ok{color:var(--steel)}
+.f-hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--text-4);
+  font-style:normal;margin-left:var(--s2)}
+
+/* назад-бар внутренних страниц */
+.backbar{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4)}
+.backbar[hidden]{display:none}
+.backbar b{font-size:var(--f-xl);font-weight:800;color:var(--navy);
+  letter-spacing:-.01em}
+.back-btn{min-height:36px}
+
+/* ---- три больших действия логиста ---- */
+.actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:var(--s3);margin-bottom:var(--s4)}
+.actions[hidden]{display:none}
+.action{font:inherit;text-align:left;cursor:pointer;padding:var(--s4);
+  border:1px solid #DBE2EF;border-radius:var(--r3);background:var(--surface);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px;
+  transition:border-color .15s var(--ease),transform .15s var(--ease)}
+.action:hover{border-color:var(--steel);transform:translateY(-1px)}
+.action:active{transform:none}
+.action b{font-size:var(--f-lg);font-weight:800;color:var(--navy);
+  letter-spacing:-.01em}
+.action i{font-style:normal;font-size:var(--f-sm);color:var(--text-3)}
+
+/* ---- группа очереди: один рейс ----
+   Шапка группы повторяет портальную: подпись, линия, счёт справа. */
+.grp{margin-bottom:var(--s2)}
+.grp + .grp{margin-top:var(--s5)}
+.grp-h{display:flex;align-items:baseline;gap:var(--s3);padding:0 0 var(--s2);
+  flex-wrap:wrap}
+.grp-t{min-width:0;display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.grp-t b{font-size:var(--f-md);font-weight:800;color:var(--navy);
+  letter-spacing:-.01em}
+.grp-t i{font-style:normal;font-size:var(--f-sm);color:var(--text-3)}
+.grp-h .rule{flex:1;min-width:20px;height:1px;align-self:center;
+  background:linear-gradient(90deg,var(--line),transparent)}
+.grp-n{font-size:var(--f-xs);font-weight:800;letter-spacing:.03em;
+  color:var(--text-3);white-space:nowrap}
+.grp-act{display:inline-flex;gap:var(--s1);flex-wrap:wrap}
+.grp-act .btn{min-height:28px;font-size:var(--f-xs);padding:0 var(--s2)}
+.grp-empty{font-size:var(--f-sm);color:var(--text-4);padding:var(--s2) 0 var(--s2) var(--s4)}
+/* «не подписан» был отдельной строкой-плашкой на всю ширину — теперь
+   короткая метка рядом с именем, там же, где остальные признаки */
+.warn-dot{font-size:var(--f-xs);font-weight:700;color:var(--warn);
+  background:var(--warn-tint);border:1px solid #E4D3AE;border-radius:999px;
+  padding:1px 7px;white-space:nowrap;cursor:help}
+
+/* ---- карточка предложения: ключевой элемент панели ---- */
+.offer{border-top:1px solid var(--line);padding:var(--s4) 0 var(--s4) var(--s4);
+  position:relative}
+.offer:first-child{border-top:none}
+/* статусный рант: очередь читается сверху вниз без чтения текста */
+.offer::before{content:"";position:absolute;left:0;top:var(--s4);bottom:var(--s4);
+  width:3px;border-radius:2px;background:var(--steel)}
+.offer.done{opacity:.62}
+.offer.done::before{background:var(--line)}
+.offer-head{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.ava{width:30px;height:30px;border-radius:var(--r1);flex:none;display:grid;
+  place-items:center;font-size:var(--f-sm);font-weight:800;color:#fff;
+  background:var(--c,var(--steel))}
+.offer-name{font-size:var(--f-lg);font-weight:800;letter-spacing:-.01em;
+  min-width:0;overflow-wrap:anywhere}
+/* объём — то, что решает, брать ли: свой чип, фирменным цветом */
+.chip-vol{font-size:var(--f-sm);font-weight:800;color:#fff;background:var(--steel);
+  padding:2px var(--s2);border-radius:var(--r1);white-space:nowrap}
+/* источник кодируется И цветом, И формой: заливка / контур / пунктир —
+   различимо в градациях серого и при дальтонизме */
+.src{font-size:var(--f-xs);font-weight:700;letter-spacing:.02em;
+  padding:1px 7px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--line);color:var(--text-3);background:var(--surface)}
+.src-dm{background:var(--steel-tint);border-color:#C9D6EC;color:var(--steel)}
+.src-chat{background:var(--surface);border-style:solid}
+.src-button{background:var(--surface);border-style:dashed}
+.offer-when{margin-left:auto;font-size:var(--f-sm);color:var(--text-3);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.offer-bid{font-size:var(--f-sm);font-weight:700;color:var(--steel);
+  background:var(--steel-tint);border:1px solid #C9D6EC;padding:1px var(--s2);
+  border-radius:var(--r1);white-space:nowrap}
+.offer-text{font-size:var(--f-md);color:var(--text-2);margin-top:var(--s1);
+  overflow-wrap:anywhere}
+.offer-act{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+  margin-top:var(--s2)}
+
+/* разделитель очереди: всё, что ниже, уже обработано */
+.queue-split{display:flex;align-items:center;gap:var(--s3);margin:var(--s4) 0 0;
+  font-size:var(--f-xs);font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3)}
+.queue-split::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* ============================ КНОПКИ ============================
+   Телефон — самый крупный интерактив на карточке: по нему звонят. */
+.btn{font:inherit;font-size:var(--f-sm);font-weight:800;cursor:pointer;
+  border-radius:var(--r2);min-height:34px;padding:0 var(--s3);
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  white-space:nowrap;text-decoration:none;border:1px solid #C9D3E6;
+  background:var(--surface);color:var(--text-2);
+  transition:background .12s var(--ease),transform .12s var(--ease),
+    border-color .12s var(--ease)}
+.btn:hover{background:var(--steel-tint);color:var(--navy);border-color:#AEBDDB}
+.btn:active{transform:scale(.97)}
+.btn:disabled{cursor:default;opacity:.55}
+.btn-call{font-size:var(--f-lg);min-height:40px;padding:0 var(--s4);
+  background:var(--good);border-color:var(--good);color:#fff;
+  font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.btn-call:hover{background:#12653F;color:#fff}
+.btn-ask{color:var(--warn);background:var(--warn-tint);border-color:#D9BE86;
+  min-height:36px}
+.btn-ask:hover{background:#FCF3E2;color:var(--warn)}
+.btn-max{color:var(--steel);background:var(--steel-tint);border-color:#C9D6EC;
+  min-height:36px}
+.btn-max:hover{background:#E3EAF7;color:var(--steel)}
+.btn-info{min-height:36px}
+
+/* ---- форма новой заявки ---- */
+.kind-row{display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4)}
+.kind{font:inherit;font-size:var(--f-sm);font-weight:800;cursor:pointer;
+  color:var(--text-2);background:var(--surface-2);border:1px solid var(--edge);
+  padding:0 var(--s4);min-height:38px;border-radius:999px;white-space:nowrap}
+.kind:hover{background:var(--steel-tint);color:var(--navy)}
+.kind.on{color:#fff;background:var(--navy);border-color:var(--navy)}
+/* метка типа у заявки в таблице */
+.kind-tag{display:inline-block;font-size:var(--f-xs);font-weight:800;
+  padding:2px 8px;border-radius:var(--r1);white-space:nowrap;margin-left:6px}
+.kind-tag.urgent{color:var(--crit);background:var(--crit-tint)}
+.kind-tag.new_route{color:var(--steel);background:var(--steel-tint)}
+.kind-tag.rate_up{color:var(--good);background:var(--good-tint)}
+.whoami{font-size:var(--f-sm);font-weight:700;color:var(--text-3);
+  align-self:center;white-space:nowrap}
+/* от чьего аккаунта MAX идут действия в панели */
+.actor{display:inline-flex;align-items:center;gap:6px;align-self:center;
+  font-size:var(--f-sm);font-weight:700;color:var(--text-3);white-space:nowrap}
+.actor select{font:inherit;font-size:var(--f-sm);font-weight:800;color:var(--navy);
+  background:var(--surface);border:1px solid var(--edge);border-radius:var(--r1);
+  padding:6px 10px;min-height:36px;max-width:190px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-bottom:var(--s4)}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f-wide{grid-column:1/-1}
+.f span{font-size:var(--f-xs);font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-3)}
+.f span b{color:var(--crit)}
+.f input{font:inherit;font-size:var(--f-md);color:var(--text);background:var(--surface);
+  border:1px solid var(--edge);border-radius:var(--r1);padding:9px var(--s3);
+  min-height:42px;width:100%}
+.f input::placeholder{color:var(--text-4)}
+.f input:focus{border-color:var(--steel);outline:none;box-shadow:var(--focus)}
+/* выпадающие списки в записке — тем же полем, что и ввод, иначе форма
+   выглядит собранной из двух разных интерфейсов */
+.f select{font:inherit;font-size:var(--f-md);color:var(--text);background:var(--surface);
+  border:1px solid var(--edge);border-radius:var(--r1);padding:9px var(--s3);
+  min-height:42px;width:100%;appearance:none;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),
+                   linear-gradient(135deg,var(--text-3) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 19px, calc(100% - 12px) 19px;
+  background-size:5px 5px, 5px 5px;background-repeat:no-repeat}
+.f select:focus{border-color:var(--steel);outline:none;box-shadow:var(--focus)}
+.fbar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.btn-primary{font:inherit;font-size:var(--f-md);font-weight:800;cursor:pointer;
+  color:#fff;background:var(--navy);border:1px solid var(--navy);
+  padding:0 var(--s5);min-height:44px;border-radius:var(--r2)}
+.btn-primary:hover{background:#1B2F60}
+.btn-primary:disabled{opacity:.6;cursor:default}
+.fmsg{font-size:var(--f-sm);font-weight:700}
+.fmsg.ok{color:var(--good)} .fmsg.err{color:var(--crit)}
+.fhint{margin-top:var(--s3);font-size:var(--f-sm);color:var(--text-3);max-width:70ch}
+
+/* ---- аналитика ---- */
+.bar-cell{display:flex;align-items:center;gap:var(--s2);min-width:120px}
+.bar{height:8px;border-radius:999px;background:var(--steel);flex:none}
+.bar.done{background:var(--good)}
+.bar-track{flex:1;height:8px;border-radius:999px;background:var(--line);
+  overflow:hidden;display:flex}
+/* человек откликнулся из чата, но не подписан: бот не может писать ему в личку */
+.btn-nosub{min-height:36px;color:var(--warn);background:var(--warn-tint);
+  border-color:#D9BE86;border-style:dashed;cursor:help;font-weight:700}
+.btn-done{margin-left:auto;color:var(--steel);background:var(--surface);
+  border-color:#C9D6EC;
+  border-color:#A9CFBB;min-height:36px}
+.btn-done:hover{background:var(--steel-tint);color:var(--navy);
+  border-color:var(--steel)}
+.btn-undo{margin-left:auto;color:var(--text-3);background:var(--surface-2);
+  min-height:36px}
+.btn-ico{min-height:32px;min-width:32px;padding:0 var(--s2);font-size:var(--f-md)}
+/* телефон в таблице — тот же зелёный, но компактнее строки ленты */
+.btn-call-sm{font-size:var(--f-md);min-height:36px;padding:0 var(--s3)}
+/* подпись у кнопки-иконки: на десктопе хватает значка и title,
+   пальцу нужен понятный ярлык */
+.btn-lbl{display:none}
+
+/* фильтры внутри раздела */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:inherit;font-size:var(--f-sm);font-weight:800;cursor:pointer;
+  color:var(--text-2);background:var(--surface);border:1px solid var(--edge);
+  padding:0 var(--s3);min-height:32px;border-radius:999px;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:5px}
+.chip:hover{background:var(--steel-tint);color:var(--navy)}
+.chip[aria-pressed="true"]{color:#fff;background:var(--navy);border-color:var(--navy)}
+
+/* ============================ СПИСОК АКТУАЛЬНЫХ ЗАЯВОК ============================ */
+.mini{display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s2);margin:0 calc(-1 * var(--s2));border-radius:var(--r2);
+  border-top:1px solid var(--line);transition:background .12s var(--ease)}
+.mini:hover{background:var(--steel-tint)}
+.mini:first-child{border-top:none}
+.mini-main{min-width:0;flex:1}
+.mini-route{font-size:var(--f-md);font-weight:800;overflow-wrap:anywhere}
+.mini-meta{font-size:var(--f-sm);color:var(--text-3);margin-top:1px}
+.mini-right{text-align:right;flex:none}
+.mini-n{display:inline-flex;align-items:center;justify-content:center;
+  min-width:36px;height:28px;padding:0 10px;border-radius:999px;
+  font-size:var(--f-md);font-weight:800;color:var(--steel);
+  background:var(--steel-tint);font-variant-numeric:tabular-nums}
+.mini-n.zero{color:var(--crit);background:var(--crit-tint)}
+.mini-lbl{font-size:var(--f-xs);color:var(--text-3);text-transform:uppercase;
+  letter-spacing:.05em}
+
+/* ============================== ВХОД ============================== */
+/* Компоновка как в сервисе бизнес-планов (8093): центрированная карточка,
+   строка бренда, подпись про учётную запись — сервисы должны выглядеть
+   роднёй, а не собранными разными людьми. */
+/* фон не перекрываем — пусть просвечивают те же пятна, что и в панели */
+.gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;
+  justify-content:center;padding:var(--s5);overflow:auto;
+  background:
+    radial-gradient(980px 520px at 12% -12%, rgba(72,94,136,.14), transparent 62%),
+    radial-gradient(760px 420px at 96% 2%, rgba(20,34,72,.07), transparent 58%),
+    var(--bg)}
+.gate[hidden]{display:none}
+.gate-box{width:100%;max-width:420px}
+.gate-brand{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);
+  font-size:var(--f-lg);font-weight:900;color:var(--navy)}
+/* тот же фирменный знак, что в шапке панели и на портале */
+.gate-mark{width:40px;height:40px;flex:none;display:grid;place-items:center;
+  color:var(--navy)}
+.gate-mark svg{display:block;width:100%;height:auto}
+.gate-brand > span{display:block}
+.gate-brand i{display:block;font-style:normal;font-size:var(--f-sm);
+  font-weight:600;color:var(--text-3)}
+.gate-card{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r1);padding:var(--s4);
+  box-shadow:0 1px 2px rgba(20,34,72,.06),0 4px 14px rgba(20,34,72,.07)}
+.gate-card h1{margin:0 0 4px;font-size:var(--f-lg);font-weight:900;color:var(--navy)}
+.gate-hint{margin:0 0 var(--s4);font-size:var(--f-sm);color:var(--text-3)}
+.gate-users{display:flex;flex-direction:column;gap:var(--s2)}
+/* ⚠️ Те же грабли, что с кнопкой загрузки прайса: `display:flex` выше
+   перебивает `[hidden]`, и список людей оставался на экране поверх формы
+   пароля. Пара к каждому `display` — обязательна. */
+.gate-users[hidden]{display:none}
+.gate-user{display:flex;align-items:center;gap:var(--s3);width:100%;
+  font:inherit;text-align:left;cursor:pointer;padding:var(--s3);
+  border:1px solid var(--line);border-radius:var(--r1);background:var(--surface)}
+.gate-user:hover{border-color:var(--steel);background:var(--steel-tint)}
+.gate-user b{display:block;font-size:var(--f-md);font-weight:800;color:var(--text)}
+.gate-user i{display:block;font-style:normal;font-size:var(--f-sm);
+  color:var(--text-3);font-weight:600}
+.gate-ava{width:38px;height:38px;border-radius:50%;flex:none;display:grid;
+  place-items:center;font-weight:900;font-size:var(--f-md);color:#fff;
+  background:var(--steel)}
+.gate-ava.head{background:var(--good)}
+.gate-ava.director{background:var(--navy)}
+.gate-ava.chief{background:var(--warn)}
+.gate-who{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);
+  padding:var(--s3);border-radius:var(--r1);background:var(--surface-2)}
+/* имя и роль — в две строки, иначе слипаются в «Александровналогист» */
+.gate-who b{display:block;font-size:var(--f-md);font-weight:800;color:var(--text)}
+.gate-who i{display:block;font-style:normal;font-size:var(--f-sm);
+  color:var(--text-3);font-weight:600}
+.gate-err{margin:var(--s2) 0 0;font-size:var(--f-sm);font-weight:700;
+  color:var(--crit);background:var(--crit-tint);border:1px solid #E8B6B0;
+  border-radius:8px;padding:var(--s2) var(--s3)}
+.gate-err[hidden]{display:none}
+.gate-go{width:100%;margin-top:var(--s3)}
+.gate-back{width:100%;margin-top:var(--s2)}
+.gate-foot{margin-top:var(--s3);text-align:center;font-size:var(--f-sm);
+  color:var(--text-3)}
+.dlg-hint{margin:0 0 var(--s3);font-size:var(--f-sm);color:var(--text-3)}
+.fmsg.ok{color:var(--good)}
+
+/* ========================= СЛУЖЕБНЫЕ ЗАПИСКИ ====================== */
+.m-price{font-size:var(--f-sm);font-weight:700;border-radius:8px;
+  padding:var(--s2) var(--s3);margin:var(--s3) 0;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--text-2)}
+.m-price.ok{color:var(--good);background:var(--good-tint);border-color:#B7DCC8}
+.m-price.over{color:var(--crit);background:var(--crit-tint);border-color:#E8B6B0}
+.m-price small{display:block;font-weight:600;font-size:var(--f-xs);
+  color:var(--text-3);margin-top:2px}
+/* Смысловые блоки формы. Двадцать полей подряд читались как анкета в МФЦ:
+   глазу не за что зацепиться и непонятно, что здесь главное. Подписи групп
+   те же, что на портале, — тихая шапка и линия. */
+.fsec{margin-bottom:var(--s4)}
+.fsec:last-of-type{margin-bottom:var(--s3)}
+.fsec-h{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)}
+.fsec-h b{font-size:var(--f-xs);font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-3)}
+.fsec-h i{font-style:normal;font-size:var(--f-xs);color:var(--text-4)}
+.fsec-h .rule{flex:1;height:1px;
+  background:linear-gradient(90deg,var(--line),transparent)}
+
+.m-src{margin-bottom:var(--s3);padding:var(--s3);border:1px dashed var(--edge);
+  border-radius:var(--r1);background:var(--surface-2)}
+.m-hints{margin-top:var(--s2);font-size:var(--f-sm);font-weight:700;
+  color:var(--warn);background:var(--warn-tint);border:1px solid #D9BE86;
+  border-radius:8px;padding:var(--s2) var(--s3)}
+.m-hints div + div{margin-top:3px}
+.m-src[hidden]{display:none}
+/* Разделы аналитики: у страницы два разных сюжета — записки и заявки.
+   Без подписей-разделителей она читалась свалкой карточек. */
+.sec-h{display:flex;align-items:center;gap:var(--s3);margin:var(--s6) 0 var(--s3)}
+.sec-h:first-child{margin-top:0}
+.sec-h b{font-size:var(--f-xs);font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-3)}
+.sec-h .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+#tab-stats .grid-2{margin-top:var(--s4)}
+#tab-stats .grid-2 + .panel{margin-top:var(--s4)}
+
+.memo{border-bottom:1px solid var(--line);padding:var(--s3) var(--s4)}
+.memo:last-child{border-bottom:none}
+.memo-top{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.memo-num{font-weight:800;font-size:var(--f-md);color:var(--navy)}
+.memo-route{font-weight:800;font-size:var(--f-md);color:var(--text)}
+.memo-meta{font-size:var(--f-sm);color:var(--text-3);margin-top:2px}
+/* Статус — справка, а не заголовок. Заглавные и насыщенный фон спорили с
+   номером записки и маршрутом, ради которых на строку и смотрят. */
+.memo-st{font-size:var(--f-xs);font-weight:700;letter-spacing:.02em;
+  padding:2px 8px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface);color:var(--text-3);white-space:nowrap}
+.memo-st.approved{background:var(--good-tint);color:var(--good);border-color:#B7DCC8}
+.memo-st.rejected{background:var(--crit-tint);color:var(--crit);border-color:#E8B6B0}
+.memo-st.wait{background:var(--warn-tint);color:var(--warn);border-color:#E4D3AE}
+/* отклонение от прайса — это цифра, а не ярлык статуса: капс тут кричит */
+.memo-dev{text-transform:none;letter-spacing:0;font-size:var(--f-sm)}
+.memo-acts{display:flex;gap:var(--s2);margin-top:var(--s2);flex-wrap:wrap;
+  align-items:center}
+.memo-acts input[type=text]{font:inherit;font-size:var(--f-sm);flex:1 1 220px;
+  min-width:0;border:1px solid var(--line);border-radius:8px;
+  padding:var(--s2) var(--s3);background:var(--surface)}
+.memo-sign{font-size:var(--f-sm);color:var(--text-3);margin-top:var(--s2)}
+/* развёрнутая карточка: все поля записки без скачивания PDF */
+.memo-det{margin-top:var(--s3);border-top:1px dashed var(--line);
+  padding-top:var(--s3)}
+.det-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:var(--s2) var(--s4)}
+.det-row{display:flex;flex-direction:column;gap:1px;min-width:0}
+.det-row span{font-size:var(--f-xs);font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-4)}
+.det-row b{font-size:var(--f-md);font-weight:700;color:var(--text);
+  overflow-wrap:anywhere}
+.det-wide{grid-column:1/-1}
+.det-files{margin-top:var(--s3);padding:var(--s3);border-radius:var(--r2);
+  background:var(--surface-2)}
+.det-files-h{font-size:var(--f-xs);font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-3);margin-bottom:var(--s2)}
+.file-row{display:flex;align-items:center;gap:var(--s3);padding:var(--s1) 0;
+  flex-wrap:wrap}
+.file-row a{font-weight:800;color:var(--steel);text-decoration:underline}
+.file-meta{font-size:var(--f-sm);color:var(--text-3)}
+.file-del{min-height:26px;font-size:var(--f-xs);margin-left:auto}
+.file-none{font-size:var(--f-sm);color:var(--text-4);margin-bottom:var(--s2)}
+.file-chip{background:var(--steel-tint);color:var(--steel);border-color:#C9D6EC}
+.memo-sign b{color:var(--text-2)}
+
+.unit{font-weight:600;color:var(--text-3);font-size:var(--f-sm)}
+.sm-bar{display:block;width:110px;height:8px;border-radius:999px;
+  background:var(--surface-2);overflow:hidden}
+.sm-bar i{display:block;height:100%;border-radius:999px}
+.muted{color:var(--text-4)}
+
+/* ============================= ПРАЙС ============================= */
+/* Плашка о том, что прайс не утверждён: показывается всегда, пока в 1С
+   у документа статус «На согласовании». Считаем по нему, но молчать об
+   этом нельзя — на прайс опирается согласование служебных записок. */
+.price-warn{font-size:var(--f-sm);font-weight:700;color:var(--warn);
+  background:var(--warn-tint);border:1px solid #D9BE86;border-radius:8px;
+  padding:var(--s2) var(--s3);margin-bottom:var(--s3)}
+.price-tools{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s3);
+  flex-wrap:wrap}
+.price-tools input[type=search]{font:inherit;font-size:var(--f-md);color:var(--text);
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:var(--s2) var(--s3);min-width:260px;flex:1 1 260px}
+.price-tools input[type=search]:focus{border-color:var(--steel);outline:none}
+.price-tools .btn{display:inline-flex;align-items:center}
+/* ⚠️ Порядок важен: без этой строки `display:inline-flex` выше перебивает
+   `[hidden]{display:none}`, и кнопка загрузки прайса видна даже гостю. */
+.price-tools .btn[hidden]{display:none}
+.price-doc{font-size:var(--f-sm);color:var(--text-3);white-space:nowrap}
+.price-vat{font-size:var(--f-sm);font-weight:700;color:var(--text-3);white-space:nowrap}
+.price-vat.incl{color:var(--steel)}
+
+/* ============================ ТАБЛИЦЫ ============================ */
+/* ⚠️ Таблица прокручивается ВНУТРИ карточки. Раньше th со сдвигом top:60px
+   лип внутри горизонтального скролл-контейнера и повисал НАД строками —
+   первая строка просвечивала выше заголовков колонок. Свой вертикальный
+   скролл с th{top:0} — единственная геометрия, где липкая шапка честна. */
+.t-scroll{overflow:auto;max-height:min(70vh, 860px);overscroll-behavior:contain}
+.t-scroll::-webkit-scrollbar{width:10px;height:10px}
+.t-scroll::-webkit-scrollbar-thumb{background:#C4CEE2;border-radius:999px;
+  border:2px solid var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:var(--f-md)}
+/* Шапка липнет к верху: в прайсе 108 строк, в перевозчиках 182 — без этого
+   на середине списка уже не помнишь, что в какой колонке. 60px — высота
+   строки вкладок, которая тоже липкая. */
+th{text-align:left;font-size:var(--f-xs);font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-3);padding:var(--s2) var(--s3);
+  border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap;
+  position:sticky;top:0;z-index:4;box-shadow:0 1px 0 var(--line)}
+th.num,td.num{text-align:right}
+td{padding:var(--s3);border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+/* В базе перевозчиков 182 строки — столько же залитых зелёным кнопок
+   превращали таблицу в новогоднюю гирлянду. В таблице телефон — тихая
+   зелёная ссылка; большая кнопка остаётся в очереди звонков, где звонок
+   и есть действие. */
+.t-scroll .btn-call{background:transparent;border-color:transparent;
+  color:var(--good);min-height:30px;padding:0 var(--s2);font-size:var(--f-md);
+  box-shadow:none}
+.t-scroll .btn-call:hover{background:var(--good-tint);color:var(--good)}
+
+/* подсветка строки под курсором — глаз не теряет её на широкой таблице */
+@media (hover:hover) and (pointer:fine){
+  tbody tr:hover td{background:var(--steel-tint)}
+}
+tbody tr:hover td{background:var(--surface-2)}
+.row-title{font-size:var(--f-md);font-weight:800;overflow-wrap:anywhere}
+.row-sub{font-size:var(--f-sm);color:var(--text-3);margin-top:2px}
+.cell-n{font-size:var(--f-lg);font-weight:800;font-variant-numeric:tabular-nums}
+
+/* статус: цвет + форма + слово — три канала, как требует WCAG 1.4.1 */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:var(--f-sm);
+  font-weight:800;padding:2px var(--s2);border-radius:var(--r1);white-space:nowrap;
+  border:1px solid transparent}
+.pill::before{font-size:10px;line-height:1}
+.pill.good{color:var(--good);background:var(--good-tint);border-color:#A9CFBB}
+.pill.good::before{content:"●"}
+.pill.warn{color:var(--warn);background:var(--warn-tint);border-color:#D9BE86}
+.pill.warn::before{content:"▲"}
+.pill.crit{color:var(--crit);background:var(--crit-tint);border-color:#E0B0A9}
+.pill.crit::before{content:"■"}
+.pill.muted{color:var(--text-3);background:var(--surface-2);border-color:var(--line)}
+.pill.muted::before{content:"○"}
+
+.yes{color:var(--good);font-weight:800}
+.no{color:var(--text-4)}
+.nocontact{color:var(--text-3);font-size:var(--f-sm)}
+
+.foot{margin-top:var(--s5);font-size:var(--f-sm);color:var(--text-3);
+  text-align:center;line-height:1.6}
+
+/* ============================ ОКНО ПРАВКИ ЗАЯВКИ ============================
+   Нативный <dialog>: ловушка фокуса, Esc и модальность уже встроены в
+   платформу — четыре подряд идущих prompt() заменены одной формой. */
+dialog{border:1px solid #C9D3E6;border-radius:var(--r3);padding:0;
+  box-shadow:0 24px 60px -24px rgba(20,34,72,.45);
+  max-width:min(440px,calc(100vw - 32px));width:100%;color:var(--text);
+  background:var(--surface);font-family:var(--font)}
+dialog::backdrop{background:rgba(20,34,72,.45)}
+.dlg-head{padding:var(--s4) var(--s4) var(--s2);font-size:var(--f-lg);
+  font-weight:800;color:var(--navy)}
+.dlg-body{padding:0 var(--s4) var(--s3);display:grid;gap:var(--s3)}
+.dlg-body label{display:grid;gap:4px;font-size:var(--f-xs);font-weight:800;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+.dlg-body input{font:inherit;font-size:var(--f-md);color:var(--text);
+  background:var(--surface-2);border:1px solid var(--edge);border-radius:var(--r1);
+  min-height:40px;padding:0 var(--s3);width:100%}
+.dlg-foot{display:flex;gap:var(--s2);justify-content:flex-end;flex-wrap:wrap;
+  padding:var(--s3) var(--s4) var(--s4);border-top:1px solid var(--line);
+  background:var(--surface-2)}
+.dlg-foot .btn{min-height:40px;font-size:var(--f-md)}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn-primary:hover{background:#1D3163;color:#fff}
+.dlg-note{font-size:var(--f-sm);color:var(--text-3);padding:0 var(--s4) var(--s3)}
+
+/* ============================ АДАПТАЦИЯ ============================ */
+@media (max-width:1080px){
+  .grid-2{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .wrap{padding:var(--s3) var(--s3) var(--s6)}
+  .top-in{padding:var(--s3)}
+  .brand h1{font-size:var(--f-lg)}
+  .kpis{gap:6px}
+  .kpi:last-child:nth-child(odd){grid-column:span 2}
+  .kpi{padding:var(--s2) var(--s2) var(--s2) var(--s3)}
+  .kpi-v{font-size:22px}
+  .panel-body{padding:var(--s2) var(--s3) var(--s3)}
+  .panel-head{padding:var(--s3)}
+  .offer-when{margin-left:0;order:8}
+  .offer-bid{order:9}
+
+  /* Палец вместо мыши: цели нажатия не меньше 40px,
+     телефон растягивается во всю ширину — по нему звонят на ходу. */
+  .btn,.chip,.nav-tab{min-height:40px}
+  .btn-ico{min-width:auto;padding:0 var(--s3)}
+  .btn-lbl{display:inline;margin-left:4px}
+  .btn-call{width:100%;min-height:46px;font-size:17px}
+  .btn-done,.btn-undo{margin-left:0}
+  .offer-act{gap:6px}
+  .offer-act .btn:not(.btn-call){flex:1 1 auto}
+
+  /* Таблицы превращаются в карточки: строка становится блоком, заголовок
+     колонки печатается перед значением из data-l. Страница не уезжает вбок. */
+  .t-scroll{overflow-x:visible}
+  table,tbody,tr,td{display:block;width:auto}
+  thead{display:none}
+  table{font-size:var(--f-md)}
+  tbody tr{border:1px solid var(--line);border-radius:var(--r2);
+    padding:var(--s3);margin:0 0 var(--s2);background:var(--surface)}
+  tbody tr:hover td{background:transparent}
+  td{border-bottom:none;padding:3px 0;display:flex;gap:var(--s3);
+    align-items:baseline;text-align:left;flex-wrap:wrap}
+  td>*{min-width:0}
+  td.num{text-align:left}
+  td::before{content:attr(data-l);flex:0 0 42%;color:var(--text-3);
+    font-size:var(--f-xs);font-weight:800;letter-spacing:.05em;
+    text-transform:uppercase;line-height:1.5}
+  td[data-l=""]::before{display:none}
+  /* первая ячейка — заголовок карточки, без подписи и во всю ширину */
+  td:first-child{display:block;padding:0 0 var(--s2);margin-bottom:var(--s2);
+    border-bottom:1px solid var(--line)}
+  td:first-child::before{display:none}
+  td:last-child{padding-top:var(--s2)}
+}
+@media (max-width:400px){
+  .kpi-l{font-size:10px}
+  .offer{padding-left:var(--s2)}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <a class="home-btn" id="portal-link" href="http://192.168.6.157:8079"
+      title="Вернуться в портал" aria-label="Вернуться в портал">
+      <span class="mark"><svg viewBox="108.72 0.00 124.86 116.05" role="img" aria-hidden="true" fill="currentColor"><polygon points="199.151,94.794 214.97,78.977 199.086,63.094"/><polygon points="199.17,25.913 183.353,41.731 199.235,57.613"/><polygon points="233.588,60.855 217.771,45.038 201.888,60.92"/><polygon points="164.61,60.855 180.427,45.038 196.31,60.92"/><polygon points="164.61,22.483 180.427,38.3 196.31,22.418"/><polygon points="161.375,25.913 177.194,41.731 161.312,57.613"/><polygon points="133.979,22.46 156.351,22.46 156.351,0"/><polygon points="131.093,22.46 108.723,22.46 108.723,0"/><polygon points="117.143,27.131 132.96,42.949 148.843,27.068"/><polygon points="108.995,25.913 124.813,41.731 108.932,57.613"/><polygon points="156.209,25.913 140.392,41.731 156.272,57.613"/><polygon points="214.905,84.35 199.086,100.166 214.968,116.047"/></svg></span>
+      <span class="brand">
+        <span class="brand-h1">ЛогистМОТ</span>
+        <span class="brand-p">МетОптТорг · заявки на перевозку</span>
+        <span class="pulse" id="pulse"
+          title="Когда бот в последний раз получал сообщение. Если долго нет при живом чате — сообщите администратору.">
+          <span class="dot" id="pulse-dot"></span><span id="pulse-text">…</span>
+          <span class="sep">·</span><span id="updated">загрузка…</span>
+        </span>
+      </span>
+    </a>
+    <span class="grow"></span>
+    <span class="who" id="who-pill" hidden>
+      <span class="av" id="who-av">?</span>
+      <span class="who-t"><b id="who-name">—</b><i id="who-role"></i></span>
+      <button class="who-out" onclick="openPw()" title="Сменить пароль">Пароль</button>
+      <button class="who-out" id="nav-logout" onclick="doLogout()">Выйти</button>
+    </span>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="kpis" id="kpis" aria-label="Сводные показатели"></section>
+
+  <!-- Ряда вкладок больше нет: навигация — большими плитками с рабочего
+       стола, с внутренних страниц возвращает «Назад». Дублирующие пилюли
+       сверху только распыляли внимание. -->
+  <div class="backbar" id="backbar" hidden>
+    <button class="btn back-btn" onclick="goRoot()">← Назад</button>
+    <b id="backbar-title"></b>
+  </div>
+  <div class="actions" id="quick-actions" hidden></div>
+
+  <!-- Экран входа: сначала выбираем себя, потом только пароль. Логин никто
+       не помнит, а имена в списке узнаются с одного взгляда. -->
+  <div id="gate" class="gate" hidden>
+    <div class="gate-box">
+      <div class="gate-brand"><span class="gate-mark"><svg viewBox="108.72 0.00 124.86 116.05" role="img" aria-hidden="true" fill="currentColor"><polygon points="199.151,94.794 214.97,78.977 199.086,63.094"/><polygon points="199.17,25.913 183.353,41.731 199.235,57.613"/><polygon points="233.588,60.855 217.771,45.038 201.888,60.92"/><polygon points="164.61,60.855 180.427,45.038 196.31,60.92"/><polygon points="164.61,22.483 180.427,38.3 196.31,22.418"/><polygon points="161.375,25.913 177.194,41.731 161.312,57.613"/><polygon points="133.979,22.46 156.351,22.46 156.351,0"/><polygon points="131.093,22.46 108.723,22.46 108.723,0"/><polygon points="117.143,27.131 132.96,42.949 148.843,27.068"/><polygon points="108.995,25.913 124.813,41.731 108.932,57.613"/><polygon points="156.209,25.913 140.392,41.731 156.272,57.613"/><polygon points="214.905,84.35 199.086,100.166 214.968,116.047"/></svg></span>
+        <span>ЛогистМОТ<i>МетОптТорг · заявки на перевозку</i></span></div>
+      <div class="gate-card">
+        <h1 id="gate-title">Кто вы?</h1>
+        <p class="gate-hint" id="gate-hint">Выберите себя — роль и права
+          определяются учётной записью.</p>
+        <div class="gate-users" id="gate-users"></div>
+        <form id="gate-form" class="gate-formx" hidden onsubmit="return gateSubmit(event)">
+          <div class="gate-who" id="gate-who"></div>
+          <label class="f"><span>Пароль</span>
+            <input id="gate-pass" type="password" autocomplete="current-password"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();gateSubmit(event);}"></label>
+          <p class="gate-err" id="gate-err" hidden></p>
+          <button class="btn-primary gate-go" type="submit">Войти</button>
+          <button class="btn btn-undo gate-back" type="button"
+            onclick="gatePick(null)">← другой пользователь</button>
+        </form>
+      </div>
+      <footer class="gate-foot">Пароль забыт или нужна учётная запись —
+        обратитесь к администратору сервиса.</footer>
+    </div>
+  </div>
+
+  <dialog id="pw-dlg" aria-labelledby="pw-title">
+    <form method="dialog" onsubmit="return doChangePw(event)">
+      <div class="dlg-head" id="pw-title">Смена пароля</div>
+      <div class="dlg-body">
+        <p class="dlg-hint" id="pw-who"></p>
+        <label class="f"><span>Текущий пароль</span>
+          <input id="pw-cur" type="password" autocomplete="current-password"></label>
+        <label class="f"><span>Новый пароль</span>
+          <input id="pw-new" type="password" autocomplete="new-password"
+            minlength="8" placeholder="не короче 8 символов"></label>
+        <label class="f"><span>Повторите новый</span>
+          <input id="pw-again" type="password" autocomplete="new-password"></label>
+        <p class="fmsg err" id="pw-msg"></p>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-undo" type="button"
+          onclick="document.getElementById('pw-dlg').close()">Отмена</button>
+        <button class="btn-primary" type="submit">Сменить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="login-dlg" aria-labelledby="login-title">
+    <form method="dialog" onsubmit="return doLogin(event)">
+      <div class="dlg-head" id="login-title">Вход для руководителя</div>
+      <div class="dlg-body">
+        <label class="f"><span>Логин</span>
+          <input id="li-login" autocomplete="username" autofocus></label>
+        <label class="f"><span>Пароль</span>
+          <input id="li-pass" type="password" autocomplete="current-password"></label>
+        <p class="fmsg err" id="li-msg"></p>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-undo" type="button"
+          onclick="document.getElementById('login-dlg').close()">Отмена</button>
+        <button class="btn-primary" type="submit">Войти</button>
+      </div>
+    </form>
+  </dialog>
+
+  <section class="tab-section on" id="tab-home" role="tabpanel" aria-labelledby="nav-home">
+    <!-- Рабочий стол: каждый актуальный рейс — карточка со своими откликами
+         и действиями. Раньше это были две вкладки, и рейс собирался глазами. -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Актуальные рейсы</h2>
+        <span class="queue">
+          <span class="queue-n tnum" id="queue-n">0</span>
+          <span class="sub" id="queue-lbl">к обзвону</span>
+        </span>
+        <span class="chips" id="feed-tabs" role="tablist"></span>
+        <button class="btn" type="button"
+          onclick="document.getElementById('all-bc').scrollIntoView({behavior:'smooth'})"
+          title="Правка, повтор и архив всех заявок, включая закрытые">Все заявки ↓</button>
+      </div>
+      <div class="panel-body" id="feed"></div>
+    </div>
+
+    <div class="panel" id="all-bc">
+      <div class="panel-head">
+        <h2>Все заявки</h2>
+        <span class="chips" id="bc-tabs" role="group" aria-label="Фильтр заявок"></span>
+        <span class="sub" id="bc-sub"></span>
+      </div>
+      <div class="t-scroll">
+        <table aria-label="Заявки на рейсы">
+          <thead><tr>
+            <th scope="col">Маршрут · груз</th><th scope="col">Даты</th>
+            <th scope="col" class="num">Ставка</th><th scope="col" class="num">Чат</th>
+            <th scope="col" class="num">Личка</th><th scope="col" class="num">Откликов</th>
+            <th scope="col" class="num">Действия</th>
+          </tr></thead>
+          <tbody id="bc-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-section" id="tab-users" role="tabpanel" aria-labelledby="nav-users">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>База перевозчиков</h2>
+        <span class="sub" id="u-sub"></span>
+      </div>
+      <div class="t-scroll">
+        <table aria-label="База перевозчиков">
+          <thead><tr>
+            <th scope="col">Имя</th><th scope="col">Связь</th>
+            <th scope="col" class="num">Получил (личка)</th>
+            <th scope="col" class="num">Откликов</th>
+            <th scope="col" class="num">Статус</th>
+          </tr></thead>
+          <tbody id="u-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= НОВАЯ ЗАЯВКА ================= -->
+  <section class="tab-section" id="tab-new" role="tabpanel" aria-labelledby="nav-new">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Новая заявка на перевозку</h2>
+        <span class="sub">уйдёт в чат перевозчиков и в личку подписчикам</span>
+      </div>
+      <div class="panel-body">
+        <form id="zform" onsubmit="return createZayavka(event)">
+          <div class="kind-row" role="radiogroup" aria-label="Тип заявки">
+            <button type="button" class="kind on" data-kind="auto"
+              onclick="setKind(this)">Определить самому</button>
+            <button type="button" class="kind" data-kind="urgent"
+              onclick="setKind(this)">Горящая</button>
+            <button type="button" class="kind" data-kind="new_route"
+              onclick="setKind(this)">Новое направление</button>
+            <button type="button" class="kind" data-kind="rate_up"
+              onclick="setKind(this)">Ставка повышена</button>
+            <button type="button" class="kind" data-kind="normal"
+              onclick="setKind(this)">Обычная</button>
+          </div>
+          <div class="m-src">
+            <label class="f f-wide"><span>Заполнить из прошлой заявки
+                <em class="f-hint">поменяются обычно только даты</em></span>
+              <select id="z-from" onchange="prefillZayavka(this.value)">
+                <option value="">— заполню сам —</option>
+              </select></label>
+          </div>
+          <div class="fgrid">
+            <label class="f"><span>Откуда <b>*</b></span>
+              <div class="geo-row">
+                <input name="from" placeholder="Когалым" list="city-list"
+                  autocomplete="off" onchange="geoResolve('from')">
+                <button type="button" class="btn btn-map" onclick="openMap('from')"
+                  title="Указать точку на карте">Карта</button>
+              </div>
+              <div id="geo-hint-from" class="geo-hint" hidden></div></label>
+            <label class="f"><span>Куда <b>*</b></span>
+              <div class="geo-row">
+                <input name="to" placeholder="Полевской" list="city-list"
+                  autocomplete="off" onchange="geoResolve('to')">
+                <button type="button" class="btn btn-map" onclick="openMap('to')"
+                  title="Указать точку на карте">Карта</button>
+              </div>
+              <div id="geo-hint-to" class="geo-hint" hidden></div></label>
+            <datalist id="city-list"></datalist>
+            <input type="hidden" name="route">
+            <label class="f"><span>Даты
+                <span class="date-quick">
+                  <button type="button" class="dq" onclick="setDates(0)">сегодня</button>
+                  <button type="button" class="dq" onclick="setDates(1)">завтра</button>
+                  <button type="button" class="dq" onclick="setDates('ежедневно')">ежедневно</button>
+                </span></span>
+              <input name="dates" placeholder="06.08-08.08 или ежедневно"></label>
+            <label class="f"><span>Груз и тоннаж</span>
+              <input name="cargo" placeholder="НКТ 73, 20 т"></label>
+            <label class="f f-wide"><span>Ставка</span>
+              <input name="rate" placeholder="2800 без НДС / 3400 с НДС (за тонну)"></label>
+            <label class="f"><span>Требования к ТС</span>
+              <input name="ts" placeholder="тент/открытые, без ограничений"></label>
+            <label class="f"><span>Загрузка</span>
+              <input name="load" placeholder="верхняя, подача за день до 14:00"></label>
+            <label class="f"><span>Выгрузка</span>
+              <input name="unload" placeholder="верхняя, круглосуточно"></label>
+            <label class="f f-wide"><span>Контакты</span>
+              <input name="contacts" placeholder="Светлана 8 912 345-67-89"></label>
+            <label class="f f-wide"><span>Пометка вверху (необязательно)</span>
+              <input name="important" placeholder="Подняли ставку!"></label>
+          </div>
+          <div class="fbar">
+            <button class="btn-primary" type="submit" id="zsend">Отправить заявку</button>
+            <button class="btn btn-undo" type="button" onclick="document.getElementById('zform').reset()">Очистить</button>
+            <span class="fmsg" id="zmsg"></span>
+          </div>
+          <p class="fhint">Бот сам оформит карточку, поправит опечатки в городах,
+            добавит кнопку «Готов взять» и обновит закреплённый список рейсов.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= АНАЛИТИКА (руководитель) ================= -->
+  <section class="tab-section" id="tab-memo" role="tabpanel" aria-labelledby="nav-memo">
+    <div class="panel" id="memo-form-panel">
+      <div class="panel-head">
+        <h2>Новая служебная записка</h2>
+        <span class="sub">уйдёт на согласование: отдел логистики → исп. директор</span>
+        <button class="btn" type="button" id="memo-form-toggle"
+          onclick="setMemoFormOpen()">Развернуть</button>
+      </div>
+      <div class="panel-body" id="memo-form-body" hidden>
+        <form id="mform" onsubmit="return createMemo(event)">
+          <input type="hidden" name="broadcast_id" id="m-bid">
+          <div class="m-src">
+            <label class="f f-wide"><span>Заполнить из заявки</span>
+              <select id="m-from" onchange="prefillFromBroadcast(this.value)">
+                <option value="">— заполню сам —</option>
+              </select></label>
+            <div id="m-hints" class="m-hints" hidden></div>
+          </div>
+          <div class="fsec">
+            <div class="fsec-h"><b>Работа и рейс</b><span class="rule"></span>
+              <i>порядок полей — как в бумажной записке</i></div>
+            <div class="fgrid">
+              <label class="f"><span>Дата работы</span>
+                <input name="work_date" placeholder="21.08.2026"></label>
+              <label class="f"><span>Задача</span>
+                <input name="task" placeholder="99627"></label>
+              <label class="f f-wide"><span>Заказчик</span>
+                <input name="customer" placeholder="Бородулина Ольга Андреевна"></label>
+              <label class="f"><span>Город</span>
+                <input name="city" placeholder="Когалым"></label>
+              <label class="f"><span>Вид работы</span>
+                <input name="work_kind" placeholder="реализация"></label>
+              <label class="f f-wide"><span>Маршрут <b>*</b></span>
+                <input name="route" id="m-route" required
+                  placeholder="Когалым - Лысьва" oninput="checkMemoPrice()"></label>
+              <label class="f"><span>Характер груза</span>
+                <input name="cargo" placeholder="лом трансформаторов"></label>
+              <label class="f"><span>Вид транспорта</span>
+                <input name="transport" placeholder="авто"></label>
+              <label class="f"><span>Кол-во машин</span>
+                <input name="vehicles" placeholder="1"></label>
+              <label class="f"><span>Модель ТС</span>
+                <input name="vehicle_model" id="m-veh" placeholder="тент/борт"
+                  list="veh-list" oninput="checkMemoPrice()">
+                <datalist id="veh-list"></datalist></label>
+              <label class="f"><span>Кран мин час</span>
+                <input name="crane_min_h"></label>
+              <label class="f"><span>Подача час</span>
+                <input name="supply_h"></label>
+            </div>
+          </div>
+
+          <div class="fsec">
+            <div class="fsec-h"><b>Ставка</b><span class="rule"></span>
+              <i>её и согласуют</i></div>
+            <div class="fgrid">
+              <label class="f"><span>Ставка за</span>
+                <select name="rate_unit" id="m-unit" onchange="checkMemoPrice()">
+                  <option value="тонна">тонна</option>
+                  <option value="рейс">рейс</option>
+                  <option value="час">час</option>
+                  <option value="смена">смена</option>
+                </select></label>
+              <label class="f"><span>Ставка, руб. <b>*</b></span>
+                <input name="rate" id="m-rate" required placeholder="4200"
+                  inputmode="decimal" oninput="checkMemoPrice()"></label>
+              <label class="f"><span>Ставка указана</span>
+                <select name="rate_vat_incl" id="m-vatincl" onchange="checkMemoPrice()">
+                  <option value="0">без НДС</option>
+                  <option value="1">с НДС</option>
+                </select></label>
+              <label class="f"><span>Ставка НДС</span>
+                <select name="vat_rate" id="m-vat" onchange="checkMemoPrice()">
+                  <option value="">—</option>
+                  <option value="22%">22%</option>
+                  <option value="20%">20%</option>
+                  <option value="5%">5%</option>
+                </select></label>
+              <label class="f"><span>Стропальщики, кол-во</span>
+                <input name="riggers"></label>
+              <label class="f"><span>Итого стоимость</span>
+                <input name="total_cost" placeholder="смена / час / кол-во машин"></label>
+              <label class="f"><span>План / вне плана</span>
+                <select name="planned">
+                  <option value="план">план</option>
+                  <option value="">вне плана</option>
+                </select></label>
+            </div>
+          </div>
+
+          <div class="fsec">
+            <div class="fsec-h"><b>Оформление</b><span class="rule"></span></div>
+            <div class="fgrid">
+              <label class="f f-wide"><span>Комментарии</span>
+                <input name="comment"
+                  placeholder="Прошу согласовать ставку за тонну 3442,62 руб. без НДС"></label>
+              <label class="f"><span>Исполнитель (ФИО) <b>*</b></span>
+                <input name="author" id="m-author" required placeholder="Бухмиллер О. А."></label>
+            </div>
+          </div>
+
+          <div id="m-price" class="m-price" hidden></div>
+          <div class="fbar">
+            <button class="btn-primary" type="submit" id="msend">Подать на согласование</button>
+            <button class="btn btn-undo" type="button" onclick="resetMemoForm()">Очистить</button>
+            <span class="fmsg" id="mmsg"></span>
+          </div>
+          <p class="fhint">Записка уйдёт начальнику отдела логистики, после его
+            решения — исполнительному директору. Готовый PDF с отметками
+            «кто и когда согласовал» выгружается из списка ниже.</p>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="memo-list-title">Записки</h2>
+        <span class="chips" id="memo-tabs" role="group" aria-label="Фильтр записок"></span>
+        <span class="sub" id="memo-sub"></span>
+      </div>
+      <div id="memo-list"></div>
+    </div>
+  </section>
+
+  <section class="tab-section" id="tab-price" role="tabpanel" aria-labelledby="nav-price">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Прайс транспортных ставок</h2>
+        <span class="sub" id="price-sub"></span>
+      </div>
+      <div class="panel-body">
+        <div id="price-warn" class="price-warn" hidden></div>
+        <div class="price-tools">
+          <input id="price-q" type="search" placeholder="Поиск по маршруту, ТС, условию…"
+            oninput="renderPriceRows()" aria-label="Поиск по прайсу">
+          <span class="grow"></span>
+          <span class="sub" id="price-src"></span>
+          <label class="btn" id="price-upload-lbl" hidden>
+            Загрузить выгрузку 1С
+            <input id="price-file" type="file" accept=".csv,text/csv" hidden
+              onchange="uploadPrice(this)">
+          </label>
+        </div>
+        <div class="t-scroll">
+          <table aria-label="Действующие ставки прайса">
+            <thead><tr>
+              <th scope="col">Маршрут</th><th scope="col">ТС</th>
+              <th scope="col">Условие</th>
+              <th scope="col" class="num">Цена</th><th scope="col">Ед.</th>
+              <th scope="col">НДС</th><th scope="col" class="num">Без НДС</th>
+              <th scope="col">Документ</th>
+            </tr></thead>
+            <tbody id="price-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-section" id="tab-stats" role="tabpanel" aria-labelledby="nav-stats">
+    <div id="st-memo">
+      <div class="sec-h"><b>Служебные записки</b><span class="rule"></span></div>
+      <section class="kpis" id="sm-kpis"></section>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Служебные записки: отклонение от прайса</h2>
+          <span class="chips" id="sm-days" role="group" aria-label="Период"></span>
+          <label class="sub">направление
+            <select id="sm-route" onchange="loadMemoStats()"></select></label>
+        </div>
+        <div class="panel-body">
+          <div id="sm-note" class="price-warn" hidden></div>
+          <div class="t-scroll">
+            <table aria-label="Отклонение по направлениям">
+              <thead><tr>
+                <th scope="col">Направление</th>
+                <th scope="col" class="num">Ставка по прайсу</th>
+                <th scope="col" class="num">Записок</th>
+                <th scope="col" class="num">Выше прайса</th>
+                <th scope="col" class="num">Среднее отклонение</th>
+                <th scope="col" class="num">Худший случай</th>
+                <th scope="col">Динамика</th>
+              </tr></thead>
+              <tbody id="sm-routes"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h2>По месяцам</h2>
+            <span class="sub">как менялось отклонение</span></div>
+          <div class="t-scroll">
+            <table aria-label="Динамика по месяцам">
+              <thead><tr><th scope="col">Месяц</th>
+                <th scope="col" class="num">Записок</th>
+                <th scope="col" class="num">Выше прайса</th>
+                <th scope="col" class="num">Среднее отклонение</th>
+                <th scope="col">Динамика</th></tr></thead>
+              <tbody id="sm-months"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Скорость согласования</h2>
+            <span class="sub">сколько записка ждёт решения</span></div>
+          <div class="t-scroll">
+            <table aria-label="Скорость согласования">
+              <thead><tr><th scope="col">Шаг</th>
+                <th scope="col" class="num">Решений</th>
+                <th scope="col" class="num">Среднее ожидание</th></tr></thead>
+              <tbody id="sm-speed"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="st-zayavki">
+    <div class="sec-h"><b>Заявки и отклики</b><span class="rule"></span></div>
+    <section class="kpis" id="st-kpis"></section>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h2>Работа логистов</h2>
+          <span class="sub">за 30 дней</span></div>
+        <div class="t-scroll">
+          <table aria-label="Заявки по логистам">
+            <thead><tr><th scope="col">Логист</th>
+              <th scope="col" class="num">Заявок</th>
+              <th scope="col" class="num">Откликов собрано</th>
+              <th scope="col" class="num">Откликов на заявку</th></tr></thead>
+            <tbody id="st-logists"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Обработка откликов</h2>
+          <span class="sub">кто закрывает очередь</span></div>
+        <div class="t-scroll">
+          <table aria-label="Обработка откликов">
+            <thead><tr><th scope="col">Логист</th>
+              <th scope="col" class="num">Обработал</th>
+              <th scope="col" class="num">Среднее время реакции</th></tr></thead>
+            <tbody id="st-handled"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>По дням</h2>
+        <span class="sub">заявки · отклики · обработано</span></div>
+      <div class="t-scroll">
+        <table aria-label="Динамика по дням">
+          <thead><tr><th scope="col">Дата</th>
+            <th scope="col" class="num">Заявок</th>
+            <th scope="col" class="num">Откликов</th>
+            <th scope="col" class="num">Обработано</th>
+            <th scope="col">Отклики</th></tr></thead>
+          <tbody id="st-days"></tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <p class="foot">Данные из bot.db · обновляется каждые 30 секунд ·
+    «прочитано» в MAX ботам недоступно — метрика построена на откликах</p>
+</main>
+
+<dialog id="map-dlg" aria-labelledby="map-title">
+  <div class="dlg-head" id="map-title">Точка на карте</div>
+  <div id="map" aria-label="Карта"></div>
+  <p class="dlg-note map-note" id="map-note">Нажмите на карту — определю город и регион.</p>
+  <div class="dlg-foot">
+    <button class="btn" type="button" onclick="closeMap()">Отмена</button>
+    <button class="btn btn-primary" id="map-ok" type="button" onclick="applyMap()" disabled>Подставить</button>
+  </div>
+</dialog>
+
+<dialog id="edit-dlg" aria-labelledby="edit-title">
+  <form method="dialog">
+    <div class="dlg-head" id="edit-title">Правка заявки</div>
+    <div class="dlg-body">
+      <label>Маршрут<input id="ed-route" type="text" autocomplete="off"></label>
+      <label>Даты<input id="ed-dates" type="text" autocomplete="off"
+        placeholder="30.07-31.07 или «ежедневно»"></label>
+      <label>Ставка<input id="ed-rate" type="text" autocomplete="off"></label>
+      <label>Груз<input id="ed-cargo" type="text" autocomplete="off"></label>
+    </div>
+    <p class="dlg-note" id="ed-note"></p>
+    <div class="dlg-foot">
+      <button class="btn" value="cancel" type="submit">Отмена</button>
+      <button class="btn btn-primary" id="ed-ok" value="ok" type="submit">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  /* Палитра аватарок держится в фирменном диапазоне: тёмно-синий, стальной и
+     приглушённая земля. Радужных кружков из соцсетей здесь быть не должно. */
+  const AV = ["#142248","#3F5A8A","#177A50","#9A6A0B","#5A6E9C","#8A4B2C","#33507F","#4A6741"];
+
+  /* Все тексты приходят от внешних пользователей — экранируем без исключений. */
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const avColor = (s) => AV[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AV.length];
+  const initials = (n) => String(n).split(" ").filter(Boolean)
+    .map(w=>w[0]).slice(0,2).join("").toUpperCase() || "?";
+  const SRC = {dm:["src-dm","личка"], button:["src-button","кнопка"], chat:["src-chat","чат"]};
+
+  const ROLE_LABELS = {chief: "администратор",
+                       head: "руководитель отдела логистики",
+                       director: "исп. директор",
+                       clerk: "документооборот", logist: "логист"};
+  // В пилюле — одна роль: у администратора их три, и строка «администратор ·
+  // руководитель отдела логистики · исп. директор» распирала шапку.
+  const ROLE_NAME = (roles) => {
+    const named = roles.filter(r => ROLE_LABELS[r]);
+    if (!named.length) return "логист";
+    return ROLE_LABELS[named[0]] + (named.length > 1 ? " +" + (named.length - 1) : "");
+  };
+
+  /* Сводка сверху — своя для каждой роли. «Людей в базе» логисту не говорит
+     ничего: его день — это к обзвону, активные рейсы и судьба его записок.
+     У согласующих первая цифра — сколько ждёт лично их решения. */
+  const GOOD = "var(--good)", WARN = "var(--warn)", CRIT = "var(--crit)",
+        STEEL = "var(--steel)", NAVY = "var(--navy)";
+  const zeroGood = (n) => n ? WARN : GOOD;
+
+  function kpiTiles(d, me) {
+    const roles = me.roles || [];
+    const t = d.kpi || {};
+    const pending = (d.feed || []).filter(f => !f.processed).length;
+    const actives = (d.broadcasts || []).filter(b => b.status === "активна");
+    const noResp = actives.filter(b => !b.responders).length;
+    const memos = MEMOS.memos || [];
+    const inWork = memos.filter(m => m.status === "on_head" || m.status === "on_director");
+    const mineWait = (MEMOS.my_queue || []).length;
+    const overInWork = inWork.filter(m => m.diff > 0).length;
+
+    if (roles.includes("chief")) return [
+      {l:"Людей в базе",       v:t.people ?? "—", c:STEEL},
+      {l:"Подписаны",          v:t.subscribed ?? "—", c:NAVY},
+      {l:"К обзвону",          v:pending,        c:zeroGood(pending)},
+      {l:"Активных заявок",    v:actives.length, c:STEEL},
+      {l:"На согласовании",    v:inWork.length,  c:STEEL},
+      {l:"Молчунов",           v:t.silent ?? "—", c:CRIT},
+    ];
+    if (roles.includes("director")) return [
+      {l:"Ждут моего решения", v:mineWait,       c:zeroGood(mineWait)},
+      {l:"На согласовании",    v:inWork.length,  c:STEEL},
+      {l:"Выше прайса",        v:overInWork,     c:overInWork ? CRIT : GOOD},
+      {l:"Согласовано",        v:memos.filter(m => m.status === "approved").length, c:GOOD},
+      {l:"Отклонено",          v:memos.filter(m => m.status === "rejected").length, c:STEEL},
+    ];
+    if (roles.includes("head")) return [
+      {l:"К обзвону",          v:pending,        c:zeroGood(pending)},
+      {l:"Активных заявок",    v:actives.length, c:STEEL},
+      {l:"Заявок без откликов",v:noResp,         c:noResp ? CRIT : GOOD},
+      {l:"Ждут моего решения", v:mineWait,       c:zeroGood(mineWait)},
+      {l:"Записок выше прайса",v:overInWork,     c:overInWork ? CRIT : GOOD},
+    ];
+    if (roles.includes("clerk")) return [
+      {l:"Согласовано — завести в 1С",
+       v:memos.filter(m => m.status === "approved").length, c:GOOD},
+      {l:"На согласовании",  v:inWork.length, c:STEEL},
+      {l:"Отклонено",        v:memos.filter(m => m.status === "rejected").length, c:STEEL},
+      {l:"Всего записок",    v:memos.length,  c:NAVY},
+    ];
+    // логист
+    const my = (st) => memos.filter(m => m.author_login === me.login
+      && (Array.isArray(st) ? st.includes(m.status) : m.status === st)).length;
+    const myRejected = my("rejected");
+    return [
+      {l:"К обзвону",            v:pending,        c:zeroGood(pending)},
+      {l:"Активных заявок",      v:actives.length, c:STEEL},
+      {l:"Заявок без откликов",  v:noResp,         c:noResp ? CRIT : GOOD},
+      {l:"Мои записки в работе", v:my(["on_head", "on_director"]), c:STEEL},
+      {l:"Возвращены мне",       v:myRejected,     c:myRejected ? CRIT : GOOD},
+    ];
+  }
+
+  function renderKpis() {
+    const d = window.lastData;
+    const box = document.getElementById("kpis");
+    if (!d || !box) return;
+    box.innerHTML = kpiTiles(d, d.me || {}).map(x =>
+      `<div class="kpi" style="--c:${x.c}">
+        <div class="kpi-l">${x.l}</div>
+        <div class="kpi-v tnum">${x.v}</div></div>`).join("");
+  }
+
+  function render(d) {
+    window.lastData = d;
+
+    // кто вошёл: руководителю доступна аналитика
+    const me = d.me || {};
+    const w = document.getElementById("whoami");
+    // ролей у человека может быть несколько («chief+head» у Елены)
+    const roles = me.roles || (me.role ? [me.role] : []);
+    const chief = roles.includes("chief");
+    const signedIn = !!me.login && me.login !== "guest";
+    const pill = document.getElementById("who-pill");
+    if (pill) {
+      pill.hidden = !signedIn;
+      const nm = (me.name || "").trim();
+      document.getElementById("who-av").textContent = (nm[0] || "?").toUpperCase();
+      document.getElementById("who-name").textContent = me.short || nm;
+      document.getElementById("who-role").textContent = ROLE_NAME(roles);
+    }
+    if (w) w.textContent = "";
+    // Что человеку показывать, решает сервер (panel.SECTIONS): у логиста —
+    // работа с заявками, у Елены плюс согласование и статистика, у Пуганова
+    // только записки и сводка. Прятать вкладки — лишь половина дела: те же
+    // разделы закрыты и в API.
+    const see = new Set(me.sections || []);
+    const TABS = {home: "home", users: "users", new: "new",
+                  memo: "memo", price: "price"};
+    for (const [tab, section] of Object.entries(TABS)) {
+      const nav = document.getElementById("nav-" + tab);
+      if (nav) nav.hidden = !see.has(section);
+    }
+    // «Аналитика» — одна вкладка на два блока: работа логистов и записки
+    const navStats = document.getElementById("nav-stats");
+    if (navStats) navStats.hidden = !(see.has("stats") || see.has("memo_stats"));
+    const stZ = document.getElementById("st-zayavki");
+    if (stZ) stZ.hidden = !see.has("stats");
+    const stM = document.getElementById("st-memo");
+    if (stM) stM.hidden = !see.has("memo_stats");
+
+    // Исполнительный директор записки не составляет — он их согласует.
+    // Форма на пол-экрана отодвигала его очередь вниз и заставляла
+    // прокручивать двадцать чужих полей до первой кнопки «Согласовать».
+    const canCreate = see.has("new");
+    const formPanel = document.getElementById("memo-form-panel");
+    if (formPanel) formPanel.hidden = !canCreate;
+    // Елена приходит согласовывать, а не составлять: ей форма свёрнута.
+    // Логисту наоборот — форма и есть его инструмент.
+    if (canCreate && !window.__memoFormInit) {
+      window.__memoFormInit = true;
+      setMemoFormOpen(roles.includes("logist"));
+    }
+    const listTitle = document.getElementById("memo-list-title");
+    if (listTitle) listTitle.textContent = canCreate ? "Записки"
+      : (roles.includes("director") || roles.includes("head"))
+        ? "На согласовании" : "Служебные записки";
+    if (!canCreate && memoFilter === "queue") memoFilter = "queue";
+
+    // открываем первую доступную вкладку, если текущая человеку не положена
+    if (!window.__dirTab) {
+      window.__dirTab = true;
+      const openNow = [...document.querySelectorAll(".tab-section.on")][0];
+      const okNow = openNow && see.has(openNow.id.replace("tab-", ""));
+      if (!okNow) {
+        const first = ["home", "bc", "memo", "price"].find(t => see.has(t));
+        if (first) { switchTab(first); if (first === "memo") loadMemos(); }
+        else if (see.has("stats") || see.has("memo_stats")) {
+          switchTab("stats"); loadStats(); loadMemoStats();
+        }
+      }
+    }
+    // прайс смотрят все — логисту он нужен, чтобы понимать, укладывается ли
+    // ставка рейса в согласованные цены. Ограничена только загрузка выгрузки.
+    const portal = document.getElementById("portal-link");
+    if (portal && d.portal_url) portal.href = d.portal_url;
+    renderActors(d.logists, me);
+    fillZayavkaSources();
+    recallContacts();
+    // «я — …» имело смысл, пока панель была общей и безымянной. Теперь у
+    // вошедшего есть свой аккаунт MAX, и выбор нужен только если его нет.
+    const actorBox = document.getElementById("actor-box");
+    if (actorBox) actorBox.hidden = !!me.max_id || !see.has("new");
+    // «Исполнитель» в записке — это вошедший: раньше поле было пустым, и
+    // логист набирал своё ФИО заново на каждой записке
+    const mauthor = document.getElementById("m-author");
+    if (mauthor && !mauthor.value && me.short) mauthor.value = me.short;
+    const navLogin = document.getElementById("nav-login");
+    const navLogout = document.getElementById("nav-logout");
+    if (navLogin) navLogin.hidden = signedIn;    // не вошёл — кнопка «войти»
+    if (navLogout) navLogout.hidden = !signedIn; // вошёл — «выйти»
+    document.getElementById("updated").textContent =
+      "обновлено в " + d.generated_at.slice(11, 16);
+
+    /* ---- пульс: когда бот в последний раз что-то получил ---- */
+    const age = d.last_event_age_min;
+    const pd = document.getElementById("pulse-dot"), pt = document.getElementById("pulse-text");
+    if (age == null) { pt.innerHTML = "событий ещё не было"; pd.style.background = "#B9C4DE"; }
+    else {
+      pt.innerHTML = "последнее событие <b>" + (age < 60 ? age + " мин назад"
+        : age < 1440 ? Math.round(age/60) + " ч назад"
+        : Math.round(age/1440) + " дн назад") + "</b>";
+      pd.style.background = age < 720 ? "#4BB985" : age < 1440 ? "#E5A84B" : "#F0757C";
+    }
+
+    /* ---- KPI ---- */
+    renderKpis();
+
+    /* ---- очередь звонков ----
+       Необработанные идут первыми, обработанные уходят под разделитель:
+       иначе очередь не собирается и глаз ищет, кому ещё не звонили. */
+    const pending = d.feed.filter(f => !f.processed);
+    const handled = d.feed.filter(f => f.processed);
+    const fresh = pending.length;
+    const qn = document.getElementById("queue-n");
+    qn.textContent = fresh;
+    qn.classList.toggle("zero", fresh === 0);
+    document.getElementById("queue-lbl").textContent =
+      fresh === 0 ? "все обработаны" : "к обзвону";
+
+    // переключатель: очередь звонков / уже обработанные
+    const fv = window.feedView === "done" ? "done" : "pending";
+    document.getElementById("feed-tabs").innerHTML = [
+      ["pending", "К обзвону", fresh],
+      ["done", "Обработанные", handled.length],
+    ].map(([k, label, n]) =>
+      `<button class="chip${k === fv ? " on" : ""}" role="tab" aria-selected="${k === fv}"
+         onclick="window.feedView='${k}';render(window.lastData)">${label}
+         <span class="chip-n tnum">${n}</span></button>`).join("");
+
+    const queue = fv === "done" ? handled : pending;
+    /* ---- очередь звонков, сгруппированная по рейсам ----
+       Логист закрывает РЕЙС, а не отдельную строку: он обзванивает всех, кто
+       откликнулся на #73, и решает, кого берёт. Плоский список из шестидесяти
+       строк заставлял его глазами собирать рейс заново на каждом заходе. */
+    const bcById = {};
+    for (const b of d.broadcasts) bcById[b.id] = b;
+
+    const groups = new Map();
+    for (const f of queue) {
+      const key = f.bid == null ? "none" : String(f.bid);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    }
+    // свежий отклик поднимает рейс наверх; «вне заявки» всегда последним
+    const order = [...groups.entries()].sort((a, b) => {
+      if (a[0] === "none") return 1;
+      if (b[0] === "none") return -1;
+      return (b[1][0]?.rid || 0) - (a[1][0]?.rid || 0);
+    });
+
+    const offerCard = (f) => {
+      const [srcCls, srcTxt] = SRC[f.source] || SRC.chat;
+      // «Готов взять (кнопка)» под чипом «готов взять» — та же мысль дважды
+      const dup = /^готов взять/i.test((f.text || "").trim())
+        && /готов/i.test(f.offer || "");
+      return `
+      <article class="offer${f.processed ? " done" : ""}">
+        <div class="offer-head">
+          <span class="ava" style="--c:${avColor(f.name)}" aria-hidden="true">${esc(initials(f.name))}</span>
+          <span class="offer-name">${esc(f.name)}</span>
+          ${f.offer ? `<span class="chip-vol">${esc(f.offer)}</span>` : ""}
+          <span class="src ${srcCls}">${srcTxt}</span>
+          ${!f.active ? `<span class="warn-dot"
+            title="Человек откликнулся кнопкой в чате, но не нажал «Начать» у бота. Пока он не подпишется, бот не может писать ему в личку — правило MAX.">не подписан</span>` : ""}
+          <span class="offer-when">${esc(f.at)}</span>
+        </div>
+        ${dup ? "" : `<p class="offer-text">${esc(f.text)}</p>`}
+        <div class="offer-act">
+          ${f.phone ? `<a class="btn btn-call" href="tel:${esc(f.phone)}"
+              aria-label="Позвонить ${esc(f.name)} по номеру ${esc(f.phone)}">${esc(f.phone)}</a>` : ""}
+          ${!f.phone && f.active && !f.processed
+            ? `<button class="btn btn-ask" onclick="askPhone(${f.user_id}, this)">Запросить телефон</button>` : ""}
+          ${f.username ? `<a class="btn btn-max" href="https://max.ru/${esc(f.username)}"
+              target="_blank" rel="noopener">Написать в MAX</a>` : ""}
+          ${f.active
+            ? `<button class="btn btn-info" onclick="sendInfo(${f.user_id}, 'vehicle', this)"
+              title="Отправить адрес для данных по машине и водителю">Данные ТС</button>
+            <button class="btn btn-info" onclick="sendInfo(${f.user_id}, 'docs', this)"
+              title="Отправить адрес для закрывающих документов">Закрывающие</button>`
+            : ""}
+          ${f.processed
+            ? `<button class="btn btn-undo" onclick="markDone(${f.rid}, false, this)">↩ вернуть</button>`
+            : `<button class="btn btn-done" onclick="markDone(${f.rid}, true, this)">✓ обработано</button>`}
+        </div>
+      </article>`;
+    };
+
+    /* Карточка на КАЖДЫЙ актуальный рейс — даже без откликов: логист видит
+       весь свой день и действия по рейсу (записка, правка, повтор, архив)
+       там же, где отклики по нему. Отклики по закрытым рейсам и вне заявок
+       собираются в хвосте, чтобы не потеряться. */
+    const actives = d.broadcasts.filter(b => b.status === "активна");
+    const canWork = (d.me?.sections || []).includes("new");
+    const tripCard = (b, list) => {
+      const withPhone = list.filter(x => x.phone).length;
+      const meta = [b.dates, b.cargo, b.rate].filter(Boolean).join(" · ");
+      const stats = list.length
+        ? list.length + " " + plural(list.length, "отклик", "отклика", "откликов")
+          + (withPhone ? " · " + withPhone + " с тел." : "")
+        : "откликов пока нет";
+      return `<section class="grp" id="trip-${b.id}">
+        <header class="grp-h">
+          <span class="grp-t"><b>#${esc(b.id)} ${esc(b.route ?? "без маршрута")}</b>
+            ${meta ? `<i>${esc(meta)}</i>` : ""}</span>
+          <span class="rule"></span>
+          <span class="grp-n">${esc(stats)}</span>
+          ${canWork ? `<span class="grp-act">
+            <button class="btn" onclick="memoFromBroadcast(${b.id})"
+              title="Служебная записка по этому рейсу">Записка</button>
+            <button class="btn" onclick="editBroadcast(${b.id})"
+              title="Изменить маршрут, даты, ставку, груз">Править</button>
+            <button class="btn" onclick="repeatBroadcast(${b.id})"
+              title="Создать новую заявку с этими же данными">Повторить</button>
+            <button class="btn btn-ask" onclick="deleteBroadcast(${b.id})"
+              title="Убрать из чата и активных; отклики и статистика сохранятся">В архив</button>
+          </span>` : ""}
+        </header>
+        ${list.map(offerCard).join("")
+          || '<div class="grp-empty">Перевозчики ещё не откликнулись.</div>'}
+      </section>`;
+    };
+
+    const restGroups = order.filter(([key]) =>
+      key === "none" || !actives.some(b => String(b.id) === key));
+    const html = actives
+      .map(b => tripCard(b, groups.get(String(b.id)) || []))
+      .concat(restGroups.map(([key, list]) => {
+        const b = key === "none" ? null : bcById[key];
+        return `<section class="grp">
+          <header class="grp-h">
+            <span class="grp-t"><b>${b
+              ? `#${esc(b.id)} ${esc(b.route ?? "")} (${esc(b.status)})`
+              : "Вне заявки"}</b></span>
+            <span class="rule"></span>
+            <span class="grp-n">${list.length} ${plural(list.length, "отклик", "отклика", "откликов")}</span>
+          </header>
+          ${list.map(offerCard).join("")}
+        </section>`;
+      })).join("");
+
+    document.getElementById("feed").innerHTML = html
+      || (fv === "done"
+          ? '<div class="empty"><b>Обработанных пока нет</b>Отмечайте отклики кнопкой «✓ обработано» — они будут собираться здесь.</div>'
+          : '<div class="empty"><b>Активных рейсов нет</b>Создайте заявку — кнопка «Новая заявка» выше.</div>');
+
+    renderTiles();
+
+    /* ---- таблица заявок ---- */
+    const F = window.bcFilter || "all";
+    const filters = {
+      all:    { label: "Все",          fn: () => true },
+      active: { label: "Актуальные",   fn: b => b.status === "активна" },
+      silent: { label: "Без откликов", fn: b => b.responders === 0 },
+      arch:   { label: "Архив",        fn: b => b.status !== "активна" },
+    };
+    document.getElementById("bc-tabs").innerHTML = Object.entries(filters).map(([key,f]) =>
+      `<button class="chip" aria-pressed="${key===F}"
+        onclick="window.bcFilter='${key}';render(window.lastData)">${f.label}
+        <span class="tnum">${d.broadcasts.filter(f.fn).length}</span></button>`).join("");
+    const shown = d.broadcasts.filter(filters[F].fn);
+    document.getElementById("bc-sub").textContent = shown.length + " шт.";
+    document.getElementById("bc-body").innerHTML = shown.map(b=>`
+      <tr>
+        <td data-l="">
+          <div class="row-title">${esc(b.route ?? "без маршрута")}
+            ${b.status === "активна" ? '<span class="pill good">активна</span>'
+              : b.status === "закрыта" ? '<span class="pill muted">закрыта</span>'
+              : '<span class="pill warn">истекла</span>'}${
+            b.kind && b.kind !== "normal"
+              ? `<span class="kind-tag ${b.kind}">${
+                  b.kind === "urgent" ? "горящая"
+                  : b.kind === "new_route" ? "новое направление" : "ставка выше"}</span>` : ""}</div>
+          <div class="row-sub">${esc(b.cargo ?? "—")} · #${esc(b.id)} · ${esc(b.sent)}</div>
+        </td>
+        <td data-l="Даты" class="tnum">${esc(b.dates ?? "—")}</td>
+        <td data-l="Ставка" class="num tnum">${esc(b.rate ?? "—")}</td>
+        <td data-l="Чат" class="num">${b.chat ? '<span class="yes">✓ ушла</span>' : '<span class="no">— нет</span>'}</td>
+        <td data-l="Личка" class="num tnum">${b.dm_sent}</td>
+        <td data-l="Откликов" class="num tnum cell-n">${b.responders}</td>
+        <td data-l="Действия" class="num" style="white-space:nowrap">
+          <button class="btn btn-ico" onclick="memoFromBroadcast(${b.id})"
+            title="Составить служебную записку по этой заявке"
+            aria-label="Служебная записка по заявке №${esc(b.id)}">Записка</button>
+          <button class="btn btn-ico" onclick="editBroadcast(${b.id})"
+            title="Изменить маршрут, даты, ставку и груз"
+            aria-label="Изменить заявку №${esc(b.id)}">Править</button>
+          <button class="btn btn-ico btn-ask" onclick="deleteBroadcast(${b.id})"
+            title="Перенести в архив (убрать из чата и активных, статистика сохранится)"
+            aria-label="Перенести заявку №${esc(b.id)} в архив">В архив</button>
+        </td>
+      </tr>`).join("")
+      || '<tr><td colspan="7" data-l=""><div class="empty"><b>Заявок ещё не было</b>Создайте первую в боте.</div></td></tr>';
+
+    /* ---- база перевозчиков ---- */
+    document.getElementById("u-sub").textContent =
+      d.users.length + " чел. · подписаны " + d.kpi.subscribed;
+    document.getElementById("u-body").innerHTML = d.users.map(u=>{
+      const st = !u.active ? '<span class="pill muted">только чат</span>'
+        : u.replied > 0 ? '<span class="pill good">отвечает</span>'
+        : u.got >= 3 ? '<span class="pill crit">молчит</span>'
+        : '<span class="pill warn">новый</span>';
+      const contact = [
+        u.phone ? `<a class="btn btn-call btn-call-sm"
+          href="tel:${esc(u.phone)}" aria-label="Позвонить ${esc(u.name)}">${esc(u.phone)}</a>` : "",
+        u.username ? `<a class="btn btn-max" href="https://max.ru/${esc(u.username)}"
+          target="_blank" rel="noopener">MAX</a>` : "",
+        !u.phone && u.active
+          ? `<button class="btn btn-ask" onclick="askPhone(${u.user_id}, this)">Запросить</button>` : "",
+      ].filter(Boolean).join(" ") || '<span class="nocontact">нет контакта</span>';
+      return `<tr>
+        <td data-l=""><div class="row-title">${esc(u.name)}</div></td>
+        <td data-l="Связь"><span style="display:inline-flex;gap:6px;flex-wrap:wrap">${contact}</span></td>
+        <td data-l="Получил (личка)" class="num tnum">${u.got}</td>
+        <td data-l="Откликов" class="num tnum">${u.replied}</td>
+        <td data-l="Статус" class="num">${st}</td>
+      </tr>`;
+    }).join("")
+      || '<tr><td colspan="5" data-l=""><div class="empty"><b>База пуста</b>Перевозчики появятся после первого контакта с ботом.</div></td></tr>';
+  }
+
+  /* Счётчик на вкладке отдельным элементом, а не текстом: он должен читаться
+     как значок, а не как часть названия раздела. */
+  function setTabLabel(id, name, n) {
+    if (!document.getElementById(id)) return;
+    document.getElementById(id).innerHTML =
+      esc(name) + (n ? ` <span class="cnt tnum">${n}</span>` : "");
+  }
+
+  async function markDone(replyId, done, btn) {
+    btn.disabled = true;
+    try {
+      const r = await fetch("/api/mark_done", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withActor({ reply_id: replyId, done })),
+      });
+      const d = await r.json();
+      if (d.ok) load(); else { btn.disabled = false; }
+    } catch (e) { btn.disabled = false; }
+  }
+
+  async function deleteBroadcast(bid) {
+    if (!confirm(`Перенести заявку #${bid} в архив? Она исчезнет из чата и из активных; отклики и статистика сохранятся (вкладка «Архив»).`)) return;
+    const r = await fetch("/api/delete_broadcast", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bid }),
+    });
+    const d = await r.json();
+    if (!d.ok) alert("Не удалилось: " + (d.message || "ошибка"));
+    load();
+  }
+
+  /* Четыре подряд идущих prompt() заменены одной формой в нативном <dialog>:
+     видно все поля сразу, работает Esc, фокус заперт внутри окна платформой. */
+  async function editBroadcast(bid) {
+    const b = (window.lastData?.broadcasts || []).find(x => x.id === bid);
+    if (!b) return;
+    const dlg = document.getElementById("edit-dlg");
+    document.getElementById("edit-title").textContent = "Правка заявки #" + bid;
+    document.getElementById("ed-route").value = b.route || "";
+    document.getElementById("ed-dates").value = b.dates || "";
+    document.getElementById("ed-rate").value  = b.rate  || "";
+    document.getElementById("ed-cargo").value = b.cargo || "";
+    document.getElementById("ed-note").textContent = "";
+
+    if (!dlg.showModal) {   /* очень старый браузер — откат на prompt */
+      const route = prompt("Маршрут:", b.route || ""); if (route === null) return;
+      const dates = prompt("Даты (например 30.07-31.07 или «ежедневно»):", b.dates || ""); if (dates === null) return;
+      const rate  = prompt("Ставка:", b.rate || ""); if (rate === null) return;
+      const cargo = prompt("Груз:", b.cargo || ""); if (cargo === null) return;
+      return saveBroadcast(bid, route, dates, rate, cargo);
+    }
+    dlg.showModal();
+    dlg.addEventListener("close", function once() {
+      dlg.removeEventListener("close", once);
+      if (dlg.returnValue !== "ok") return;
+      saveBroadcast(bid,
+        document.getElementById("ed-route").value,
+        document.getElementById("ed-dates").value,
+        document.getElementById("ed-rate").value,
+        document.getElementById("ed-cargo").value);
+    });
+  }
+
+  async function saveBroadcast(bid, route, dates, rate, cargo) {
+    const r = await fetch("/api/edit_broadcast", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bid, route, dates, rate, cargo }),
+    });
+    const d = await r.json();
+    if (d.ok) alert("Сохранено. Учтите: " + String(d.message || "").split(". ")[1]);
+    else alert("Не сохранилось: " + (d.message || "ошибка"));
+    load();
+  }
+
+  /* ---- от чьего аккаунта MAX идут действия: статистика собирается
+         по аккаунтам бота, а не по общему логину панели ---- */
+  function setActor(v) { try { localStorage.setItem("lm_actor", v); } catch (e) {} }
+  function getActor() {
+    try { return localStorage.getItem("lm_actor") || ""; } catch (e) { return ""; }
+  }
+  function withActor(obj) {
+    const a = getActor();
+    return a ? { ...obj, actor_id: Number(a) } : obj;
+  }
+  function renderActors(list, me) {
+    const sel = document.getElementById("actor-sel");
+    if (!sel) return;
+    if (!sel || !list) return;
+    const cur = getActor() || (me && me.max_id ? String(me.max_id) : "");
+    const opts = ['<option value="">— не указан —</option>']
+      .concat(list.map(a =>
+        `<option value="${a.user_id}"${String(a.user_id) === cur ? " selected" : ""}>` +
+        `${esc(a.name)}</option>`));
+    const html = opts.join("");
+    if (sel.innerHTML !== html) sel.innerHTML = html;
+    if (cur && !getActor()) setActor(cur);
+  }
+
+  /* ---- вход формой: браузерное окно Basic-auth ненадёжно, когда
+         в нём уже сохранена учётка логиста ---- */
+  function openLogin() {
+    document.getElementById("li-msg").textContent = "";
+    document.getElementById("li-login").value = "";
+    document.getElementById("li-pass").value = "";
+    document.getElementById("login-dlg").showModal();
+  }
+
+  async function doLogin(ev) {
+    ev.preventDefault();
+    const msg = document.getElementById("li-msg");
+    msg.textContent = "Проверяю…";
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          login: document.getElementById("li-login").value.trim(),
+          password: document.getElementById("li-pass").value,
+        }),
+      });
+      const d = await r.json();
+      if (d.ok) { document.getElementById("login-dlg").close(); load(); }
+      else msg.textContent = d.message || "не вышло войти";
+    } catch (e) { msg.textContent = "нет связи с сервером"; }
+    return false;
+  }
+
+  function openPw() {
+    const me = window.lastData?.me || {};
+    document.getElementById("pw-who").textContent =
+      (me.name || "") + " · логин " + (me.login || "");
+    for (const id of ["pw-cur", "pw-new", "pw-again"])
+      document.getElementById(id).value = "";
+    const msg = document.getElementById("pw-msg");
+    msg.textContent = ""; msg.classList.remove("ok");
+    document.getElementById("pw-dlg").showModal();
+    document.getElementById("pw-cur").focus();
+  }
+
+  async function doChangePw(ev) {
+    ev.preventDefault();
+    const msg = document.getElementById("pw-msg");
+    msg.classList.remove("ok");
+    msg.textContent = "Меняю…";
+    try {
+      const r = await fetch("/api/change_password", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          current: document.getElementById("pw-cur").value,
+          new: document.getElementById("pw-new").value,
+          again: document.getElementById("pw-again").value,
+        }),
+      });
+      const d = await r.json();
+      msg.textContent = d.message || (d.ok ? "готово" : "не вышло");
+      if (d.ok) {
+        msg.classList.add("ok");
+        setTimeout(() => document.getElementById("pw-dlg").close(), 1200);
+      }
+    } catch (e) { msg.textContent = "нет связи с сервером"; }
+    return false;
+  }
+
+  async function doLogout() {
+    try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+    window.__dirTab = false;
+    switchTab("home");
+    load();          // сервер ответит 401 — покажется экран выбора человека
+  }
+
+  /* ---- тип заявки: явный выбор логиста важнее автоопределения ---- */
+  function setKind(btn) {
+    document.querySelectorAll(".kind").forEach(b => b.classList.toggle("on", b === btn));
+  }
+  function currentKind() {
+    const el = document.querySelector(".kind.on");
+    return el ? el.dataset.kind : "auto";
+  }
+
+  /* ---- поднять ставку у существующей заявки ---- */
+  async function raiseRate(bid) {
+    const b = (window.lastData?.broadcasts || []).find(x => x.id === bid);
+    const rate = prompt(
+      `Новая ставка по заявке #${bid}` + (b?.route ? ` (${b.route})` : "") +
+      `\nБыло: ${b?.rate || "не указана"}`,
+      b?.rate || "");
+    if (rate === null || !rate.trim()) return;
+    const r = await fetch("/api/raise_rate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withActor({ bid, rate: rate.trim() })),
+    });
+    const d = await r.json();
+    alert(d.ok ? "Отправлено: " + d.message : "Не вышло: " + (d.message || "ошибка"));
+    load();
+  }
+
+  /* ---- создание заявки прямо с панели ---- */
+  // список прошлых заявок для клона: свежие сверху, из уже загруженных данных
+  function fillZayavkaSources() {
+    const sel = document.getElementById("z-from");
+    if (!sel || !window.lastData) return;
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">— заполню сам —</option>' +
+      (window.lastData.broadcasts || []).slice(0, 20).map(b =>
+        `<option value="${b.id}">#${b.id} ${esc(b.route || "")} — ${
+          esc([b.dates, b.cargo].filter(Boolean).join(" · "))}</option>`).join("");
+    sel.value = keep;
+    // и подсказка городов: концы маршрутов из прайса и недавних заявок
+    const dl = document.getElementById("city-list");
+    if (dl) {
+      const seen = new Set();
+      const routes = (PRICE.rates || []).map(r => r.route)
+        .concat((window.lastData.broadcasts || []).map(b => b.route));
+      for (const rt of routes)
+        for (const c of splitRoute(rt))
+          if (c && !seen.has(c)) seen.add(c);
+      dl.innerHTML = [...seen].sort((a, b) => a.localeCompare(b, "ru"))
+        .map(c => `<option value="${esc(c)}">`).join("");
+    }
+  }
+
+  // Маршрут = «Откуда» + «Куда». Серверу и старым функциям (клон, повтор,
+  // записка) нужна одна строка — собираем и разбираем её здесь.
+  const ROUTE_SEP = /\s+[-–—]+\s*|\s*[-–—]+\s+|\s*→\s*/;
+  function splitRoute(route) {
+    return (route || "").split(ROUTE_SEP).map(x => x.trim()).filter(Boolean);
+  }
+  function getRoute(f) {
+    const a = f.from.value.trim(), b = f.to.value.trim();
+    return a && b ? `${a} - ${b}` : (a || b);
+  }
+  function setRoute(f, route) {
+    const parts = splitRoute(route);
+    f.from.value = parts[0] || "";
+    f.to.value = parts.slice(1).join(" - ");
+    for (const end of ["from", "to"]) {
+      const h = document.getElementById("geo-hint-" + end);
+      if (h) h.hidden = true;
+    }
+  }
+
+  function prefillZayavka(bid) {
+    const b = (window.lastData?.broadcasts || []).find(x => String(x.id) === String(bid));
+    if (!b) return;
+    const f = document.getElementById("zform");
+    setRoute(f, b.route);
+    f.cargo.value = b.cargo || "";
+    f.rate.value = b.rate || "";
+    f.dates.value = "";
+    f.dates.focus();
+  }
+
+  const dd = (n) => {
+    const t = new Date(Date.now() + n * 86400000);
+    return String(t.getDate()).padStart(2, "0") + "." +
+           String(t.getMonth() + 1).padStart(2, "0");
+  };
+  function setDates(v) {
+    const f = document.getElementById("zform");
+    f.dates.value = typeof v === "number" ? dd(v) : v;
+  }
+
+  // контакты почти всегда одни и те же — помним их по логину
+  const contactsKey = () => "lm_contacts_" + (window.lastData?.me?.login || "");
+  function rememberContacts() {
+    const f = document.getElementById("zform");
+    try {
+      if (f.contacts.value.trim())
+        localStorage.setItem(contactsKey(), f.contacts.value.trim());
+    } catch (e) {}
+  }
+  function recallContacts() {
+    const f = document.getElementById("zform");
+    if (!f || f.contacts.value) return;
+    try {
+      const v = localStorage.getItem(contactsKey());
+      if (v) f.contacts.value = v;
+    } catch (e) {}
+  }
+
+  async function createZayavka(ev) {
+    ev.preventDefault();
+    const form = document.getElementById("zform");
+    const btn = document.getElementById("zsend");
+    const msg = document.getElementById("zmsg");
+    form.route.value = getRoute(form);
+    const data = Object.fromEntries(new FormData(form).entries());
+    delete data.from; delete data.to;
+    if (!form.from.value.trim() || !form.to.value.trim()) {
+      msg.className = "fmsg err"; msg.textContent = "Укажите откуда и куда"; return false;
+    }
+    btn.disabled = true; msg.className = "fmsg"; msg.textContent = "Отправляю…";
+    try {
+      const r = await fetch("/api/create_zayavka", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withActor({ ...data, kind: currentKind() })),
+      });
+      const d = await r.json();
+      msg.className = "fmsg " + (d.ok ? "ok" : "err");
+      if (d.ok) {
+        rememberContacts();
+        const idm = String(d.message || "").match(/#(\d+)/);
+        msg.innerHTML = "✓ " + esc(d.message) + (idm
+          ? ` <button type="button" class="btn" style="margin-left:8px"
+               onclick="memoFromBroadcast(${idm[1]})">Записка по этой заявке</button>` : "");
+        form.reset(); recallContacts(); load();
+      } else {
+        msg.textContent = "✗ " + (d.message || "ошибка");
+      }
+    } catch (e) {
+      msg.className = "fmsg err"; msg.textContent = "✗ нет связи с сервером";
+    }
+    btn.disabled = false;
+    return false;
+  }
+
+  /* ---- аналитика (только руководитель) ---- */
+  // --- служебные записки ---
+  let MEMOS = {memos: [], role: "logist", my_queue: []};
+  let memoFilter = "queue", memoPicked = false;
+
+  const MEMO_ST_CLASS = {approved: "approved", rejected: "rejected",
+                         on_head: "wait", on_director: "wait"};
+
+  async function loadMemos() {
+    if (gateOpen()) return;
+    try {
+      const r = await fetch("/api/memos");
+      if (!r.ok) return;
+      MEMOS = await r.json();
+    } catch (e) { return; }
+    MEMOS.canApprove = (MEMOS.roles || []).some(r => r === "head" || r === "director");
+    // согласующий приходит за своей очередью, документооборот — за
+    // согласованными, которые пора заводить в 1С
+    if (!memoPicked) {
+      if (MEMOS.canApprove) { memoFilter = "mine"; memoPicked = true; }
+      else if ((MEMOS.roles || []).includes("clerk")) {
+        memoFilter = "approved"; memoPicked = true;
+      }
+    }
+    const cnt = document.getElementById("memo-cnt");
+    if (cnt) {
+      cnt.textContent = MEMOS.my_queue.length;
+      cnt.hidden = !MEMOS.my_queue.length;
+    }
+    renderTiles();   // плитка «Записки» показывает живой счётчик
+    renderMemoTabs();
+    renderMemos();
+    renderKpis();   // «ждут моего решения» и «мои записки» живут в сводке
+    applyHash();    // ссылка #memo=N из уведомления ждала этот список
+  }
+
+  const memoIn = (m, f) => f === "all" ? true
+    : f === "mine" ? MEMOS.my_queue.includes(m.id)
+    : f === "queue" ? (m.status === "on_head" || m.status === "on_director")
+    : m.status === f;
+
+  function renderMemoTabs() {
+    const n = (f) => MEMOS.memos.filter(m => memoIn(m, f)).length;
+    // «Ждут меня» — первым и по умолчанию для согласующих: в общей очереди
+    // Пуганов видел и записки, лежащие у Елены, и искал среди них свои
+    const tabs = [];
+    if (MEMOS.canApprove) tabs.push(["mine", "Ждут меня"]);
+    tabs.push(["queue", "На согласовании"], ["approved", "Согласованы"],
+              ["rejected", "Отклонены"], ["all", "Все"]);
+    document.getElementById("memo-tabs").innerHTML = tabs.map(([k, l]) =>
+      `<button class="chip" aria-pressed="${k === memoFilter}"
+        onclick="memoFilter='${k}';memoPicked=true;renderMemoTabs();renderMemos()">${l} ${n(k)}</button>`
+      ).join("");
+  }
+
+  function memoRows() {
+    return MEMOS.memos.filter(m => memoIn(m, memoFilter));
+  }
+
+  // раскрытые карточки переживают фоновое перерисовывание списка
+  const memoOpen = new Set();
+
+  function toggleMemo(id) {
+    memoOpen.has(id) ? memoOpen.delete(id) : memoOpen.add(id);
+    renderMemos();
+  }
+
+  const DET_FIELDS = [
+    ["work_date", "Дата работы"], ["task", "Задача"], ["customer", "Заказчик"],
+    ["city", "Город"], ["work_kind", "Вид работы"], ["cargo", "Характер груза"],
+    ["transport", "Вид транспорта"], ["vehicles", "Кол-во машин"],
+    ["vehicle_model", "Модель ТС"], ["crane_min_h", "Кран мин час"],
+    ["supply_h", "Подача час"], ["riggers", "Стропальщики"],
+    ["total_cost", "Итого стоимость"],
+  ];
+
+  function memoDetails(m) {
+    const rows = DET_FIELDS.filter(([k]) => m[k])
+      .map(([k, l]) => `<div class="det-row"><span>${l}</span><b>${esc(m[k])}</b></div>`);
+    if (m.rate != null) {
+      const vat = m.rate_vat_incl
+        ? "с НДС" + (m.vat_rate ? " " + esc(m.vat_rate) : "") : "без НДС";
+      rows.push(`<div class="det-row"><span>Ставка</span><b>${fmtMoney(m.rate)} ₽ ${vat} за ${esc(m.rate_unit || "—")}${
+        m.rate_vat_incl && m.rate_net != null
+          ? " (без НДС " + fmtMoney(m.rate_net) + " ₽)" : ""}</b></div>`);
+    }
+    rows.push(`<div class="det-row"><span>План / вне плана</span><b>${
+      m.planned ? "план" : "вне плана"}</b></div>`);
+    if (m.comment)
+      rows.push(`<div class="det-row det-wide"><span>Комментарии</span><b>${esc(m.comment)}</b></div>`);
+    if (m.price_note)
+      rows.push(`<div class="det-row det-wide"><span>Сверка с прайсом</span><b>${esc(m.price_note)}</b></div>`);
+
+    const files = (m.files || []).map(f => `<div class="file-row">
+        <a href="/api/memo_file?id=${f.id}">${esc(f.filename)}</a>
+        <span class="file-meta">${fmtSize(f.size)} · ${esc(f.uploaded_by || "")} · ${f.when}</span>
+        <button class="btn file-del" onclick="deleteMemoFile(${f.id}, ${m.id})"
+          title="Удалить файл">Удалить</button>
+      </div>`).join("");
+
+    return `<div class="memo-det">
+      <div class="det-grid">${rows.join("")}</div>
+      <div class="det-files">
+        <div class="det-files-h">Лист согласования (1С / Битрикс)</div>
+        ${files || '<div class="file-none">Файл не приложен</div>'}
+        <button class="btn" onclick="attachMemoFile(${m.id}, this)">Прикрепить файл</button>
+      </div>
+    </div>`;
+  }
+
+  const fmtSize = (b) => b >= 1048576
+    ? (b / 1048576).toFixed(1).replace(".", ",") + " МБ"
+    : Math.max(1, Math.round(b / 1024)) + " КБ";
+
+  function renderMemos() {
+    const rows = memoRows();
+    document.getElementById("memo-sub").textContent =
+      MEMOS.my_queue.length ? `${MEMOS.my_queue.length} ждут вашего решения` : "";
+    document.getElementById("memo-list").innerHTML = rows.map(m => {
+      const mine = MEMOS.my_queue.includes(m.id);
+      const open = memoOpen.has(m.id);
+      const dev = m.diff == null ? "" :
+        `<span class="memo-st memo-dev ${m.over ? "rejected" : "approved"}">${
+          m.over ? "+" : ""}${fmtMoney(m.diff)} ₽ (${m.over ? "+" : ""}${fmtPct(m.diff_pct)}%) к прайсу</span>`;
+      // видно и в свёрнутом виде: приложен ли лист согласования
+      const nf = (m.files || []).length;
+      const fileChip = nf
+        ? `<span class="memo-st file-chip">${nf} ${plural(nf, "файл", "файла", "файлов")}</span>` : "";
+      const signs = (m.signatures || []).filter(s => s.who).map(s =>
+        `<b>${esc(s.title)}</b>: ${esc(s.who)} · ${s.at}${
+          s.decision === "rejected" ? " — отклонил(а)" : ""}${
+          s.comment ? ` «${esc(s.comment)}»` : ""}`).join("<br>");
+      // главное — сразу в свёрнутой строке: заказчик и дата работы
+      const meta = [
+        m.author, m.customer ? "заказчик: " + m.customer : "",
+        m.work_date ? "работы: " + m.work_date : "", m.cargo,
+        m.rate != null ? fmtMoney(m.rate) + " ₽ за " + (m.rate_unit || "") : "",
+        "создана " + m.created,
+      ].filter(Boolean).map(esc).join(" · ");
+      return `<div class="memo" id="memo-${m.id}">
+        <div class="memo-top">
+          <span class="memo-num">${esc(m.number)}</span>
+          <span class="memo-route">${esc(m.route || "—")}</span>
+          <span class="memo-st ${MEMO_ST_CLASS[m.status] || ""}">${esc(m.status_label)}</span>
+          ${dev}${fileChip}
+        </div>
+        <div class="memo-meta">${meta}</div>
+        ${signs ? `<div class="memo-sign">${signs}</div>` : ""}
+        <div class="memo-acts">
+          <button class="btn" onclick="toggleMemo(${m.id})">${
+            open ? "Свернуть" : "Подробнее"}</button>
+          <a class="btn" href="/api/memo_pdf?id=${m.id}">Скачать PDF</a>
+          ${m.status === "rejected" && (window.lastData?.me?.sections || []).includes("new")
+            ? `<button class="btn btn-done" onclick="editMemo(${m.id})">Исправить и подать заново</button>` : ""}
+          ${mine ? `
+            <input type="text" id="mc-${m.id}" placeholder="Комментарий (обязателен при отказе)">
+            <button class="btn btn-done" onclick="decideMemo(${m.id}, true, this)">✓ Согласовать</button>
+            <button class="btn btn-nosub" onclick="decideMemo(${m.id}, false, this)">✗ Отклонить</button>` : ""}
+        </div>
+        ${open ? memoDetails(m) : ""}
+      </div>`;
+    }).join("") || `<div class="empty">${memoFilter === "mine"
+        ? "<b>Всё согласовано</b>Записок, ждущих вашего решения, нет."
+        : "Записок в этом разделе нет"}</div>`;
+  }
+
+  // --- лист согласования: загрузка и удаление ---
+  function attachMemoFile(id, btn) {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.onchange = async () => {
+      const file = inp.files && inp.files[0];
+      if (!file) return;
+      if (file.size > 15 * 1048576) { alert("Файл больше 15 МБ"); return; }
+      btn.disabled = true; btn.textContent = "Загружаю…";
+      try {
+        const b64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result).split(",")[1] || "");
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const r = await fetch("/api/memo_attach", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({id, filename: file.name, mime: file.type, data: b64}),
+        });
+        const j = await r.json();
+        if (!j.ok) alert("Не вышло: " + j.message);
+        memoOpen.add(id);
+        await loadMemos();
+      } catch (e) { alert("Не вышло загрузить файл"); }
+      finally { btn.disabled = false; btn.textContent = "Прикрепить файл"; }
+    };
+    inp.click();
+  }
+
+  async function deleteMemoFile(fid, mid) {
+    if (!confirm("Удалить приложенный файл?")) return;
+    const r = await fetch("/api/memo_file_delete", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({file_id: fid}),
+    });
+    const j = await r.json();
+    if (!j.ok) alert("Не вышло: " + j.message);
+    memoOpen.add(mid);
+    await loadMemos();
+  }
+
+  // --- правка отклонённой записки: форма заполняется её данными,
+  //     отправка подаёт ту же записку заново (номер сохраняется) ---
+  let editingMemo = null;
+
+  function editMemo(id) {
+    const m = (MEMOS.memos || []).find(x => x.id === id);
+    if (!m) return;
+    setMemoFormOpen(true);
+    const f = document.getElementById("mform");
+    const F = ["work_date", "task", "customer", "city", "route", "work_kind",
+               "cargo", "transport", "vehicles", "vehicle_model", "crane_min_h",
+               "supply_h", "riggers", "total_cost", "comment"];
+    for (const k of F) if (f.elements[k]) f.elements[k].value = m[k] || "";
+    f.rate.value = m.rate ?? "";
+    f.rate_unit.value = m.rate_unit || "тонна";
+    f.rate_vat_incl.value = m.rate_vat_incl ? "1" : "0";
+    f.vat_rate.value = m.vat_rate || "";
+    f.planned.value = m.planned ? "план" : "";
+    f.author.value = m.author || "";
+    editingMemo = m.id;
+    document.querySelector("#memo-form-panel h2").textContent =
+      "Правка записки " + m.number;
+    document.getElementById("msend").textContent = "Подать заново";
+    const rej = (m.signatures || []).find(x => x.decision === "rejected");
+    const msg = document.getElementById("mmsg");
+    msg.textContent = rej && rej.comment
+      ? "Причина отказа: «" + rej.comment + "»" : "";
+    checkMemoPrice();
+    document.getElementById("memo-form-panel").scrollIntoView({block: "start"});
+    f.elements.route.focus();
+  }
+
+  function clearMemoEdit() {
+    editingMemo = null;
+    const h2 = document.querySelector("#memo-form-panel h2");
+    if (h2) h2.textContent = "Новая служебная записка";
+    const btn = document.getElementById("msend");
+    if (btn) btn.textContent = "Подать на согласование";
+  }
+
+  // --- форма: свёрнута у согласующих, развёрнута у логистов ---
+  function setMemoFormOpen(open) {
+    const body = document.getElementById("memo-form-body");
+    const btn = document.getElementById("memo-form-toggle");
+    if (!body) return;
+    if (open === undefined) open = body.hidden;   // клик по кнопке — переключить
+    body.hidden = !open;
+    if (btn) btn.textContent = open ? "Свернуть" : "Развернуть";
+  }
+
+  const fmtMoney = (v) => Number(v).toLocaleString("ru-RU",
+    {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  // «5 откликов», но «2 отклика» и «1 отклик»
+  const plural = (n, one, few, many) => {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  };
+  // процент — тоже по-русски, с запятой: рядом со «3 442,62 ₽» точка режет глаз
+  const fmtPct = (v) => Number(v).toLocaleString("ru-RU", {maximumFractionDigits: 1});
+
+  async function decideMemo(id, approve, btn) {
+    const inp = document.getElementById("mc-" + id);
+    const comment = inp ? inp.value.trim() : "";
+    if (!approve && !comment) {
+      alert("При отказе нужен комментарий — логисту надо понять, что править.");
+      if (inp) inp.focus();
+      return;
+    }
+    btn.disabled = true;
+    const r = await fetch("/api/memo_decide", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id, approve, comment}),
+    });
+    const j = await r.json();
+    if (!j.ok) { alert("Не вышло: " + j.message); btn.disabled = false; return; }
+    await loadMemos();
+  }
+
+  // Живая сверка со ставкой прайса: логист видит отклонение до отправки,
+  // а не узнаёт о нём от Елены через полдня.
+  let priceTimer = null;
+  function checkMemoPrice() {
+    clearTimeout(priceTimer);
+    priceTimer = setTimeout(async () => {
+      const f = document.getElementById("mform");
+      const box = document.getElementById("m-price");
+      const route = f.route.value.trim(), rate = f.rate.value.trim();
+      if (!route || !rate) { box.hidden = true; return; }
+      try {
+        const r = await fetch("/api/memo_preview", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            route, rate, rate_unit: f.rate_unit.value,
+            rate_vat_incl: f.rate_vat_incl.value, vat_rate: f.vat_rate.value,
+            vehicle_model: f.vehicle_model.value,
+          }),
+        });
+        const d = await r.json();
+        box.hidden = false;
+        if (d.price_base == null) {
+          box.className = "m-price";
+          box.innerHTML = "Сверка с прайсом: " + esc(d.price_note || "маршрута нет в прайсе")
+            + (d.rate_net != null ? `<small>Ставка без НДС: ${fmtMoney(d.rate_net)} ₽</small>` : "");
+          return;
+        }
+        const over = d.diff > 0;
+        box.className = "m-price " + (over ? "over" : "ok");
+        box.innerHTML = `Прайс: ${fmtMoney(d.price_base)} ₽/${esc(d.price_unit)} без НДС · `
+          + `ваша ставка ${fmtMoney(d.rate_net)} ₽ · `
+          + `<u>${over ? "превышение" : "в рамках"}: ${over ? "+" : ""}${fmtMoney(d.diff)} ₽ `
+          + `(${over ? "+" : ""}${fmtPct(d.diff_pct)}%)</u>`
+          + `<small>${esc(d.price_note || "")}</small>`;
+      } catch (e) { box.hidden = true; }
+    }, 350);
+  }
+
+  function resetMemoForm() {
+    clearMemoEdit();
+    document.getElementById("mform").reset();
+    document.getElementById("m-from").value = "";
+    document.getElementById("m-hints").hidden = true;
+    document.getElementById("m-bid").value = "";
+    document.getElementById("m-price").hidden = true;
+    document.getElementById("mmsg").textContent = "";
+  }
+
+  async function createMemo(ev) {
+    ev.preventDefault();
+    const f = document.getElementById("mform");
+    const body = {};
+    for (const el of f.elements) if (el.name) body[el.name] = el.value;
+    const btn = document.getElementById("msend");
+    const msg = document.getElementById("mmsg");
+    btn.disabled = true; msg.textContent = "Отправляю…";
+    try {
+      let j;
+      if (editingMemo) {
+        // правка отклонённой: обновить поля, затем подать заново тем же номером
+        const r1 = await fetch("/api/memo_update", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({...body, id: editingMemo}),
+        });
+        j = await r1.json();
+        if (j.ok) {
+          const r2 = await fetch("/api/memo_submit", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id: editingMemo}),
+          });
+          j = await r2.json();
+        }
+      } else {
+        const r = await fetch("/api/memo_create", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body),
+        });
+        j = await r.json();
+      }
+      if (j.ok) {
+        const author = f.author.value;   // ФИО исполнителя не сбрасываем
+        resetMemoForm();                 // ...и он чистит mmsg, поэтому
+        f.author.value = author;         //    сообщение ставим ПОСЛЕ сброса
+        memoFilter = "queue";
+        await loadMemos();
+      }
+      msg.textContent = (j.ok ? "✓ " : "✗ ") + j.message;
+    } catch (e) {
+      msg.textContent = "✗ нет связи";
+    } finally { btn.disabled = false; }
+    return false;
+  }
+
+  // Список заявок, из которых можно собрать записку. Актуальные сверху —
+  // записка почти всегда пишется по свежему рейсу.
+  async function loadMemoSources() {
+    if (gateOpen()) return;
+    const sel = document.getElementById("m-from");
+    if (!sel) return;
+    let list = [];
+    try {
+      const r = await fetch("/api/memo_sources");
+      if (!r.ok) return;
+      list = (await r.json()).broadcasts || [];
+    } catch (e) { return; }
+    const keep = sel.value;
+    const opt = (b) => {
+      const bits = [b.dates, b.cargo, b.responders ? b.responders + " откл." : ""]
+        .filter(Boolean).join(" · ");
+      return `<option value="${b.id}">#${b.id} ${esc(b.route)}${
+        bits ? " — " + esc(bits) : ""}</option>`;
+    };
+    const act = list.filter(b => b.active), old = list.filter(b => !b.active);
+    sel.innerHTML = '<option value="">— заполню сам —</option>'
+      + (act.length ? `<optgroup label="Актуальные">${act.map(opt).join("")}</optgroup>` : "")
+      + (old.length ? `<optgroup label="Завершённые">${old.map(opt).join("")}</optgroup>` : "");
+    sel.value = keep;
+  }
+
+  // Подстановка: сервер разбирает заявку и её отклики и отдаёт готовые поля
+  async function prefillFromBroadcast(bid) {
+    const f = document.getElementById("mform");
+    const hints = document.getElementById("m-hints");
+    document.getElementById("m-bid").value = bid || "";
+    if (!bid) { hints.hidden = true; return; }
+    let d;
+    try {
+      const r = await fetch("/api/memo_prefill?bid=" + encodeURIComponent(bid));
+      if (!r.ok) return;
+      d = await r.json();
+    } catch (e) { return; }
+    // подставляем только то, что логист ещё не заполнил сам
+    for (const [k, v] of Object.entries(d.fields || {})) {
+      const el = f.elements[k];
+      if (!el || !v) continue;
+      if (el.tagName === "SELECT" || !el.value.trim()) el.value = v;
+    }
+    hints.hidden = !(d.hints || []).length;
+    hints.innerHTML = (d.hints || []).map(h => `<div>${esc(h)}</div>`).join("");
+    checkMemoPrice();
+    if (!f.author.value) f.author.focus();
+  }
+
+  // «Повторить»: та же заявка новым рейсом — меняются обычно только даты
+  function repeatBroadcast(bid) {
+    const b = (window.lastData?.broadcasts || []).find(x => x.id === bid);
+    if (!b) return;
+    switchTab("new");
+    const f = document.getElementById("zform");
+    setRoute(f, b.route);
+    f.cargo.value = b.cargo || "";
+    f.rate.value = b.rate || "";
+    f.dates.value = "";
+    f.dates.focus();
+  }
+
+  function focusZayavka() {
+    const f = document.getElementById("zform");
+    if (f) setTimeout(() => f.from.focus(), 50);
+  }
+
+  // «Записка» с карточки заявки — та же подстановка, только с другой вкладки
+  async function memoFromBroadcast(bid) {
+    switchTab("memo");
+    setMemoFormOpen(true);
+    await loadMemoSources();
+    const sel = document.getElementById("m-from");
+    sel.value = String(bid);
+    await prefillFromBroadcast(bid);
+    loadMemos();
+  }
+
+  // --- прайс транспортных ставок ---
+  let PRICE = {rates: [], status: {}, docs: [], can_import: false};
+
+  async function loadPrice() {
+    if (gateOpen()) return;
+    try {
+      const r = await fetch("/api/price");
+      if (!r.ok) return;
+      PRICE = await r.json();
+    } catch (e) { return; }
+
+    const st = PRICE.status || {};
+    const sub = document.getElementById("price-sub");
+    sub.textContent = st.loaded
+      ? `${PRICE.rates.length} действующих ставок · ${st.docs} документ(а) 1С`
+      : "прайс ещё не загружен";
+
+    const warn = document.getElementById("price-warn");
+    if (st.note) { warn.textContent = st.note; warn.hidden = false; }
+    else { warn.hidden = true; }
+
+    document.getElementById("price-src").textContent = st.loaded
+      ? `${esc(st.kind || "")} № ${esc(st.number || "")} от ${st.date || "?"} · загружен ${st.loaded_at}`
+      : "";
+
+    document.getElementById("price-upload-lbl").hidden = !PRICE.can_import;
+    // подсказка моделей ТС в форме записки: ключ прайса включает модель,
+    // и от неё зависит, с какой строкой сравнится ставка
+    const veh = [...new Set(PRICE.rates.map(r => r.vehicle).filter(Boolean))].sort();
+    const dl = document.getElementById("veh-list");
+    if (dl) dl.innerHTML = veh.map(v => `<option value="${esc(v)}">`).join("");
+    renderPriceRows();
+  }
+
+  function renderPriceRows() {
+    const q = (document.getElementById("price-q").value || "").trim().toLowerCase();
+    const rows = PRICE.rates.filter(r => !q ||
+      [r.route, r.vehicle, r.cond, r.unit].some(v => String(v || "").toLowerCase().includes(q)));
+    const money = (v) => Number(v).toLocaleString("ru-RU",
+      {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById("price-body").innerHTML = rows.map(r => `<tr>
+        <td data-l="Маршрут" class="row-title">${esc(r.route)}</td>
+        <td data-l="ТС">${esc(r.vehicle || "—")}</td>
+        <td data-l="Условие">${esc(r.cond || "—")}</td>
+        <td data-l="Цена" class="num tnum"><b>${money(r.price)}</b></td>
+        <td data-l="Ед.">${esc(r.unit || "")}</td>
+        <td data-l="НДС"><span class="price-vat${r.vat_incl ? " incl" : ""}">${
+          r.vat_incl ? "вкл. " + esc(r.vat_rate || "") : "без НДС"}</span></td>
+        <td data-l="Без НДС" class="num tnum">${money(r.price_net)}</td>
+        <td data-l="Документ"><span class="price-doc">№ ${esc(r.number || "")}</span></td>
+      </tr>`).join("") ||
+      `<tr><td colspan="8"><div class="empty">${
+        PRICE.rates.length ? "Ничего не найдено" : "Прайс не загружен"}</div></td></tr>`;
+  }
+
+  async function uploadPrice(input) {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    const lbl = document.getElementById("price-upload-lbl");
+    const was = lbl.firstChild.nodeValue;
+    lbl.firstChild.nodeValue = " Загружаю… ";
+    try {
+      const text = await file.text();
+      const r = await fetch("/api/price_import", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({csv: text}),
+      });
+      const j = await r.json();
+      alert(j.ok ? "Прайс загружен: " + j.message : "Не вышло: " + j.message);
+      if (j.ok) await loadPrice();
+    } catch (e) {
+      alert("Не вышло: " + e);
+    } finally {
+      lbl.firstChild.nodeValue = was;
+    }
+  }
+
+  // Грузим только те сводки, которые человеку доступны: иначе Пуганов
+  // ловил бы 403 на аналитике по заявкам при каждом открытии вкладки.
+  function loadStatsTab() {
+    const see = new Set((window.lastData?.me?.sections) || []);
+    if (see.has("stats")) loadStats();
+    if (see.has("memo_stats")) loadMemoStats();
+  }
+
+  // --- аналитика по запискам (исп. директор и руководители) ---
+  let smDays = 90;
+
+  const pctCell = (v) => v == null ? '<span class="muted">—</span>'
+    : `<b style="color:${v > 0 ? "var(--crit)" : "var(--good)"}">${
+        v > 0 ? "+" : ""}${fmtPct(v)}%</b>`;
+
+  // мини-полоса: длина от величины отклонения, красная вверх / зелёная вниз
+  const bar = (v, scale) => {
+    if (v == null) return "";
+    const w = Math.min(100, Math.abs(v) / (scale || 20) * 100);
+    return `<span class="sm-bar"><i style="width:${w}%;background:${
+      v > 0 ? "var(--crit)" : "var(--good)"}"></i></span>`;
+  };
+
+  async function loadMemoStats() {
+    const sel = document.getElementById("sm-route");
+    const route = sel ? sel.value : "";
+    let s;
+    try {
+      const r = await fetch(`/api/memo_stats?days=${smDays}&route=${encodeURIComponent(route)}`);
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const t = s.totals || {};
+    document.getElementById("sm-kpis").innerHTML = [
+      {l: `Записок за ${smDays} дн.`, v: t.memos || 0, c: "var(--navy)"},
+      {l: "Согласовано", v: t.approved || 0, c: "var(--good)"},
+      {l: "Ждут решения", v: t.pending || 0, c: "var(--warn)"},
+      {l: "Отклонено", v: t.rejected || 0, c: "var(--crit)"},
+      {l: "Выше прайса", v: t.over_count || 0, c: "var(--crit)"},
+      {l: "Среднее отклонение",
+       v: t.avg_pct == null ? "—" : (t.avg_pct > 0 ? "+" : "") + fmtPct(t.avg_pct) + "%",
+       c: (t.avg_pct || 0) > 0 ? "var(--crit)" : "var(--good)"},
+    ].map(x => `<div class="kpi" style="--c:${x.c}">
+        <div class="kpi-l">${x.l}</div>
+        <div class="kpi-v tnum">${x.v}</div></div>`).join("");
+
+    // период
+    document.getElementById("sm-days").innerHTML = [30, 90, 180, 365].map(d =>
+      `<button class="chip" aria-pressed="${d === smDays}"
+        onclick="smDays=${d};loadMemoStats()">${d} дн.</button>`).join("");
+
+    // список направлений — сохраняем выбор
+    if (sel && sel.dataset.filled !== "1") {
+      sel.innerHTML = '<option value="">все направления</option>'
+        + (s.routes || []).map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+      sel.dataset.filled = "1";
+      sel.value = route;
+    }
+
+    const note = document.getElementById("sm-note");
+    const noPrice = t.no_price || 0;
+    if (noPrice) {
+      note.hidden = false;
+      // «у 1 записки», но «у 2 записок» — родительный падеж по-русски
+      const w = (noPrice % 10 === 1 && noPrice % 100 !== 11) ? "записки" : "записок";
+      note.textContent = `У ${noPrice} ${w} нет пары в прайсе — `
+        + "в среднее отклонение они не входят. Обычно это маршрут, которого "
+        + "в прайсе ещё нет, или другая единица измерения.";
+    } else { note.hidden = true; }
+
+    const maxAbs = Math.max(20, ...(s.by_route || [])
+      .map(r => Math.abs(r.avg_pct || 0)));
+    document.getElementById("sm-routes").innerHTML = (s.by_route || []).map(r =>
+      `<tr>
+        <td data-l="Направление" class="row-title">${esc(r.route)}</td>
+        <td data-l="По прайсу" class="num tnum">${r.price_now == null
+          ? '<span class="muted">нет в прайсе</span>'
+          : `<b>${fmtMoney(r.price_now)}</b> <span class="unit">₽/${esc(r.price_unit)}</span>`}</td>
+        <td data-l="Записок" class="num tnum">${r.n}</td>
+        <td data-l="Выше прайса" class="num tnum">${r.over_n || 0}</td>
+        <td data-l="Среднее" class="num tnum">${pctCell(r.avg_pct)}</td>
+        <td data-l="Худший" class="num tnum">${pctCell(r.max_pct)}</td>
+        <td data-l="">${bar(r.avg_pct, maxAbs)}</td>
+      </tr>`).join("")
+      || '<tr><td colspan="7"><div class="empty">Записок за период нет</div></td></tr>';
+
+    const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль",
+                    "август","сентябрь","октябрь","ноябрь","декабрь"];
+    const monthName = (ym) => {
+      const [y, m] = String(ym).split("-");
+      return (MONTHS[+m - 1] || ym) + " " + y;
+    };
+    const maxM = Math.max(20, ...(s.by_month || []).map(m => Math.abs(m.avg_pct || 0)));
+    document.getElementById("sm-months").innerHTML = (s.by_month || []).map(m =>
+      `<tr>
+        <td data-l="Месяц" class="row-title">${esc(monthName(m.m))}</td>
+        <td data-l="Записок" class="num tnum">${m.n}</td>
+        <td data-l="Выше прайса" class="num tnum">${m.over_n || 0}</td>
+        <td data-l="Среднее" class="num tnum">${pctCell(m.avg_pct)}</td>
+        <td data-l="">${bar(m.avg_pct, maxM)}</td>
+      </tr>`).join("")
+      || '<tr><td colspan="5"><div class="empty">Нет данных</div></td></tr>';
+
+    const STEP = {head: "Отдел логистики (Васильева Е.В.)",
+                  director: "Исп. директор (Пуганов В.И.)"};
+    // десятичная запятая, как в остальных числах панели
+    const one = (v) => v.toFixed(1).replace(".", ",");
+    const dur = (sec) => sec == null ? "—"
+      : sec < 3600 ? Math.round(sec / 60) + " мин"
+      : sec < 86400 ? one(sec / 3600) + " ч"
+      : one(sec / 86400) + " дн";
+    document.getElementById("sm-speed").innerHTML =
+      Object.entries(s.speed || {}).filter(([k]) => STEP[k]).map(([k, v]) =>
+      `<tr><td data-l="Шаг" class="row-title">${STEP[k]}</td>
+        <td data-l="Решений" class="num tnum">${v.n}</td>
+        <td data-l="Ожидание" class="num tnum"><b>${dur(v.avg_sec)}</b></td>
+      </tr>`).join("")
+      || '<tr><td colspan="3"><div class="empty">Решений ещё не было</div></td></tr>';
+  }
+
+  async function loadStats() {
+    try {
+      const r = await fetch("/api/stats");
+      if (!r.ok) return;
+      const s = await r.json();
+      const t = s.totals;
+      document.getElementById("st-kpis").innerHTML = [
+        {l: "Заявок за 30 дней", v: t.zayavok, c: "var(--steel)"},
+        {l: "Откликов", v: t.otklikov, c: "var(--navy)"},
+        {l: "Обработано", v: t.obrabotano, c: "var(--good)"},
+        {l: "Заявок без откликов", v: t.zayavok_bez_otklikov, c: "var(--crit)"},
+        {l: "Телефонов в базе", v: t.telefonov, c: "var(--good)"},
+      ].map(x => `<div class="kpi" style="--c:${x.c}">
+          <div class="kpi-l">${x.l}</div>
+          <div class="kpi-v tnum">${x.v ?? 0}</div></div>`).join("");
+
+      document.getElementById("st-logists").innerHTML = s.by_logist.map(r0 => {
+        const per = r0.zayavok
+          ? (r0.otklikov / r0.zayavok).toFixed(1).replace(".", ",") : "0";
+        return `<tr>
+          <td data-l="Логист" class="row-title">${esc(r0.who)}</td>
+          <td data-l="Заявок" class="num tnum">${r0.zayavok}</td>
+          <td data-l="Откликов" class="num tnum">${r0.otklikov ?? 0}</td>
+          <td data-l="На заявку" class="num tnum"><b>${per}</b></td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="4"><div class="empty">Пока нет данных</div></td></tr>';
+
+      document.getElementById("st-handled").innerHTML = s.handled.map(r0 => {
+        const m = r0.avg_sec ? Math.round(r0.avg_sec / 60) : null;
+        const human = m == null ? "—" : m < 60 ? m + " мин"
+          : (m / 60).toFixed(1).replace(".", ",") + " ч";
+        return `<tr>
+          <td data-l="Логист" class="row-title">${esc(r0.who)}</td>
+          <td data-l="Обработал" class="num tnum">${r0.obrabotano}</td>
+          <td data-l="Реакция" class="num tnum">${human}</td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="3"><div class="empty">Пока никто не отмечал «обработано»</div></td></tr>';
+
+      const zByDay = Object.fromEntries(s.by_day.map(x => [x.d, x.zayavok]));
+      const days = [...new Set([...s.by_day.map(x => x.d), ...s.replies_day.map(x => x.d)])].sort().reverse();
+      const maxR = Math.max(1, ...s.replies_day.map(x => x.otklikov));
+      const rByDay = Object.fromEntries(s.replies_day.map(x => [x.d, x]));
+      document.getElementById("st-days").innerHTML = days.map(d => {
+        const r0 = rByDay[d] || {otklikov: 0, obrabotano: 0};
+        const w = Math.round((r0.otklikov / maxR) * 100);
+        const wd = r0.otklikov ? Math.round((r0.obrabotano / r0.otklikov) * w) : 0;
+        const [y, m, dd] = d.split("-");
+        return `<tr>
+          <td data-l="Дата" class="row-title">${dd}.${m}</td>
+          <td data-l="Заявок" class="num tnum">${zByDay[d] || 0}</td>
+          <td data-l="Откликов" class="num tnum">${r0.otklikov}</td>
+          <td data-l="Обработано" class="num tnum">${r0.obrabotano || 0}</td>
+          <td data-l="Отклики"><div class="bar-track">
+            <span class="bar done" style="width:${wd}%"></span>
+            <span class="bar" style="width:${w - wd}%"></span></div></td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="5"><div class="empty">Пока нет данных</div></td></tr>';
+    } catch (e) { /* тихо: аналитика не критична */ }
+  }
+
+  const PAGE_TITLES = {home: "Заявки", users: "Перевозчики",
+    new: "Новая заявка", memo: "Записки", price: "Прайс", stats: "Аналитика"};
+
+  function rootTab() {
+    const see = new Set(window.lastData?.me?.sections || []);
+    return see.has("home") ? "home" : "memo";
+  }
+
+  function goRoot() {
+    const r = rootTab();
+    switchTab(r);
+    if (r === "memo") loadMemos();
+  }
+
+  // Плитки-навигация на рабочем столе: все доступные разделы, кроме
+  // текущего корня. Счётчики живые — плитка «Записки» сама говорит,
+  // сколько ждёт решения.
+  const TILE_OPEN = {
+    new: "switchTab('new');focusZayavka()",
+    memo: "switchTab('memo');loadMemos();loadMemoSources()",
+    users: "switchTab('users')",
+    price: "switchTab('price');loadPrice()",
+    stats: "switchTab('stats');loadStatsTab()",
+  };
+
+  function renderTiles() {
+    const box = document.getElementById("quick-actions");
+    const d = window.lastData;
+    if (!box || !d) return;
+    const see = new Set(d.me?.sections || []);
+    const root = rootTab();
+    const inWork = (MEMOS.memos || []).filter(m =>
+      m.status === "on_head" || m.status === "on_director").length;
+    const mine = (MEMOS.my_queue || []).length;
+    const defs = [
+      ["new",   "Новая заявка", "в чат перевозчиков и личку подписчикам"],
+      ["memo",  "Записки", mine ? `ждут вашего решения: ${mine}`
+        : inWork ? `на согласовании: ${inWork}` : "создать и статусы"],
+      ["users", "Перевозчики", `${(d.users || []).length} в базе`],
+      ["price", "Прайс", (PRICE.rates || []).length
+        ? `${PRICE.rates.length} действующих ставок` : "ставки из 1С"],
+      ["stats", "Аналитика", "заявки, записки, отклонение от прайса"],
+    ];
+    box.innerHTML = defs
+      .filter(([k]) => k !== root && (see.has(k) ||
+        (k === "stats" && (see.has("stats") || see.has("memo_stats")))))
+      .map(([k, title, sub]) =>
+        `<button class="action" onclick="${TILE_OPEN[k]}">
+          <b>${title}</b><i>${esc(sub)}</i></button>`).join("");
+    // видимость и при первой загрузке, а не только после клика по вкладке
+    const cur = document.querySelector(".tab-section.on");
+    box.hidden = !cur || cur.id !== "tab-" + root;
+  }
+
+  function switchTab(k) {
+    // назад-бар и плитки: плитки видны только на корневой странице
+    const root = rootTab();
+    const bb = document.getElementById("backbar");
+    if (bb) {
+      bb.hidden = k === root;
+      document.getElementById("backbar-title").textContent = PAGE_TITLES[k] || "";
+    }
+    const qa = document.getElementById("quick-actions");
+    if (qa) qa.hidden = k !== root;
+    // На аналитике под сводкой идёт своя — одиннадцать цифр подряд до
+    // первой таблицы читать невозможно, там верхнюю прячем.
+    const kpiBox = document.getElementById("kpis");
+    if (kpiBox) kpiBox.hidden = k === "stats";
+    for (const t of ["home", "users", "new", "memo", "price", "stats"]) {
+      const on = t === k;
+      const nav = document.getElementById("nav-" + t);
+      if (nav) nav.setAttribute("aria-selected", on ? "true" : "false");
+      const sec = document.getElementById("tab-" + t);
+      if (sec) sec.classList.toggle("on", on);
+    }
+  }
+
+  async function sendInfo(userId, kind, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = "отправляю…";
+    try {
+      const r = await fetch("/api/send_info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, kind }),
+      });
+      const d = await r.json();
+      btn.textContent = d.ok ? "✓ отправлено" : "✗ " + (d.message || "ошибка");
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 4000);
+    } catch (e) {
+      btn.textContent = "✗ нет связи";
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 4000);
+    }
+  }
+
+  async function askPhone(userId, btn) {
+    btn.disabled = true;
+    btn.textContent = "отправляю…";
+    try {
+      const r = await fetch("/api/ask_phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const d = await r.json();
+      btn.textContent = d.ok ? "✓ запрошено" : "✗ " + (d.message || "ошибка");
+      if (!d.ok) setTimeout(() => { btn.disabled = false; btn.textContent = "Запросить телефон"; }, 4000);
+    } catch (e) {
+      btn.textContent = "✗ нет связи";
+      setTimeout(() => { btn.disabled = false; btn.textContent = "Запросить телефон"; }, 4000);
+    }
+  }
+
+  // --- экран входа: выбор человека, потом пароль ---
+  let GATE_USERS = [], gatePicked = null;
+
+  const gateOpen = () => !document.getElementById("gate").hidden;
+
+  async function showGate() {
+    const gate = document.getElementById("gate");
+    // ⚠️ Если экран входа уже открыт, НЕ перерисовываем: фоновый опрос
+    // каждые 30 секунд получал 401, звал showGate() заново и стирал пароль
+    // прямо во время набора, отбрасывая человека к списку людей.
+    if (gateOpen() && GATE_USERS.length) return;
+    gate.hidden = false;
+    try {
+      const r = await fetch("/api/users_list");
+      GATE_USERS = (await r.json()).users || [];
+    } catch (e) { GATE_USERS = []; }
+    const ava = (u) => (u.name || "?").trim()[0].toUpperCase();
+    document.getElementById("gate-users").innerHTML = GATE_USERS.map(u =>
+      `<button type="button" class="gate-user" onclick="gatePick('${esc(u.login)}')"
+        aria-label="Войти как ${esc(u.name)}, ${esc(u.role_label)}">
+        <span class="gate-ava ${esc(u.role)}">${esc(ava(u))}</span>
+        <span><b>${esc(u.name)}</b><i>${esc(u.role_label)}</i></span>
+      </button>`).join("")
+      || '<div class="empty">Учётные записи не настроены (PANEL_USERS в .env)</div>';
+    gatePick(null);
+  }
+
+  function gatePick(login) {
+    gatePicked = login ? GATE_USERS.find(u => u.login === login) : null;
+    const list = document.getElementById("gate-users");
+    const form = document.getElementById("gate-form");
+    const err = document.getElementById("gate-err");
+    err.hidden = true;
+    list.hidden = !!gatePicked;
+    form.hidden = !gatePicked;
+    document.getElementById("gate-title").textContent =
+      gatePicked ? "Пароль" : "Кто вы?";
+    document.getElementById("gate-hint").textContent = gatePicked
+      ? "Введите пароль — логин подставлен по выбору выше."
+      : "Выберите себя — роль и права определяются учётной записью.";
+    if (!gatePicked) return;
+    const ava = (gatePicked.name || "?").trim()[0].toUpperCase();
+    document.getElementById("gate-who").innerHTML =
+      `<span class="gate-ava ${esc(gatePicked.role)}">${esc(ava)}</span>
+       <span><b>${esc(gatePicked.name)}</b><i>${esc(gatePicked.role_label)}</i></span>`;
+    const pass = document.getElementById("gate-pass");
+    pass.value = "";
+    pass.focus();
+  }
+
+  async function gateSubmit(ev) {
+    ev.preventDefault();
+    if (!gatePicked) return false;
+    const err = document.getElementById("gate-err");
+    const pass = document.getElementById("gate-pass");
+    err.hidden = true;
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({login: gatePicked.login, password: pass.value}),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        err.textContent = d.message || "не вышло войти";
+        err.hidden = false;
+        pass.select();
+        return false;
+      }
+      document.getElementById("gate").hidden = true;
+      window.__dirTab = false;      // роль сменилась — вкладку выберем заново
+      await load();
+      loadMemos(); loadMemoSources(); loadPrice();
+    } catch (e) {
+      err.textContent = "нет связи с сервером";
+      err.hidden = false;
+    }
+    return false;
+  }
+
+  // --- ссылки из уведомлений MAX -----------------------------------------
+  // #z=106 — карточка рейса на рабочем столе, #memo=5 — записка (раскрытая),
+  // #stats — аналитика. Отрабатывает один раз, когда данные уже пришли.
+  let hashDone = false;
+  function applyHash() {
+    if (hashDone || gateOpen() || !window.lastData) return;
+    const h = location.hash || "";
+    const see = new Set(window.lastData.me?.sections || []);
+    let m;
+    if ((m = h.match(/^#z=(\d+)$/))) {
+      hashDone = true;
+      if (!see.has("home")) return;
+      switchTab("home");
+      flash(document.getElementById("trip-" + m[1]));
+    } else if ((m = h.match(/^#memo=(\d+)$/))) {
+      if (!MEMOS.memos) return;          // список ещё едет — зайдём из loadMemos
+      hashDone = true;
+      if (!see.has("memo")) return;
+      const id = +m[1];
+      if (!MEMOS.memos.some(x => x.id === id && memoIn(x, memoFilter))) {
+        memoFilter = "all"; memoPicked = true;
+      }
+      memoOpen.add(id);
+      switchTab("memo"); renderMemoTabs(); renderMemos();
+      flash(document.getElementById("memo-" + id));
+    } else if (h === "#stats") {
+      hashDone = true;
+      if (see.has("stats") || see.has("memo_stats")) { switchTab("stats"); loadStatsTab(); }
+    }
+  }
+  function flash(el) {
+    if (!el) return;
+    el.scrollIntoView({behavior: "smooth", block: "center"});
+    el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 5000);
+  }
+
+  // --- регион у города ------------------------------------------------------
+  // Когда город набран (уход из поля), спрашиваем OSM и ставим
+  // «Чернушка (Пермский край)». Однозначный город подставляется сам, при
+  // нескольких вариантах — выбор кнопкой. Не по каждой букве: Nominatim —
+  // геокодер, автодополнение им запрещено правилами.
+  const geoSeq = {from: 0, to: 0};
+  async function geoResolve(end) {
+    const f = document.getElementById("zform");
+    const inp = f[end], box = document.getElementById("geo-hint-" + end);
+    if (!inp || !box) return;
+    const v = inp.value.trim();
+    if (v.length < 3 || /\(.*\)/.test(v)) { box.hidden = true; return; }
+    const seq = ++geoSeq[end];
+    box.hidden = false; box.textContent = "уточняю регион…";
+    let res;
+    try { res = await (await fetch("/api/geo?q=" + encodeURIComponent(v))).json(); }
+    catch (e) { res = {items: [], source: "error"}; }
+    if (seq !== geoSeq[end] || inp.value.trim() !== v) return;
+    const items = res.items || [];
+    const cities = items.filter(it => it.kind === "город");
+    if (items.length === 1 && cities.length === 1) {
+      if (items[0].label !== v) {
+        inp.value = items[0].label;
+        box.innerHTML = `<span class="geo-ok">регион добавлен: ${esc(items[0].label)}</span>`;
+      } else box.hidden = true;
+      return;
+    }
+    if (!items.length) {
+      box.innerHTML = `<span>${res.source === "error" ? "справочник недоступен"
+        : "не нашёл — уточните на карте"}</span>`;
+      return;
+    }
+    box.innerHTML = items.slice(0, 5).map(it =>
+      `<button type="button" class="dq" onclick="geoPick('${end}', ${
+        JSON.stringify(it.label).replace(/"/g, "&quot;")})">${esc(it.label)}${
+        it.kind !== "город" ? " · " + esc(it.kind) : ""}</button>`).join("");
+  }
+  function geoPick(end, label) {
+    const f = document.getElementById("zform");
+    f[end].value = label;
+    document.getElementById("geo-hint-" + end).hidden = true;
+  }
+
+  // --- точка на карте --------------------------------------------------------
+  // Leaflet лежит рядом с панелью (/static), грузится при первом открытии;
+  // снаружи — только тайлы OpenStreetMap. Клик ставит точку, обратный
+  // геокод даёт «город (регион)», «Подставить» кладёт его в поле.
+  let leafletReady = null, MAP = null, mapPin = null, mapEnd = "from", mapPick = null;
+  function loadLeaflet() {
+    if (leafletReady) return leafletReady;
+    leafletReady = new Promise((ok, fail) => {
+      const css = document.createElement("link");
+      css.rel = "stylesheet"; css.href = "/static/leaflet.css";
+      document.head.appendChild(css);
+      const js = document.createElement("script");
+      js.src = "/static/leaflet.js"; js.onload = ok; js.onerror = fail;
+      document.head.appendChild(js);
+    });
+    return leafletReady;
+  }
+  async function openMap(end) {
+    mapEnd = end; mapPick = null;
+    const dlg = document.getElementById("map-dlg");
+    const note = document.getElementById("map-note");
+    document.getElementById("map-title").textContent =
+      (end === "from" ? "Откуда" : "Куда") + ": точка на карте";
+    document.getElementById("map-ok").disabled = true;
+    note.textContent = "Нажмите на карту — определю город и регион. Точку можно перетащить.";
+    dlg.showModal();
+    try { await loadLeaflet(); }
+    catch (e) { note.textContent = "Карта не загрузилась (нет доступа к /static)"; return; }
+    if (!MAP) {
+      MAP = L.map("map").setView([58.0, 56.3], 6);   // Пермь и Урал в кадре
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {maxZoom: 18, attribution: "© OpenStreetMap"}).addTo(MAP);
+      MAP.on("click", e => placePin(e.latlng));
+    }
+    setTimeout(() => MAP.invalidateSize(), 60);
+    // город уже набран — открываем карту на нём, точку остаётся уточнить
+    const typed = document.getElementById("zform")[end].value.trim();
+    if (typed.length >= 3) {
+      try {
+        const r = await (await fetch("/api/geo?q=" + encodeURIComponent(typed.replace(/\s*\(.*\)\s*$/, "")))).json();
+        const it = (r.items || []).find(x => x.lat && (typed === x.label || typed.startsWith(x.name)));
+        if (it) MAP.setView([it.lat, it.lon], 10);
+      } catch (e) {}
+    }
+  }
+  async function placePin(ll) {
+    if (!mapPin) {
+      mapPin = L.marker(ll, {draggable: true,
+        icon: L.divIcon({className: "map-pin", iconSize: [18, 18], iconAnchor: [9, 9]})}).addTo(MAP);
+      mapPin.on("dragend", () => placePin(mapPin.getLatLng()));
+    } else mapPin.setLatLng(ll);
+    const note = document.getElementById("map-note");
+    const ok = document.getElementById("map-ok");
+    note.textContent = "определяю…"; ok.disabled = true; mapPick = null;
+    try {
+      const r = await (await fetch(`/api/geo_reverse?lat=${ll.lat.toFixed(5)}&lon=${ll.lng.toFixed(5)}`)).json();
+      if (r.label) {
+        mapPick = r.label;
+        note.textContent = r.label + (r.kind && r.kind !== "город" ? " · " + r.kind : "");
+        ok.disabled = false;
+      } else note.textContent = r.error ? "справочник недоступен" : "здесь нет населённого пункта — сдвиньте точку";
+    } catch (e) { note.textContent = "нет связи с сервером"; }
+  }
+  function applyMap() {
+    if (!mapPick) return;
+    const f = document.getElementById("zform");
+    f[mapEnd].value = mapPick;
+    document.getElementById("geo-hint-" + mapEnd).hidden = true;
+    closeMap();
+  }
+  function closeMap() { document.getElementById("map-dlg").close(); }
+
+  async function load() {
+    if (gateOpen()) return;      // пока не вошли, опрашивать нечего
+    try {
+      const r = await fetch("/api/data");
+      if (r.status === 401) { await showGate(); return; }
+      render(await r.json());
+      applyHash();
+    } catch (e) {
+      document.getElementById("updated").textContent = "нет связи с panel.py";
+    }
+  }
+  load();
+  loadMemos();          // счётчик «ждут вашего решения» нужен сразу на вкладке
+  loadMemoSources();    // и список заявок для подстановки в форму
+  loadPrice();          // и подсказка моделей ТС в форме записки
+  setInterval(load, 30000);
+  setInterval(loadMemos, 60000);
+</script>
+</body>
+</html>

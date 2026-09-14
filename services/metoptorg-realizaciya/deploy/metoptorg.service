@@ -1,0 +1,31 @@
+# systemd-юнит сервиса реализации.
+#   sudo cp deploy/metoptorg.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now metoptorg
+[Unit]
+Description=МЕТОПТОРГ · сервис реализации (загрузка выгрузок 1С и пересборка отчёта)
+After=network.target
+
+[Service]
+Type=simple
+User=metoptorg
+Group=metoptorg
+WorkingDirectory=/opt/metoptorg
+# Пароль и параметры — в отдельном файле, чтобы не лежали в юните:
+#   METOPTORG_USER=metoptorg
+#   METOPTORG_PASSWORD=длинный-пароль
+#   METOPTORG_KEEP_BUILDS=20
+EnvironmentFile=/etc/metoptorg.env
+# ОДИН воркер: пересборка идёт в фоновом потоке этого процесса,
+# несколько воркеров породили бы параллельные сборки.
+ExecStart=/opt/metoptorg/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8080 --workers 1 --timeout-keep-alive 120
+Restart=always
+RestartSec=5
+# Расчёт держит в памяти ~2–3 ГБ на 300-мегабайтной выгрузке
+MemoryMax=6G
+# Пишем только в свой каталог
+ProtectSystem=full
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

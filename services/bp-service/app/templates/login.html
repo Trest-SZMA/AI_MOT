@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход · Бизнес-планы МетОптТорг</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap"
+      rel="stylesheet">
+<style>
+  :root {
+    --brand-900: #142248; --brand-700: #1f3468; --brand-600: #485e88;
+    --brand-400: #8390b1; --brand-200: #bcc3d7; --brand-100: #e3e8f2;
+    --brand-50: #f3f5fa; --surface: #fff; --text: #1c2333;
+    --text-muted: #5b6478;
+    --danger: #b3352e; --danger-bg: #fbe9e7; --danger-border: #e3b7b4;
+    --ok: #1e7a4a; --ok-bg: #e2f3e9; --ok-border: #bfe0cc;
+    --radius: 12px; --radius-s: 7px;
+    --shadow: 0 1px 2px rgba(20,34,72,.06), 0 4px 14px rgba(20,34,72,.07);
+    --focus: 0 0 0 3px rgba(72,94,136,.30);
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Lato', -apple-system, 'Segoe UI', Arial, sans-serif;
+         font-size: 14px; margin: 0; color: var(--text);
+         background: var(--brand-50); min-height: 100vh;
+         display: flex; align-items: center; justify-content: center;
+         padding: 24px; -webkit-font-smoothing: antialiased; }
+  .login { width: 100%; max-width: 380px; }
+  .brand { display: flex; align-items: center; gap: 12px; margin: 0 0 18px;
+           font-weight: 900; font-size: 18px; color: var(--brand-900); }
+  .brand::before { content: ''; width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--brand-700), var(--brand-400));
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); flex: none; }
+  .brand span { font-weight: 400; color: var(--text-muted); display: block;
+                font-size: 13px; }
+  .card { background: var(--surface); border: 1px solid var(--brand-200);
+          border-radius: var(--radius); box-shadow: var(--shadow);
+          padding: 22px 22px 24px; }
+  h1 { font-size: 17px; font-weight: 900; color: var(--brand-900);
+       margin: 0 0 4px; }
+  .hint { color: var(--text-muted); font-size: 12.5px; margin: 0 0 16px; }
+  label { display: block; font-weight: 700; font-size: 12.5px;
+          color: var(--brand-900); margin: 0 0 4px; }
+  input { width: 100%; font: inherit; padding: 9px 11px; margin: 0 0 14px;
+          border: 1px solid var(--brand-200); border-radius: var(--radius-s);
+          background: #fff; color: var(--text); }
+  input:focus { outline: none; border-color: var(--brand-600);
+                box-shadow: var(--focus); }
+  button { width: 100%; font: inherit; font-weight: 800; cursor: pointer;
+           padding: 10px 14px; border: 1px solid var(--brand-900);
+           border-radius: var(--radius-s); background: var(--brand-900);
+           color: #fff; transition: background .15s; }
+  button:hover { background: var(--brand-700); }
+  button:focus-visible { outline: none; box-shadow: var(--focus); }
+  .alert { border-radius: var(--radius-s); padding: 9px 12px; margin: 0 0 14px;
+           font-weight: 700; font-size: 13px; }
+  .alert.error { background: var(--danger-bg); border: 1px solid var(--danger-border);
+                 color: var(--danger); }
+  .alert.ok { background: var(--ok-bg); border: 1px solid var(--ok-border);
+              color: var(--ok); }
+  footer { margin-top: 14px; font-size: 12px; color: var(--text-muted);
+           text-align: center; }
+
+  /* Экран «Кто вы»: сначала выбираем себя, потом только пароль. Логин никто
+     не помнит, а имя коллеги узнаётся с одного взгляда. */
+  .login.wide { max-width: 520px; }
+  .who { display: grid; gap: 8px; margin: 0 0 4px; }
+  .who-item { display: flex; align-items: center; gap: 12px; width: 100%;
+              text-align: left; padding: 11px 13px; font: inherit;
+              background: var(--surface); color: var(--text);
+              border: 1px solid var(--brand-200); border-radius: var(--radius-s);
+              cursor: pointer; text-decoration: none;
+              transition: border-color .15s, background .15s; }
+  .who-item:hover { border-color: var(--brand-600); background: var(--brand-50); }
+  .who-item:focus-visible { outline: none; box-shadow: var(--focus); }
+  .who-item .ava { flex: none; width: 34px; height: 34px; border-radius: 9px;
+                   display: flex; align-items: center; justify-content: center;
+                   font-weight: 900; font-size: 13px; color: #fff;
+                   background: linear-gradient(135deg, var(--brand-700), var(--brand-400)); }
+  .who-item .nm { font-weight: 800; color: var(--brand-900); }
+  .who-item .rl { font-size: 12.5px; color: var(--text-muted); }
+  .who-item.locked { cursor: not-allowed; opacity: .65; background: var(--brand-50); }
+  .who-item.locked:hover { border-color: var(--brand-200); }
+  .who-item .no-pw { margin-left: auto; font-size: 11.5px; font-weight: 700;
+                     color: var(--danger); background: var(--danger-bg);
+                     border: 1px solid var(--danger-border); border-radius: 999px;
+                     padding: 2px 9px; white-space: nowrap; }
+  .who-role { font-size: 11.5px; font-weight: 800; letter-spacing: .04em;
+              text-transform: uppercase; color: var(--text-muted);
+              margin: 10px 0 2px; }
+  .who-role:first-child { margin-top: 0; }
+  .picked { display: flex; align-items: center; gap: 12px; padding: 11px 13px;
+            margin: 0 0 16px; background: var(--brand-50);
+            border: 1px solid var(--brand-200); border-radius: var(--radius-s); }
+  .link-btn { display: inline-block; width: auto; margin-top: 12px; padding: 0;
+              background: none; border: none; color: var(--brand-600);
+              font-weight: 700; font-size: 12.5px; cursor: pointer;
+              text-decoration: none; }
+  .link-btn:hover { background: none; color: var(--brand-900);
+                    text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="login {{ 'wide' if profiles and not picked and not manual }}">
+  <div class="brand">МетОптТорг<span>Бизнес-планы</span></div>
+  <div class="card">
+    {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+    {% if msg %}<div class="alert ok">{{ msg }}</div>{% endif %}
+
+    {% if picked %}
+      {# Шаг второй: человек себя выбрал, остался пароль. #}
+      <h1>Вход в сервис</h1>
+      <p class="hint">Права определяются учётной записью.</p>
+      <div class="picked">
+        <span class="ava">{{ picked['name'][:1] | upper }}</span>
+        <span><span class="nm">{{ picked['name'] }}</span><br>
+          <span class="rl">{{ picked['role_label'] }}</span></span>
+      </div>
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <input type="hidden" name="login" value="{{ picked['login'] }}">
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password"
+               autocomplete="current-password" autofocus required>
+        <button type="submit">Войти</button>
+      </form>
+      <a class="link-btn" href="/login?next={{ next | urlencode }}">&larr; другой пользователь</a>
+
+    {% elif manual or not profiles %}
+      {# Запасной путь: учётки может не быть в списке. #}
+      <h1>Вход по логину</h1>
+      <p class="hint">Права определяются учётной записью.</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <label for="login">Логин</label>
+        <input id="login" name="login" autocomplete="username" autofocus required>
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password"
+               autocomplete="current-password" required>
+        <button type="submit">Войти</button>
+      </form>
+      {% if profiles %}
+      <a class="link-btn" href="/login?next={{ next | urlencode }}">&larr; выбрать из списка</a>
+      {% endif %}
+
+    {% else %}
+      {# Шаг первый: кто вы. #}
+      <h1>Кто вы?</h1>
+      <p class="hint">Выберите себя — роль и права определяются учётной записью.</p>
+      <div class="who">
+        {% set ns = namespace(role='') %}
+        {% for u in profiles %}
+          {% if u['role_label'] != ns.role %}
+          <div class="who-role">{{ u['role_label'] }}</div>
+          {% set ns.role = u['role_label'] %}
+          {% endif %}
+          {% if u['has_pw'] %}
+          <a class="who-item"
+             href="/login?user={{ u['login'] | urlencode }}&next={{ next | urlencode }}">
+            <span class="ava">{{ u['name'][:1] | upper }}</span>
+            <span><span class="nm">{{ u['name'] }}</span><br>
+              <span class="rl">{{ u['login'] }}</span></span>
+          </a>
+          {% else %}
+          <span class="who-item locked"
+                title="Пароль не задан — обратитесь к администратору сервиса">
+            <span class="ava">{{ u['name'][:1] | upper }}</span>
+            <span><span class="nm">{{ u['name'] }}</span><br>
+              <span class="rl">{{ u['login'] }}</span></span>
+            <span class="no-pw">пароль не задан</span>
+          </span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <a class="link-btn" href="/login?manual=1&next={{ next | urlencode }}">Ввести логин вручную</a>
+    {% endif %}
+  </div>
+  <footer>Пароль забыт или учётная запись нужна — обратитесь к администратору сервиса.</footer>
+</div>
+</body>
+</html>

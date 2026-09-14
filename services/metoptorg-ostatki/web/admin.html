@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МЕТОПТОРГ · Обновление данных (остатки)</title>
+<style>
+:root{--navy:#142248;--steel:#485E88;--accent:#2f6fed;--bg:#f4f6fb;--panel:#fff;--panel2:#eef2f9;
+  --text:#141c2e;--muted:#6b7690;--line:#dfe5f0;--green:#2e9e5b;--red:#d1435b;--yellow:#d9a406;
+  --shadow:0 1px 3px rgba(20,34,72,.08),0 6px 24px rgba(20,34,72,.06);}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Lato','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{background:linear-gradient(100deg,var(--navy),var(--steel));color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px}
+.logo{width:30px;height:30px}.brand{font-weight:800;letter-spacing:.5px}
+.brand small{display:block;font-weight:400;opacity:.85;font-size:12px}
+a.top{margin-left:auto;color:#fff;text-decoration:none;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 12px}
+main{max-width:1100px;margin:0 auto;padding:18px 20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+h2{margin:0 0 4px;font-size:17px}.hint{color:var(--muted);font-size:12.5px;margin:4px 0 14px}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+input[type=text],input[type=number]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;width:100%}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.row>div{flex:1;min-width:120px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.btn.sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td.chk{width:34px}td .tbl{min-width:180px}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid var(--line);background:var(--panel2)}
+.ok{color:var(--green)}.err{color:var(--red)}.warn{color:var(--yellow)}
+#log{background:#0b1120;color:#cfe;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;height:300px;overflow:auto;white-space:pre-wrap}
+.status{font-weight:700}
+.up{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted)}
+.mono{font-family:ui-monospace,monospace;font-size:12px}
+.msg{font-size:12.5px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 100 100"><polygon points="50,6 94,88 6,88" fill="none" stroke="#fff" stroke-width="7"/><polygon points="50,34 74,80 26,80" fill="#fff" opacity=".85"/></svg>
+  <div class="brand">МЕТОПТОРГ · Обновление данных<small>остатки металлолома · два источника: SQL «Extractor» и Excel локально</small></div>
+  <a class="top" href="/">← к дашборду</a>
+</header>
+<main>
+
+<div class="panel">
+  <h2>1 · Источник «из экстрактора» — напрямую из SQL</h2>
+  <div class="hint">Сервис может забирать таблицы из базы «Extractor», куда 1С складывает данные.
+    Движения (обороты) и справочники берутся из SQL; фактические остатки грузятся Excel-файлом (блок ниже).
+    У каждого входа — своя таблица, берётся только она. Что не включено — читается из файла в <span class="mono">data/</span>.
+    Пароль хранится только в окружении службы (<span class="mono">METOPTORG_SQL_PASSWORD</span> в <span class="mono">/etc/metoptorg-ostatki.env</span>), в браузере/настройках/git его нет.</div>
+  <div id="sqlNA" class="err" style="display:none">Модуль SQL недоступен на сервере (нет python-tds).</div>
+  <div id="sqlBox">
+    <div class="row">
+      <div><label>сервер</label><input type="text" id="sqlHost"></div>
+      <div><label>порт</label><input type="number" id="sqlPort"></div>
+      <div><label>база</label><input type="text" id="sqlDb"></div>
+      <div><label>пользователь</label><input type="text" id="sqlUser"></div>
+      <div style="flex:none;align-self:end"><button class="btn sec" id="btnTest">Проверить подключение</button></div>
+      <div style="flex:none;align-self:end"><button class="btn sec" id="btnTables">Показать таблицы базы</button></div>
+    </div>
+    <label style="display:inline-flex;gap:8px;align-items:center;margin-bottom:8px"><input type="checkbox" id="sqlEnabled"> <span>брать данные из SQL при пересборке</span></label>
+    <div id="drv" class="msg"></div>
+    <div id="testMsg" class="msg"></div>
+    <table style="margin-top:10px"><thead><tr><th class="chk">вкл</th><th>что это</th><th>таблица в базе</th><th>проверка</th></tr></thead>
+      <tbody id="srcBody"></tbody></table>
+    <datalist id="tablesList"></datalist>
+    <div style="margin-top:12px"><button class="btn" id="btnSaveSql">Сохранить источники</button></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>2 · Фактические остатки — Excel-файл локально</h2>
+  <div class="hint">Файл <span class="mono">«Остатки на складах ДД.ММ.ГГ.xlsx»</span>. Дата отчёта берётся из имени файла (минус 1 день).
+    Можно также догрузить любую выгрузку 1С (СебестоимостьТоваровОбороты_*.csv, Номенклатура_*.csv, СерииНоменклатуры_*.csv, Склады_*.csv), если не берёте её из SQL.</div>
+  <div class="up" id="drop">
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple style="display:none">
+    <button class="btn sec" onclick="document.getElementById('file').click()">Выбрать файл(ы)…</button>
+    <div id="upMsg" class="msg"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>3 · Пересборка</h2>
+  <div class="hint">Тянет включённые SQL-источники и запускает расчёт (stock_report → make_dash → make_excel).
+    Идёт фоново; пока считается, дашборд остаётся доступен.</div>
+  <div class="row" style="align-items:center">
+    <div style="flex:none"><button class="btn" id="btnRebuild">▶ Пересобрать сейчас</button></div>
+    <div class="status" id="stat">—</div>
+  </div>
+  <div id="log"></div>
+</div>
+
+</main>
+<script>
+const $=(s)=>document.querySelector(s), $$=(s)=>[...document.querySelectorAll(s)];
+const api=async(m,u,b)=>{const r=await fetch(u,{method:m,headers:b?{'Content-Type':'application/json'}:undefined,body:b?JSON.stringify(b):undefined});return r.json();};
+let SRC=[];
+function cfgFromForm(){
+  const sources={};
+  $$('#srcBody tr').forEach(tr=>{const k=tr.dataset.k;
+    sources[k]={enabled:tr.querySelector('.se').checked, table:tr.querySelector('.tbl').value.trim()};});
+  return {enabled:$('#sqlEnabled').checked, host:$('#sqlHost').value.trim(), port:+$('#sqlPort').value||1433,
+    database:$('#sqlDb').value.trim(), user:$('#sqlUser').value.trim(), timeout:60, sources};
+}
+async function loadSql(){
+  const d=await api('GET','/api/sql/config');
+  if(!d.available){ $('#sqlNA').style.display='block'; $('#sqlBox').style.display='none'; return; }
+  const c=d.config; SRC=d.sources;
+  $('#sqlHost').value=c.host||''; $('#sqlPort').value=c.port||1433; $('#sqlDb').value=c.database||'';
+  $('#sqlUser').value=c.user||''; $('#sqlEnabled').checked=!!c.enabled;
+  $('#drv').innerHTML='драйвер: '+d.driver+' · пароль '+(d.password_set?'<span class="ok">задан</span>':'<span class="err">НЕ задан</span> (добавьте METOPTORG_SQL_PASSWORD в /etc/metoptorg-ostatki.env)');
+  $('#srcBody').innerHTML=SRC.map(s=>{const cs=c.sources[s.key]||{};
+    return `<tr data-k="${s.key}"><td class="chk"><input type="checkbox" class="se" ${cs.enabled?'checked':''}></td>`
+      +`<td>${s.label}</td>`
+      +`<td><input type="text" class="tbl" list="tablesList" value="${(cs.table||'').replace(/"/g,'&quot;')}" placeholder="dbo.Имя таблицы"></td>`
+      +`<td><button class="btn sec bp" data-k="${s.key}">проверить</button></td></tr>`;}).join('');
+  $$('.bp').forEach(b=>b.onclick=()=>probe(b.dataset.k));
+}
+$('#btnTest').onclick=async()=>{ $('#testMsg').textContent='проверяю…';
+  const d=await api('POST','/api/sql/test',cfgFromForm());
+  $('#testMsg').innerHTML='<span class="'+(d.ok?'ok':'err')+'">'+(d.ok?'✓ ':'✗ ')+d.message+'</span>'; };
+$('#btnTables').onclick=async()=>{ $('#testMsg').textContent='читаю список таблиц…';
+  const d=await api('POST','/api/sql/tables',cfgFromForm());
+  if(!d.ok){$('#testMsg').innerHTML='<span class="err">'+d.error+'</span>';return;}
+  $('#tablesList').innerHTML=d.tables.map(t=>`<option value="${t.schema}.${t.name}">${t.rows} строк</option>`).join('');
+  $('#testMsg').innerHTML='<span class="ok">таблиц: '+d.tables.length+' (подсказки в полях)</span>'; };
+async function probe(k){ const tr=$(`#srcBody tr[data-k="${k}"]`); const table=tr.querySelector('.tbl').value.trim();
+  if(!table){alert('укажите таблицу');return;}
+  const btn=tr.querySelector('.bp'); btn.textContent='…';
+  const cfg=cfgFromForm(); const d=await api('POST','/api/sql/probe',{table,cfg});
+  btn.textContent='проверить';
+  if(!d.ok){alert('Ошибка: '+d.error);return;}
+  alert('Таблица '+table+'\nСтрок: '+d.probe.rows+'\nКолонки: '+d.probe.columns.join(', ')); }
+$('#btnSaveSql').onclick=async()=>{ const d=await api('POST','/api/sql/config',cfgFromForm());
+  $('#testMsg').innerHTML=d.ok?'<span class="ok">✓ источники сохранены</span>':'<span class="err">'+d.error+'</span>'; };
+
+// upload
+$('#file').onchange=async(e)=>{ for(const f of e.target.files){ await upload(f); } e.target.value=''; };
+async function upload(f){
+  $('#upMsg').textContent='загружаю '+f.name+' …';
+  const r=await fetch('/api/upload',{method:'POST',headers:{'X-Filename':encodeURIComponent(f.name),'Content-Type':'application/octet-stream'},body:f});
+  // X-Filename ASCII-only: имя с кириллицей шлём в query
+  let res;
+  try{res=await r.json();}catch{res={ok:false,error:'ответ сервера не прочитан'};}
+  $('#upMsg').innerHTML=(res.ok?'<span class="ok">✓ '+res.name+' — '+(res.bytes/1048576).toFixed(1)+' МБ</span>':'<span class="err">✗ '+(res.error||'ошибка')+'</span>');
+}
+
+// rebuild + poll
+$('#btnRebuild').onclick=async()=>{ const d=await api('POST','/api/rebuild');
+  if(!d.ok){alert(d.error||'занято');return;} poll(); };
+async function poll(){ const s=await api('GET','/api/state');
+  $('#stat').innerHTML = s.building ? '<span class="warn">● идёт пересборка…</span>'
+    : (s.ok===true?'<span class="ok">✓ готово ('+s.finished+')</span>'
+      : s.ok===false?'<span class="err">✗ ошибка ('+s.finished+')</span>':'—');
+  $('#log').textContent=(s.tail||[]).join('\n'); $('#log').scrollTop=$('#log').scrollHeight;
+  if(s.building) setTimeout(poll,1500);
+}
+loadSql(); poll();
+</script>
+</body>
+</html>

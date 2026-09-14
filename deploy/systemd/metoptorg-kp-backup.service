@@ -1,0 +1,6 @@
+[Unit]
+Description=Бэкап сервиса оценки КП (база + исходные файлы)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/metoptorg-kp/.venv/bin/python /opt/metoptorg-kp/scripts/backup.py

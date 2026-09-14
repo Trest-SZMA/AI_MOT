@@ -1,0 +1,73 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card" id="sec-approvals">
+  <div class="sec-head">
+    <h2><span class="sec-num">19</span> Согласование и версии</h2>
+    {% if versions | length > 1 %}
+    <div class="sec-aside">
+      <a class="btn btn-sm" href="/bp/{{ bp['id'] }}/versions/diff">
+        {{ icon('refresh') }} Сравнить версии</a>
+    </div>
+    {% endif %}
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Дата</th><th>Роль</th><th>Действие</th><th>Комментарий</th></tr></thead>
+        <tbody>
+        {% for a in approvals %}
+        <tr><td>{{ a['decided_at'][:16] }}</td><td>{{ a['role'] }}</td>
+            <td>{{ a['action'] }}</td><td>{{ a['comment'] or '' }}</td></tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">Решений пока нет.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div>
+      <div class="table-scroll">
+      <table class="grid-lines">
+        <thead><tr><th>Версия</th><th>Изменено</th><th>Вариант</th>
+            <th>Сценарий</th><th class="num">ЧП ДСП</th><th class="num">ЧП Лукойл</th>
+            <th>Автор</th><th>Что правили</th>
+            <th title="По утверждённой версии формируется печатная форма">Утверждение</th></tr></thead>
+        <tbody>
+        {% for v in versions %}
+        {# Ссылка сравнивает версию с предыдущей: «что сделала эта правка». #}
+        <tr><td>{% if not loop.last %}<a
+              href="/bp/{{ bp['id'] }}/versions/diff?a={{ versions[loop.index0 + 1]['version'] }}&b={{ v['version'] }}"
+              title="Что изменила эта правка">{{ v['version'] }}</a>
+            {% else %}<b>{{ v['version'] }}</b>{% endif %}</td>
+            <td>{{ v['created_at'][:16] }}</td>
+            <td>{{ variant_labels.get(v['variant'], '-') }}</td>
+            <td>{{ v['scenario'] or '-' }}</td>
+            <td class="num">{{ money(v['net_profit_bsp']) if v['net_profit_bsp'] is not none else '-' }}</td>
+            <td class="num">{{ money(v['net_profit_luk']) if v['net_profit_luk'] is not none else '-' }}</td>
+            <td>{{ v['author'] or '-' }}</td>
+            <td class="muted">{{ v['change_note'] or '-' }}</td>
+            <td>{% if v['approved_at'] %}
+              <b title="{{ v['approved_by'] or '' }}">✓ утверждена</b>
+              <form method="post" style="display:inline"
+                    action="/bp/{{ bp['id'] }}/versions/{{ v['version'] }}/approve">
+                <input type="hidden" name="action" value="clear">
+                <button class="btn btn-sm" type="submit"
+                        title="Печатная форма вернётся к текущему расчёту">Снять</button>
+              </form>
+            {% else %}
+              <form method="post" style="display:inline"
+                    action="/bp/{{ bp['id'] }}/versions/{{ v['version'] }}/approve">
+                <button class="btn btn-sm" type="submit"
+                        title="Печатная форма будет формироваться по этой версии">Утвердить</button>
+              </form>
+            {% endif %}</td></tr>
+        {% else %}
+        <tr><td colspan="9" class="muted">Версия сохраняется автоматически при
+            каждом изменении расчёта.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>

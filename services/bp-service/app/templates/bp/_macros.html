@@ -1,0 +1,55 @@
+{# Макросы разделов БП. Импортировать «with context» — save_btn смотрит на
+   can_edit из контекста страницы. #}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro save_btn(section) %}
+  {% if can_edit[section] %}
+  <button type="submit">{{ icon('save') }} Сохранить раздел</button>
+  {% else %}
+  <div class="lock-tag">{{ icon('lock', 'icon-s') }} Раздел доступен для чтения</div>
+  {% endif %}
+{% endmacro %}
+
+{% macro money(v) %}{{ '{:,.0f}'.format(v or 0).replace(',', ' ') }}{% endmacro %}
+
+{# Постраничный вывод длинной таблицы. Показываем номера страниц вокруг
+   текущей, а не все подряд: у лота на 1950 позиций их десять, но у лота на
+   20 000 строк лента номеров сама стала бы страницей. #}
+{% macro pager(page, path, variant='bsp') %}
+  {% set tail = '&variant=' ~ variant if variant != 'bsp' else '' %}
+  <div class="pager">
+    <span class="muted">Показаны {{ page['first'] }}–{{ page['last'] }}
+      из {{ page['total'] }}</span>
+    {% if not page['all'] %}
+    <span class="pager-links">
+      {% if page['page'] > 1 %}
+      <a href="{{ path }}?page={{ page['page'] - 1 }}{{ tail }}"
+         rel="prev">{{ icon('arrow-left', 'icon-s') }} назад</a>
+      {% endif %}
+      {% for p in range(1, page['pages'] + 1) %}
+        {% if p == 1 or p == page['pages'] or (p - page['page']) | abs <= 2 %}
+        <a class="pager-num {{ 'current' if p == page['page'] }}"
+           href="{{ path }}?page={{ p }}{{ tail }}"
+           {% if p == page['page'] %}aria-current="page"{% endif %}>{{ p }}</a>
+        {% elif (p - page['page']) | abs == 3 %}
+        <span class="pager-gap">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page['page'] < page['pages'] %}
+      <a href="{{ path }}?page={{ page['page'] + 1 }}{{ tail }}"
+         rel="next">вперёд {{ icon('arrow-right', 'icon-s') }}</a>
+      {% endif %}
+      <a class="pager-all" href="{{ path }}?per=all{{ tail }}"
+         data-tip="Вся таблица одной страницей — нужна для печати и поиска
+         глазами, но {{ page['total'] }} строк браузер рисует заметно дольше.">показать все</a>
+    </span>
+    {% elif page['total'] > 200 %}
+    <span class="pager-links">
+      <a class="pager-all" href="{{ path }}{{ '?variant=' ~ variant if variant != 'bsp' }}">вернуться к страницам</a>
+    </span>
+    {% endif %}
+  </div>
+{% endmacro %}

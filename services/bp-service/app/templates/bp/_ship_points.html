@@ -1,0 +1,165 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+{% if ship_points %}
+  <details class="details-gap" open>
+    <summary><b>Пункты отгрузки и маршруты</b>
+      <span class="muted">(мест: {{ ship_points | length }};
+        сопоставление со складами 1С и расстояния по дорогам)</span></summary>
+    <div class="table-scroll table-gap">
+    <table class="grid-lines">
+      <thead><tr><th>Место отгрузки</th><th class="num">Объём, тн</th>
+        <th title="База несёт переработку и отгрузку, цех — только вывоз на базу">Роль в модели</th>
+        <th>Склад 1С</th><th class="num">До базового пункта, км</th>
+        <th>Плечи маршрута</th><th>2ГИС</th></tr></thead>
+      <tbody>
+      {% for sp in ship_points %}
+      <tr>
+        <td>{{ sp['place'] }}
+          {% if sp['point'] and sp['point']['base_point'] %}<br>
+          <span class="muted">базовый пункт: {{ sp['point']['base_point'] }}</span>{% endif %}
+          <br><span class="muted">{{ sp['positions'] }} поз.</span></td>
+        <td class="num">{{ '%.3f' % (sp['volume'] or 0) }}</td>
+        <td class="cell-role">
+          {% if sp['point'] %}
+            <div>{% if sp['point']['kind'] == 'база' %}<b>база</b>
+            {% elif sp['point']['kind'] == 'цех' %}цех →
+              <span class="muted">{{ sp['point']['base_name'] or '?' }}</span>
+            {% else %}<span class="warn-note">не задана</span>{% endif %}</div>
+            {% if can_edit['items'] %}
+            <form method="post" class="point-form"
+                  action="/bp/{{ bp['id'] }}/points/{{ sp['point']['id'] }}/role">
+              <select name="kind">
+                <option value="" {% if not sp['point']['kind'] %}selected{% endif %}>роль —</option>
+                <option value="база" {% if sp['point']['kind'] == 'база' %}selected{% endif %}>база</option>
+                <option value="цех" {% if sp['point']['kind'] == 'цех' %}selected{% endif %}>цех</option>
+              </select>
+              <input name="base_name" list="dl_role_bases" placeholder="база цеха"
+                     value="{{ sp['point']['base_name'] or '' }}">
+              <button class="btn-icon secondary" title="Сохранить роль">{{ icon('check') }}</button>
+            </form>
+            {% endif %}
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td class="cell-wh">
+          {% if sp['point'] and sp['point']['warehouse_name'] %}
+            {{ sp['point']['warehouse_name'] }}
+            <span class="muted">{{ '(подтверждён)' if sp['point']['match_confirmed']
+                                    else '(авто — проверьте)' }}</span>
+          {% else %}
+            <span class="warn-note">{{ icon('warn', 'icon-s') }} не сопоставлено</span>
+          {% endif %}
+          {% if can_edit['items'] and sp['point'] %}
+          <form method="post" class="point-form"
+                action="/bp/{{ bp['id'] }}/points/{{ sp['point']['id'] }}/warehouse">
+            <select name="warehouse_id">
+              <option value="">— выбрать склад —</option>
+              {% for c in sp['suggestions'] %}
+              <option value="{{ c['id'] }}">{{ c['name'] }}{% if c['division'] %}
+                · {{ c['division'] }}{% endif %}</option>
+              {% endfor %}
+            </select>
+            <button class="btn-icon secondary" title="Сохранить склад">{{ icon('check') }}</button>
+          </form>
+          {% endif %}
+        </td>
+        <td class="num">{{ '%g' % sp['distance_km'] if sp['distance_km'] else '—' }}</td>
+        <td>
+          {% for r in sp['routes'] %}
+          <div>{{ r['to_name'] }}: <b>{{ '%g' % r['distance_km'] }} км</b>
+            <span class="muted">({{ r['source'] }})</span></div>
+          {% else %}<span class="muted">не заданы</span>{% endfor %}
+          {% if can_edit['items'] and sp['point'] %}
+          <form method="post" class="point-form"
+                action="/bp/{{ bp['id'] }}/points/{{ sp['point']['id'] }}/route">
+            <input name="to_name" placeholder="куда: база / завод"
+                   list="dl_route_to" autocomplete="off">
+            <input name="distance_km" class="w-xs" placeholder="км">
+            <button class="btn-icon secondary" title="Сохранить плечо">{{ icon('plus') }}</button>
+            {% if geo_enabled %}
+            {# Тот же пункт назначения, но километраж считает карта по
+               дорогам. Поле «км» при этом можно не заполнять. #}
+            <button class="btn-icon secondary" title="Взять расстояние из карты ({{ geo_provider }})"
+                    formaction="/bp/{{ bp['id'] }}/points/{{ sp['point']['id'] }}/route/2gis">
+              {{ icon('refresh') }}</button>
+            {% endif %}
+          </form>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ sp['gis_search'] }}" target="_blank" rel="noopener"
+             data-tip="Найти место в 2ГИС: проверить адрес и подъезд.">место</a>
+          {% if bp['buyer_name'] %}<br>
+          <a href="https://2gis.ru/directions/tab/car/search/{{ sp['place'] | urlencode }}%20to%20{{ bp['buyer_name'] | urlencode }}"
+             target="_blank" rel="noopener"
+             data-tip="Маршрут по доступным дорогам до покупателя — километраж
+             сверьте и внесите в поле плеча.">маршрут</a>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <datalist id="dl_route_to">
+      {% for sp in ship_points %}<option value="{{ sp['place'] }}">{% endfor %}
+      {% if bp['buyer_name'] %}<option value="{{ bp['buyer_name'] }}">{% endif %}
+    </datalist>
+    {# Подсказки поля «база цеха» — уже назначенные базы этого БП. #}
+    <datalist id="dl_role_bases">
+      {% for sp in ship_points %}{% if sp['point'] and sp['point']['base_name'] %}
+      <option value="{{ sp['point']['base_name'] }}">{% endif %}{% endfor %}
+    </datalist>
+    {% if geo_enabled %}
+    <p class="muted">Кнопка со стрелками берёт километраж по дорогам из карты
+      ({{ geo_provider }}): адреса геокодируются, маршрут автомобильный.
+      Сохранённое плечо переиспользуется в следующих сделках с этим пунктом,
+      повторный запрос в карту не уходит. Значение всегда можно перебить
+      вручную.</p>
+    {% else %}
+    <p class="muted">Расстояния сервис не выдумывает: километраж по доступным
+      дорогам смотрите по ссылке 2ГИС и вносите в плечо — сохранённое значение
+      переиспользуется в следующих сделках с этим пунктом. Автоподстановку
+      включает ключ 2ГИС в переменной <code>BP_2GIS_KEY</code>.</p>
+    {% endif %}
+  </details>
+  {% endif %}
+
+  {% if trips %}
+  <details class="details-gap">
+    <summary><b>Рейсы, машины и дни</b>
+      <span class="muted">(по ролям точек; машина
+        {{ '%g' % trips[0]['capacity'] }} тн, {{ '%g' % trips[0]['per_shift'] }} рейса в смену;
+        наши рейсы — вывоз с цехов и доставка покупателю)</span></summary>
+    <div class="table-scroll table-gap">
+    <table class="grid-lines">
+      <thead><tr><th>Место</th>
+        <th data-tip="Вывоз цех → база — рейсы всегда наши; с базы — наши только при доставке покупателю.">Этап</th>
+        <th class="num">Объём, тн</th>
+        <th class="num">Км</th><th class="num">Рейсов</th>
+        <th class="num" data-tip="Своим транспортом — по доле в позициях; не задана = 100% свои, как в модели затрат.">Свои</th>
+        <th class="num">Найм</th><th class="num">Дней</th>
+        <th class="num" data-tip="Только при вагонной отгрузке: объём / вместимость вагона.">Вагонов</th>
+        <th>Отгрузка</th></tr></thead>
+      <tbody>
+      {% for t in trips %}
+      <tr>
+        <td>{{ t['place'][:46] }}{% if t['positions'] %}<span class="cell-sub">{{ t['positions'] }} поз.</span>{% endif %}</td>
+        <td>{% if 'не наши' in t['stage'] %}<span class="muted">{{ t['stage'] }}</span>
+            {% else %}{{ t['stage'] }}{% endif %}</td>
+        <td class="num">{{ '%.2f' % t['volume'] }}</td>
+        <td class="num">{{ '%g' % t['distance_km'] if t['distance_km'] else '—' }}</td>
+        <td class="num">{% if t['trips'] %}<b>{{ t['trips'] }}</b>{% else %}—{% endif %}</td>
+        <td class="num">{{ t['own_trips'] or '—' }}</td>
+        <td class="num">{{ t['hired_trips'] or '—' }}</td>
+        <td class="num">{% if t['days'] %}<b>{{ '%g' % t['days'] }}</b>{% else %}—{% endif %}</td>
+        <td class="num">{{ '%g' % t['wagons'] if t['wagons'] else '—' }}</td>
+        <td class="muted">{{ t['shipment'][:26] }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="muted">Рейсы считаются от объёма и вместимости машины, дни — от
+      числа рейсов в смену. Доля своего транспорта берётся из позиций
+      («св.тр» в составе лота).</p>
+  </details>
+
+  {% endif %}

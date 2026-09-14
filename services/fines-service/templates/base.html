@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Отчет по штрафам{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&subset=cyrillic&display=swap">
+<link rel="stylesheet" href="/static/style.css?v={{ static_v }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ portal_url }}" title="Выйти в основной портал">
+    <img src="/static/logo.svg" alt="МетОптТорг">
+    <div>Отчет по штрафам<span class="sub">МетОптТорг · юридический отдел</span></div>
+  </a>
+  <nav>
+    <a href="/" class="{{ 'on' if active=='dashboard' }}">Текущий месяц</a>
+    <a href="/periods" class="{{ 'on' if active=='periods' }}">Архив месяцев</a>
+    <a href="/ip/unlinked" class="{{ 'on' if active=='unlinked' }}">ФССП без привязки</a>
+    {% if auth_enabled %}<a href="/logout" class="muted">Выход</a>{% endif %}
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+[Unit]
+Description=Fines report service (MetOptTorg)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fines
+WorkingDirectory=/opt/fines-service
+ExecStart=/opt/fines-service/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8077
+Restart=always
+RestartSec=15
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Yekaterinburg
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,61 @@
+{% from "bp/_macros.html" import icon, money with context %}
+{# Ставки перевозчика из приказа 1С по плечам маршрута этого БП.
+   Только подсказка: в статьи затрат ничего не пишется. Показывается,
+   когда справочник загружен и хотя бы одно плечо нашлось в приказе. #}
+{% if rate_hints %}
+<div class="card" id="sec-rates">
+  <div class="sec-head">
+    <h2>Ставки перевозчика по маршрутам БП</h2>
+    <div class="sec-aside"><span class="role-tag">приказ 1С ·
+      <a href="/references#ref-transport">справочник</a></span></div>
+  </div>
+  <p class="muted">Плечи маршрута, найденные в приказе перевозчика. Это
+    подсказка для статей транспортных затрат — сервис сам ничего не
+    записывает. Повышение в статусе «На согласовании» показано пометкой и
+    в расчёт не идёт.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Плечо БП</th><th class="num">Тоннаж, тн</th>
+        <th>Маршрут в приказе</th><th>ТС</th>
+        <th class="num">Ставка</th><th class="num">≈ руб/т</th>
+        <th class="num">≈ на плечо, руб</th><th>Повышение</th></tr></thead>
+    <tbody>
+    {% for h in rate_hints %}
+      {% for r in h['rates'] %}
+      <tr>
+        {% if loop.first %}
+        <td rowspan="{{ h['rates'] | length }}">{{ h['from_label'] }} →
+          {{ h['to_label'] }}
+          {% if h['transport'] %}<span class="muted">({{ h['transport'] }})</span>{% endif %}</td>
+        <td rowspan="{{ h['rates'] | length }}" class="num">
+          {{ '%.2f' | format(h['volume_t'] or 0) }}</td>
+        {% endif %}
+        <td>{{ r['route'] }}
+          <span class="muted">№{{ r['doc_number'] }} от {{ r['doc_date'] }}</span></td>
+        <td>{{ r['vehicle'] }}</td>
+        <td class="num">{{ money(r['price']) }} руб/{{ r['unit'] }}
+          {% if r['conditions'] %}<span class="muted">{{ r['conditions'] }}</span>{% endif %}</td>
+        <td class="num">{% if r['per_t'] %}{{ money(r['per_t']) }}{% else %}—{% endif %}</td>
+        <td class="num">{% if r['total'] %}<b>{{ money(r['total']) }}</b>{% else %}—{% endif %}</td>
+        <td>{% if r['proposed_lo'] %}<span class="warn-note">
+          {{ money(r['proposed_lo']) }}{% if r['proposed_hi'] != r['proposed_lo']
+          %}–{{ money(r['proposed_hi']) }}{% endif %} руб/{{ r['unit'] }} —
+          {{ (r['proposed_status'] or 'на согласовании') | lower }}</span>
+        {% endif %}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% elif rates_loaded %}
+<div class="card" id="sec-rates">
+  <div class="sec-head"><h2>Ставки перевозчика по маршрутам БП</h2></div>
+  <p class="muted">Плечи маршрута этого БП в приказе перевозчика не найдены
+    (в справочнике {{ rates_loaded }} ставок —
+    <a href="/references#ref-transport">посмотреть</a>). Маршрут
+    сопоставляется по названиям мест: «Урай - Пермь» найдётся, если в узлах
+    графа есть «Урай» и «Пермь».</p>
+</div>
+{% endif %}

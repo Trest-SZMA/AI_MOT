@@ -1,0 +1,24 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+{% if can_edit['lot'] %}
+<div class="card" id="sec-scenario-add">
+  <div class="sec-head">
+    <h2><span class="sec-num">13</span> Добавить сценарий-вариант</h2>
+    <div class="sec-aside"><span class="role-tag">Пустое поле = параметр БП</span></div>
+  </div>
+  <form method="post" action="/bp/{{ bp['id'] }}/scenarios">
+    <div class="grid">
+      <div><label>Название *</label><input name="name" required placeholder="минус 1000 / оптимистичный"></div>
+      <div><label>Сдвиг цены, руб/тн</label><input name="price_delta" placeholder="-1000"></div>
+      <div><label>Порог закупки, руб</label><input name="lot_cost"></div>
+      <div><label>Невозм. НДС, %</label><input name="vat_unrecovered_pct" placeholder="30"></div>
+      <div><label>Ставка НДС, %</label><input name="vat_rate"></div>
+      <div><label>Ставка капитала, %</label><input name="capital_rate"></div>
+      <div><label>Срок вывоза, мес</label><input name="removal_months"></div>
+      <div><label>Засор, %</label><input name="contamination_pct"></div>
+      <div><label>ЧП из файла (сверка), руб</label><input name="control_net_profit"></div>
+      <div style="flex:1"><label>Комментарий</label><input name="comment"></div>
+    </div>
+    <button type="submit">{{ icon('plus') }} Сценарий</button>
+  </form>
+</div>
+{% endif %}

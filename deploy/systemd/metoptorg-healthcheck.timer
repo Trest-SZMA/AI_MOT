@@ -1,0 +1,10 @@
+[Unit]
+Description=МетОптТорг — healthcheck каждые 5 минут
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

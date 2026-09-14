@@ -1,0 +1,165 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="page-head bp-head">
+  <div>
+    <h1>{{ bp['bp_number'] }}
+      {% if bp['source_name'] %}
+      <span class="muted source-name" data-tip="Старое название БП — имя исходной книги экономистов, из которой карточка импортирована.">({{ bp['source_name'] }})</span>
+      {% endif %}
+      <span class="status {{ bp['status'] }}">{{ bp['status'] }}</span>
+    </h1>
+    <div class="muted">
+      Версия {{ bp['version'] }}{% if bp['scenario'] %}, {{ bp['scenario'] }}{% endif %}
+      {% if bp['seller_name'] or bp['buyer_name'] %}
+      · {{ bp['seller_name'] or 'продавец не указан' }} → {{ bp['buyer_name'] or 'покупатель не указан' }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="page-actions">
+    {% if bitrix_url %}
+    <a class="btn secondary" href="{{ bitrix_url }}" target="_blank" rel="noopener"
+       title="Открыть задачу {{ bp['bitrix_task_id'] }} в Битрикс24">
+      {{ icon('link') }} Задача в Битрикс</a>
+    {% endif %}
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/route">{{ icon('map') }} Маршрут</a>
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/schedule">{{ icon('calendar') }} График вывоза</a>
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/planfact">{{ icon('chart') }} План-факт</a>
+    <a class="btn" href="/bp/{{ bp['id'] }}/export">{{ icon('file') }} Документы</a>
+  </div>
+</div>
+
+{% if final_status %}
+{# БП прошёл согласование, но расчёт остаётся открытым: экономист доводит
+   «Лукойл» после того, как «ДСП» закрыли (БП 1935). Правки журналируются. #}
+<div class="note-final" role="status">
+  {{ icon('warn', 'icon-s') }}
+  <span>Статус «{{ bp['status'] }}»: расчёт остаётся редактируемым — правки
+    обоих вариантов сохраняются версиями и попадают в журнал изменений.</span>
+</div>
+{% endif %}
+
+{# ── Переключатель вариантов расчёта (ДСП / Лукойл) ── #}
+<div class="variant-bar" aria-label="Варианты расчёта">
+  <div class="variant-switch" role="tablist">
+    {% for v in variant_summary %}
+    <a role="tab" aria-selected="{{ 'true' if v.active else 'false' }}"
+       class="variant-tab {{ 'active' if v.active }}"
+       href="/bp/{{ bp['id'] }}?variant={{ v.code }}"
+       data-tip="Вариант «{{ v.label }}» ({{ v.sheets }}): свои цены реализации, суммы статей затрат и параметры. Чистая прибыль {{ money(v.net_profit) }} руб, ROS {{ '%.1f' % v.ros_pct }}%.">
+      <span class="variant-name">{{ v.label }}</span>
+      <span class="variant-np {{ 'pos' if v.net_profit >= 0 else 'neg' }}">{{ money(v.net_profit) }} руб</span>
+      {% if v.control_ok is true %}
+      <span class="variant-check ok" data-tip="Пересчёт сходится с книгой экономистов до копейки: контрольная ЧП из файла {{ money(v.control) }} руб.">сходится с файлом</span>
+      {% elif v.control_ok is false %}
+      <span class="variant-check warn" data-tip="Расхождение с книгой экономистов: в файле ЧП {{ money(v.control) }} руб, пересчёт {{ money(v.net_profit) }} руб. Проверьте цены, статьи затрат и параметры варианта.">расходится с файлом</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+    {% if not bp['has_luk'] and can_edit['lot'] %}
+    <form method="post" action="/bp/{{ bp['id'] }}/variant" class="variant-add">
+      <input type="hidden" name="action" value="enable">
+      <button type="submit" class="btn secondary btn-s"
+              data-tip="Завести второй вариант расчёта «Лукойл»: сначала он повторяет ДСП, затем в таблицах появятся отдельные колонки цен и сумм для варианта.">
+        + вариант «Лукойл»</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if variant == 'luk' %}
+  <details class="variant-params">
+    <summary data-tip="Параметры сделки, отличающиеся в варианте «Лукойл» (срок вывоза, ставки, порог закупки). Пустое поле = как в ДСП.">
+      Параметры варианта{% if luk_overrides %}:
+      {% for k, v in luk_overrides.items() %}
+        <span class="ovr-tag">{{ luk_override_labels.get(k, k) }} = {{ v }}</span>
+      {% endfor %}{% endif %}
+    </summary>
+    {% if can_edit['lot'] %}
+    <form method="post" action="/bp/{{ bp['id'] }}/variant/overrides" class="grid-form">
+      {% for k, label in luk_override_labels.items() %}
+      <div><label>{{ label }}</label>
+        <input name="{{ k }}" value="{{ luk_overrides.get(k, '') }}"
+               placeholder="как в ДСП"></div>
+      {% endfor %}
+      <div class="form-actions">
+        <button type="submit">{{ icon('save') }} Сохранить параметры варианта</button>
+      </div>
+    </form>
+    <form method="post" action="/bp/{{ bp['id'] }}/variant" class="variant-remove">
+      <input type="hidden" name="action" value="disable">
+      <button type="submit" class="btn danger btn-s"
+              onclick="return confirm('Удалить вариант «Лукойл» вместе с его ценами и суммами?')">
+        Удалить вариант «Лукойл»</button>
+    </form>
+    {% endif %}
+  </details>
+  {% else %}
+  {# Тот же блок для базового варианта: параметры ДСП — это поля самой
+     сделки («Параметры лота»), но за ними неудобно уходить на «Сделку»,
+     когда у «Лукойла» они под рукой. Форма пишет в те же поля БП. #}
+  <details class="variant-params">
+    <summary data-tip="Базовые параметры расчёта (вариант ДСП) — те же поля, что в «Параметрах лота» на вкладке «Сделка». Вариант «Лукойл» наследует их, если не переопределил.">
+      Параметры расчёта (ДСП):
+      {% for k, label in luk_override_labels.items() %}
+        {% if bp[k] is not none and bp[k] != '' %}
+        <span class="ovr-tag">{{ label }} = {{ '%.10g' % bp[k] if bp[k] is number else bp[k] }}</span>
+        {% endif %}
+      {% endfor %}
+    </summary>
+    {% if can_edit['lot'] %}
+    <form method="post" action="/bp/{{ bp['id'] }}/section/lot" class="grid-form">
+      {% for k, label in luk_override_labels.items() %}
+      <div><label>{{ label }}</label>
+        <input name="{{ k }}" value="{{ '%.10g' % bp[k] if bp[k] is number else (bp[k] or '') }}"
+               placeholder="по умолчанию из настроек"></div>
+      {% endfor %}
+      <div class="form-actions">
+        <button type="submit">{{ icon('save') }} Сохранить параметры</button>
+      </div>
+    </form>
+    {% endif %}
+  </details>
+  {% endif %}
+</div>
+
+<div class="kpi-bar" aria-label="Ключевые показатели бизнес-плана — вариант {{ variant_label }}">
+  <div class="kpi" data-tip="Сумма «объём продажи × цена реализации» по всем позициям активного варианта. Объём продажи чёрного лома уменьшается на засор.">
+    <div class="k-label">Выручка без НДС</div>
+    <div class="k-value"><span data-kpi="revenue">{{ money(pnl['revenue']) }}</span> <span class="k-unit">руб</span></div>
+    <div class="k-sub"><span data-kpi="sale_volume" data-fmt="1">{{ '%.1f' % pnl['sale_volume'] }}</span> тн реализации</div>
+  </div>
+  <div class="kpi {{ 'good' if pnl['net_profit'] >= 0 else 'bad' }}" data-tip="Прибыль до налогообложения минус налог на прибыль. Полный расчёт — в блоке P&L; строки P&L поясняются при наведении.">
+    <div class="k-label">Чистая прибыль</div>
+    <div class="k-value"><span data-kpi="net_profit">{{ money(pnl['net_profit']) }}</span> <span class="k-unit">руб</span></div>
+    <div class="k-sub"><span data-kpi="net_profit_per_t" data-fmt="0">{{ '%.0f' % pnl['net_profit_per_t'] }}</span> руб/тн</div>
+  </div>
+  <div class="kpi {{ 'good' if pnl['above_threshold'] else 'bad' }}" data-tip="Рентабельность продаж = чистая прибыль / выручка. Сделка проходит при ROS не ниже порога (настройка margin_threshold).">
+    <div class="k-label">ROS</div>
+    <div class="k-value"><span data-kpi="ros_pct" data-fmt="1">{{ '%.1f' % pnl['ros_pct'] }}</span><span class="k-unit">%</span></div>
+    <div class="k-sub">Порог {{ '%.0f' % pnl['margin_threshold'] }}%</div>
+  </div>
+  <div class="kpi" data-tip="Операционная прибыль / выручка. Операционная прибыль = выручка − лот − прямые затраты (переменные + постоянные).">
+    <div class="k-label">Опер. маржа</div>
+    <div class="k-value"><span data-kpi="operating_margin_pct" data-fmt="1">{{ '%.1f' % pnl['operating_margin_pct'] }}</span><span class="k-unit">%</span></div>
+    <div class="k-sub">Опер. прибыль <span data-kpi="operating_profit">{{ money(pnl['operating_profit']) }}</span> руб</div>
+  </div>
+  <div class="kpi" data-tip="Стоимость закупки лота без НДС (порог закупки или итог аукциона). Цена закупки руб/тн = лот / суммарный тоннаж — распределяется на позиции пропорционально объёму.">
+    <div class="k-label">Стоимость лота</div>
+    <div class="k-value"><span data-kpi="lot_cost">{{ money(pnl['lot_cost']) }}</span> <span class="k-unit">руб</span></div>
+    <div class="k-sub"><span data-kpi="purchase_price_per_t" data-fmt="0">{{ '%.0f' % pnl['purchase_price_per_t'] }}</span> руб/тн закупки</div>
+  </div>
+  {# Лестница считается 30 пересчётами P&L, поэтому она есть только на
+     вкладке «Экономика». На остальных вкладках плитка ведёт туда. #}
+  <div class="kpi" data-tip="Аукционная лестница: P&L пересчитывается на каждом шаге торгов (лот + шаг × N). Показан предельный шаг, при котором ROS ещё не ниже порога.">
+    <div class="k-label">Порог торгов</div>
+    <div class="k-value">
+      {% if ladder is not defined %}
+      <a class="kpi-link" href="/bp/{{ bp['id'] }}/economics">см. «Экономика»</a>
+      {% elif not ladder['steps'] %}
+      <span class="kpi-hint">не задан шаг аукциона</span>
+      {% elif ladder['max_ok_step'] is not none %}
+      Шаг {{ ladder['max_ok_step'] }}
+      {% else %}
+      ниже порога
+      {% endif %}
+    </div>
+    <div class="k-sub">Аукцион и запас рентабельности</div>
+  </div>
+</div>

@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МетОптТорг · Бизнес-планы</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap"
+      rel="stylesheet">
+<style>
+  /* ── Дизайн-токены (палитра сайта metoptorg.ru, шрифт Lato) ── */
+  :root {
+    --brand-900: #142248;   /* фирменный тёмно-синий */
+    --brand-700: #1f3468;
+    --brand-600: #485e88;   /* вторичный */
+    --brand-400: #8390b1;
+    --brand-200: #bcc3d7;   /* бордеры */
+    --brand-100: #e3e8f2;   /* заливка заголовков таблиц */
+    --brand-50:  #f3f5fa;   /* фон страницы */
+    --surface: #ffffff;
+    --text: #1c2333;
+    --text-muted: #5b6478;
+    --ok: #1e7a4a;  --ok-bg: #e2f3e9;  --ok-border: #bfe0cc;
+    --danger: #b3352e;  --danger-bg: #fbe9e7;  --danger-border: #e3b7b4;
+    --warn: #9a6410;  --warn-bg: #fdf3dd;  --warn-border: #e8d5a8;
+    --info-bg: #eaf1fa;  --info-border: #cddcf0;
+    --calc: #f6f2e3;        /* расчётные ячейки */
+    --calc-hover: #efeadb;
+    --row-border: #e6e9f2;
+    --row-hover: #f7f9fd;
+    --radius: 12px; --radius-s: 7px;
+    --shadow: 0 1px 2px rgba(20,34,72,.06), 0 4px 14px rgba(20,34,72,.07);
+    --focus: 0 0 0 3px rgba(72,94,136,.30);
+    --header-h: 56px;
+    /* совместимость со старыми именами */
+    --brand: var(--brand-900); --light: var(--brand-100);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Lato', -apple-system, 'Segoe UI', Arial, sans-serif;
+         font-size: 14px; margin: 0; color: var(--text);
+         background: var(--brand-50); -webkit-font-smoothing: antialiased; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: .01ms !important;
+                             animation-duration: .01ms !important; }
+  }
+
+  /* ── Иконки (Lucide, спрайт внизу страницы) ── */
+  .icon { width: 15px; height: 15px; flex: none; fill: none;
+          stroke: currentColor; stroke-width: 2;
+          stroke-linecap: round; stroke-linejoin: round;
+          vertical-align: -2px; }
+  .icon-s { width: 12px; height: 12px; vertical-align: -1px; }
+
+  /* ── Шапка ── */
+  header { background: var(--brand-900); color: #fff; padding: 0 28px;
+           display: flex; align-items: center; gap: 8px; height: var(--header-h);
+           position: sticky; top: 0; z-index: 50;
+           box-shadow: 0 2px 10px rgba(20,34,72,.25); }
+  header .logo { font-weight: 900; font-size: 16px; letter-spacing: .2px;
+                 color: #fff; text-decoration: none; margin-right: 18px;
+                 display: flex; align-items: center; gap: 10px; }
+  header .logo::before { content: ''; width: 26px; height: 26px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--brand-600), var(--brand-400));
+    display: inline-block; box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
+  header nav a { color: var(--brand-200); text-decoration: none; font-weight: 700;
+                 font-size: 13px; padding: 8px 14px; border-radius: 8px;
+                 transition: background .15s, color .15s; }
+  header nav a:hover { color: #fff; background: rgba(255,255,255,.10); }
+  header form { margin-left: auto; }
+
+  /* ── Пользователь в шапке: кто вошёл, его роль и выход ── */
+  .user-box { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+  .user-box form { margin-left: 0; }
+  .user-id { display: flex; flex-direction: column; line-height: 1.15;
+             margin-right: 8px; text-align: right; }
+  .user-name { font-weight: 800; font-size: 13px; color: #fff; }
+  .user-role { font-size: 11px; font-weight: 700; color: var(--brand-200);
+               letter-spacing: .2px; }
+  .user-box a { color: var(--brand-200); text-decoration: none; font-weight: 700;
+                font-size: 12.5px; padding: 7px 10px; border-radius: 8px;
+                transition: background .15s, color .15s; }
+  .user-box a:hover { color: #fff; background: rgba(255,255,255,.10); }
+  .btn-logout { font: inherit; font-size: 12.5px; font-weight: 700; margin: 0;
+                padding: 7px 12px; cursor: pointer; border-radius: 8px;
+                color: #fff; background: rgba(255,255,255,.10);
+                border: 1px solid rgba(255,255,255,.25);
+                transition: background .15s; }
+  .btn-logout:hover { background: rgba(255,255,255,.20); }
+  .btn-logout:focus-visible { outline: none; box-shadow: var(--focus); }
+  header select { width: auto; background: rgba(255,255,255,.10); color: #fff;
+                  border: 1px solid rgba(255,255,255,.25); font-weight: 700; }
+  header select:hover { background: rgba(255,255,255,.16); }
+  header select option { color: var(--text); background: #fff; }
+
+  /* Рабочая область тянется под экран: в таблице позиций 11 колонок с
+     полями правки, и жёсткие 1360px заставляли поля переноситься — строка
+     раздувалась вдвое. На широком мониторе таблица должна помещаться
+     целиком, без горизонтальной прокрутки. */
+  main { max-width: min(1840px, 97vw); margin: 24px auto; padding: 0 20px; }
+  h1 { font-size: 24px; font-weight: 900; color: var(--brand-900);
+       letter-spacing: -.2px; margin: 6px 0 16px; }
+  h2 { font-size: 15px; font-weight: 900; color: var(--brand-900);
+       margin: 2px 0 12px; letter-spacing: .1px; }
+  a { color: var(--brand-600); }
+
+  /* ── Заголовок страницы ── */
+  .page-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+               margin: 0 0 8px; }
+  .page-head h1 { font-size: 20px; }
+  .page-head .btn, .page-head .page-actions a { padding: 5px 10px; font-size: 12.5px; }
+  .page-head h1 { margin: 0; display: flex; align-items: center; gap: 10px;
+                  flex-wrap: wrap; }
+  .page-head .page-actions { margin-left: auto; display: flex; gap: 8px;
+                             flex-wrap: wrap; }
+
+  .sub-head { font-size: 13.5px; font-weight: 800; color: var(--brand-900);
+              margin: 18px 0 8px; }
+
+  /* ── Этапы затрат: вывоз с цеха → переработка на базе → отгрузка ── */
+  .stage-grid { display: grid; gap: 10px; margin: 4px 0 14px;
+                grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .stage-tile { background: var(--surface); border: 1px solid var(--brand-200);
+                border-radius: var(--radius); padding: 10px 13px;
+                box-shadow: var(--shadow); min-width: 0; }
+  .stage-tile.stage-total { background: var(--brand-50);
+                            border-color: var(--brand-900); }
+  .stage-name { font-size: 11px; font-weight: 800; letter-spacing: .4px;
+                text-transform: uppercase; color: var(--text-muted); }
+  .stage-sum { font-size: 19px; font-weight: 900; color: var(--brand-900);
+               font-variant-numeric: tabular-nums; margin-top: 3px;
+               white-space: nowrap; }
+  .stage-per-t { font-size: 12.5px; font-weight: 700; margin-top: 2px;
+                 font-variant-numeric: tabular-nums; }
+  .stage-bases { margin-top: 6px; font-size: 12px; }
+  .stage-bases summary { cursor: pointer; }
+  .stage-base-row { display: flex; justify-content: space-between; gap: 10px;
+                    padding: 2px 0; border-bottom: 1px solid var(--row-border); }
+  tr.stage-row td { background: var(--brand-100); font-size: 12.5px;
+                    padding-top: 8px; }
+  tr.stage-row .muted { margin-left: 8px; }
+  .stage-chip { display: inline-block; margin-left: 6px; padding: 0 7px;
+                border-radius: 999px; font-size: 10.5px; font-weight: 700;
+                background: var(--brand-100); color: var(--brand-700);
+                white-space: nowrap; }
+
+  /* ── Сезонно недоступный месяц (зимник) ── */
+  th.month-blocked, td.month-blocked { background: var(--warn-bg);
+                                       color: var(--warn); }
+  td.month-blocked input { border-style: dashed; }
+
+  /* ── Хвост партии (остаток сверх кратности) ── */
+  .tail-note { margin-top: 3px; font-size: 11px; font-weight: 700;
+               color: var(--warn); white-space: nowrap; cursor: help; }
+
+  /* ── Галерея фотографий лота ── */
+  .photo-grid { display: grid; gap: 12px; margin: 10px 0 4px;
+                grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .photo-card { margin: 0; border: 1px solid var(--brand-200);
+                border-radius: var(--radius); overflow: hidden;
+                background: var(--surface); box-shadow: var(--shadow); }
+  .photo-card img { display: block; width: 100%; height: 150px;
+                    object-fit: cover; background: var(--brand-100); }
+  .photo-card figcaption { display: flex; align-items: center; gap: 8px;
+                           flex-wrap: wrap; padding: 7px 10px;
+                           font-size: 12px; }
+  .photo-card figcaption form { margin-left: auto; }
+  .photo-date { font-weight: 700; color: var(--brand-900);
+                font-variant-numeric: tabular-nums; }
+
+  /* ── Старое название БП (имя исходной книги) ── */
+  .source-name { font-size: 12px; font-weight: 400; max-width: 46ch;
+                 overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; display: inline-block;
+                 vertical-align: middle; }
+
+  /* ── Панель несохранённых изменений ── */
+  #dirty-bar { position: fixed; left: 50%; transform: translateX(-50%);
+               bottom: 14px; z-index: 150; display: flex; gap: 10px;
+               align-items: center; padding: 10px 14px;
+               background: var(--brand-900); color: #fff;
+               border-radius: 12px; box-shadow: 0 8px 30px rgba(10,20,50,.4);
+               max-width: calc(100vw - 20px); }
+  #dirty-bar[hidden] { display: none; }   /* атрибут hidden сильнее display:flex */
+  #dirty-bar .dirty-note { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  #dirty-bar button { margin: 0; }
+  #dirty-bar .dirty-cancel { background: transparent; color: #fff;
+                             border: 1px solid rgba(255,255,255,.4); }
+  input.dirty, select.dirty, textarea.dirty {
+    border-color: var(--brand-600);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-600) 25%, transparent); }
+
+  /* ── Компактные таблицы и элементы на небольших экранах ── */
+  @media (max-width: 760px) {
+    table { font-size: 12px; }
+    th, td { padding: 6px 7px; }
+    .table-scroll input, .table-scroll select { min-height: 34px; }
+    .variant-tab { min-width: 120px; padding: 7px 10px; }
+    #tip-pop { max-width: min(90vw, 340px); }
+  }
+
+  /* ── Поповер подсказок «как это посчитано» ── */
+  #tip-pop { position: absolute; z-index: 200; max-width: 340px;
+             padding: 9px 12px; border-radius: 8px;
+             background: var(--brand-900); color: #fff;
+             font-size: 12.5px; line-height: 1.45; font-weight: 500;
+             box-shadow: 0 6px 24px rgba(10, 20, 50, .35);
+             white-space: pre-line; pointer-events: none; }
+  td.calc[data-tip], span[data-tip], th[data-tip], .kpi[data-tip],
+  b[data-tip], label[data-tip] { cursor: help; }
+  th[data-tip], td.calc[data-tip] > span:first-child,
+  .k-label[data-tip] { text-decoration: underline dotted
+                       color-mix(in srgb, currentColor 45%, transparent);
+                       text-underline-offset: 3px; }
+
+  /* ── Переключатель вариантов расчёта (ДСП / Лукойл) ── */
+  .variant-bar { margin: 0 0 8px; }
+  .variant-switch { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
+  .variant-tab { display: flex; flex-direction: column; gap: 2px; flex: 0 1 auto;
+                 min-width: 150px; padding: 8px 14px; border-radius: var(--radius);
+                 border: 1px solid var(--brand-200); background: var(--surface);
+                 text-decoration: none; color: var(--text);
+                 box-shadow: var(--shadow);
+                 transition: border-color .15s, background .15s; }
+  .variant-tab:hover { border-color: var(--brand-600); }
+  .variant-tab.active { border-color: var(--brand-900); background: var(--brand-50);
+                        box-shadow: inset 0 0 0 1px var(--brand-900); }
+  .variant-name { font-size: 12px; font-weight: 800; letter-spacing: .4px;
+                  text-transform: uppercase; color: var(--brand-900); }
+  .variant-np { font-size: 15px; font-weight: 800;
+                font-variant-numeric: tabular-nums; }
+  .variant-np.pos { color: var(--ok); }
+  .variant-np.neg { color: var(--danger); }
+  .variant-check { font-size: 10.5px; font-weight: 700; width: fit-content;
+                   padding: 1px 7px; border-radius: 999px; }
+  .variant-check.ok { background: var(--ok-bg, #e6f4ea); color: var(--ok); }
+  .variant-check.warn { background: var(--warn-bg, #fdf3d7); color: #8a6d1a; }
+  .variant-add { display: flex; align-items: center; }
+  .variant-params { margin-top: 8px; font-size: 13px; }
+  .variant-params summary { cursor: pointer; color: var(--text-muted); }
+  .variant-params .ovr-tag { display: inline-block; margin-left: 6px;
+                             padding: 1px 8px; border-radius: 999px;
+                             background: var(--warn-bg, #fdf3d7); font-weight: 700; }
+  .variant-remove { margin-top: 8px; }
+  .variant-pill { margin-left: 8px; font-size: 11px; vertical-align: middle; }
+  th.variant-col, td.variant-col { background: var(--brand-50); }
+
+  /* ── Панель ключевых показателей ── */
+  /* Полоса показателей: одна строка вместо трёх. До правки шапка съедала
+     640px из 987px экрана — работа начиналась ниже сгиба. Плитки сжаты,
+     на широком экране умещаются в ряд. */
+  .kpi-bar { display: grid; gap: 8px; margin-bottom: 10px;
+             grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
+  .kpi { background: var(--surface); border: 1px solid var(--brand-200);
+         border-radius: var(--radius-s); padding: 6px 10px 7px;
+         box-shadow: var(--shadow); min-width: 0; }
+  .kpi .k-label { font-size: 10px; font-weight: 700; color: var(--text-muted);
+                  text-transform: uppercase; letter-spacing: .4px;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi .k-value { font-size: 17px; font-weight: 900; color: var(--brand-900);
+                  font-variant-numeric: tabular-nums; margin-top: 1px;
+                  letter-spacing: -.3px; white-space: nowrap; }
+  .kpi .k-value .k-unit { font-size: 11px; font-weight: 700;
+                          color: var(--text-muted); letter-spacing: 0; }
+  /* Вместо числа бывает подсказка («лестница не рассчитана»): её надо
+     переносить — с nowrap плитка растягивалась за край экрана и вся
+     страница получала горизонтальную прокрутку. */
+  .kpi .k-value .info-line { white-space: normal; font-size: 11px;
+                             font-weight: 700; line-height: 1.3;
+                             letter-spacing: 0; margin: 1px 0 0; }
+  .kpi .k-sub { font-size: 10.5px; color: var(--text-muted); margin-top: 1px;
+                display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+                line-height: 1.3; }
+  .kpi.good .k-value { color: var(--ok); }
+  .kpi.bad .k-value { color: var(--danger); }
+
+  /* ── Липкая навигация по блокам страницы ── */
+  .page-nav { position: sticky; top: var(--header-h); z-index: 40;
+              display: flex; gap: 5px; overflow-x: auto;
+              margin: 0 0 16px; padding: 8px 10px;
+              background: rgba(255,255,255,.92);
+              -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+              border: 1px solid var(--brand-200); border-radius: var(--radius);
+              box-shadow: var(--shadow); scrollbar-width: none; }
+  .page-nav::-webkit-scrollbar { display: none; }
+  .page-nav a { flex: none; padding: 6px 12px; border-radius: 999px;
+                font-size: 12.5px; font-weight: 700; color: var(--brand-600);
+                text-decoration: none; border: 1px solid transparent;
+                transition: background .15s, color .15s, border-color .15s; }
+  .page-nav a:hover { background: var(--brand-50); border-color: var(--brand-200);
+                      color: var(--brand-900); }
+  .page-nav a.active { background: var(--brand-900); color: #fff; }
+  section[id], div[id^="sec-"] { scroll-margin-top: calc(var(--header-h) + 62px); }
+
+  /* ── Карточки ── */
+  .card { background: var(--surface); border: 1px solid var(--brand-200);
+          border-radius: var(--radius); padding: 18px 22px; margin-bottom: 16px;
+          box-shadow: var(--shadow); }
+  .card.locked { background: #fafbfd; }
+  .card.locked .sec-head h2 { color: var(--brand-600); }
+
+  /* ── Тип сделки в шапке БП ── */
+  .bp-type { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: flex-start;
+             background: var(--brand-50); border: 1px solid var(--brand-200);
+             border-radius: var(--radius-s); padding: 12px 14px; margin-bottom: 14px; }
+  .bp-type-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .bp-type-form select { min-width: 230px; }
+  .bp-type-actions { display: flex; align-items: flex-end; }
+  .bp-type-note { flex: 1 1 320px; min-width: 0; display: flex;
+                  flex-direction: column; gap: 6px; }
+  .bp-type-shares { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bp-type-share { font-size: 11.5px; background: var(--surface);
+                   border: 1px solid var(--brand-200); border-radius: 999px;
+                   padding: 2px 10px; white-space: nowrap; }
+  .bp-type-share b { color: var(--brand-900); }
+
+  /* ── Происхождение суммы затрат ── */
+  .origin-tag { display: inline-block; margin-top: 4px; font-size: 11px;
+                font-weight: 700; color: var(--brand-600);
+                background: var(--brand-50); border: 1px solid var(--brand-200);
+                border-radius: 999px; padding: 1px 8px; }
+  .origin-tag.origin-manual { color: var(--warn); background: var(--warn-bg);
+                              border-color: var(--warn-border); }
+  .dev-row-open { background: var(--warn-bg); }
+  .dev-why { width: 100%; }
+
+  /* ── Ориентир из матрицы затрат в строке статьи ── */
+  .matrix-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 3px;
+                 display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  .matrix-hint b { color: var(--brand-900); }
+
+  /* ── Сворачиваемая карточка справочника ── */
+  /* Справочников полтора десятка, развёрнутыми они дают простыню на три
+     экрана. Открытое состояние держит сам браузер (details), поэтому
+     ничего не нужно хранить и восстанавливать. */
+  details.card > summary { list-style: none; cursor: pointer;
+                           display: flex; align-items: center; gap: 10px;
+                           flex-wrap: wrap; margin: 0; }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary:focus-visible { outline: none; box-shadow: var(--focus);
+                                         border-radius: var(--radius-s); }
+  details.card > summary h2 { margin: 0; display: flex; align-items: center; gap: 9px; }
+  details.card > summary .sec-aside { margin-left: auto; display: flex;
+                                      align-items: center; gap: 8px; }
+  .ref-caret { flex: none; width: 18px; height: 18px; color: var(--brand-600);
+               transition: transform .15s ease; }
+  details.card[open] > summary .ref-caret { transform: rotate(90deg); }
+  details.card[open] > summary { margin-bottom: 12px;
+                                 border-bottom: 1px solid var(--row-border);
+                                 padding-bottom: 10px; }
+  details.card > summary:hover h2 { color: var(--brand-700); }
+  .ref-hint { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  @media (prefers-reduced-motion: reduce) { .ref-caret { transition: none; } }
+
+  /* ── Заголовок раздела ── */
+  .sec-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+              margin-bottom: 12px; }
+  .sec-head h2 { margin: 0; display: flex; align-items: center; gap: 9px; }
+  .sec-head .sec-aside { margin-left: auto; display: flex; align-items: center;
+                         gap: 8px; }
+  .sec-num { min-width: 24px; height: 24px; padding: 0 5px; flex: none;
+             display: inline-flex; align-items: center; justify-content: center;
+             background: var(--brand-100); color: var(--brand-700);
+             border-radius: 7px; font-size: 12px; font-weight: 900; }
+  .role-tag { font-size: 11px; font-weight: 700; color: var(--brand-600);
+              background: var(--brand-50); border: 1px solid var(--brand-200);
+              padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .lock-tag { display: inline-flex; align-items: center; gap: 5px;
+              font-size: 11px; font-weight: 700; color: var(--warn);
+              background: var(--warn-bg); border: 1px solid var(--warn-border);
+              padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  /* Плашка «БП согласован, но расчёт открыт» — правки разрешены и журналируются. */
+  .note-final { display: flex; align-items: center; gap: 8px; margin: 0 0 14px;
+                padding: 9px 13px; font-size: 13px; color: var(--warn);
+                background: var(--warn-bg); border: 1px solid var(--warn-border);
+                border-radius: 10px; }
+  .note-final .icon { flex: none; }
+
+  /* ── Таблицы ── */
+  table { border-collapse: separate; border-spacing: 0; width: 100%;
+          font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--row-border); padding: 7px 10px;
+           text-align: left; }
+  th { background: var(--brand-100); color: var(--brand-900); font-weight: 700;
+       font-size: 12px; text-transform: none;
+       border-bottom: 1px solid var(--brand-200); }
+  tbody tr:hover > td, table > tr:hover > td { background: var(--row-hover); }
+  tbody tr:hover > td.calc, table > tr:hover > td.calc { background: var(--calc-hover); }
+  th:first-child { border-top-left-radius: 8px; }
+  th:last-child { border-top-right-radius: 8px; }
+  td.calc { background: var(--calc); font-variant-numeric: tabular-nums; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td .pos { color: var(--ok); } td.pos { color: var(--ok); }
+  td .neg { color: var(--danger); } td.neg { color: var(--danger); }
+
+  /* Прокрутка + липкий заголовок таблицы */
+  .table-scroll { overflow: auto; overscroll-behavior-x: contain; }
+  .table-scroll thead th { position: sticky; top: 0; z-index: 3;
+                           box-shadow: 0 1px 0 var(--brand-200); }
+  .table-scroll.tall { max-height: min(64vh, 640px); }
+  .table-scroll tfoot td { position: sticky; bottom: 0; z-index: 3;
+                           background: var(--brand-50); font-weight: 700;
+                           border-top: 2px solid var(--brand-200);
+                           border-bottom: 0; }
+  .table-scroll tfoot td.calc { background: var(--calc); }
+  tfoot td { font-weight: 700; border-top: 2px solid var(--brand-200);
+             border-bottom: 0; }
+
+  /* ── Формы ── */
+  label { display: block; font-size: 12px; color: var(--text-muted);
+          font-weight: 700; margin: 10px 0 3px; }
+  input, select, textarea { width: 100%; padding: 7px 10px; font-size: 13px;
+    border: 1px solid var(--brand-200); border-radius: var(--radius-s);
+    font-family: inherit; background: #fff; color: var(--text);
+    transition: border-color .15s, box-shadow .15s; }
+  input:hover, select:hover, textarea:hover { border-color: var(--brand-400); }
+  input:focus, select:focus, textarea:focus { outline: none;
+    border-color: var(--brand-600); box-shadow: var(--focus); }
+  input::placeholder { color: #a6adc2; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 18px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr 1fr; }
+    .grid2 { grid-template-columns: 1fr; } }
+
+  /* ── Кнопки ── */
+  button, .btn { background: var(--brand-900); color: #fff; border: 0;
+           border-radius: var(--radius-s); padding: 8px 16px; margin-top: 10px;
+           cursor: pointer; font-size: 13px; font-weight: 700;
+           font-family: inherit; text-decoration: none;
+           display: inline-flex; align-items: center; gap: 7px;
+           transition: background .15s, transform .06s, box-shadow .15s,
+                       border-color .15s, color .15s;
+           box-shadow: 0 1px 2px rgba(20,34,72,.18); }
+  button:hover, .btn:hover { background: var(--brand-700); }
+  button:active, .btn:active { transform: translateY(1px); }
+  button:focus-visible, .btn:focus-visible { outline: none; box-shadow: var(--focus); }
+  button.secondary, .btn.secondary { background: #fff; color: var(--brand-600);
+                     border: 1px solid var(--brand-200); box-shadow: none; }
+  button.secondary:hover, .btn.secondary:hover { background: var(--brand-50);
+                     color: var(--brand-900); }
+  button.danger { background: #fff; color: var(--danger);
+                  border: 1px solid var(--danger-border); box-shadow: none; }
+  button.danger:hover { background: var(--danger-bg); }
+  button.success { background: var(--ok); }
+  button.success:hover { background: #16603a; }
+  button:disabled { background: #cdd3e0 !important; color: #fff !important;
+                    cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; margin: 0; }
+  .btn-icon { padding: 5px 7px; margin: 0; line-height: 0; }
+  .btn, a.btn { margin-top: 0; }
+
+  /* ── Сообщения и статусы ── */
+  .msg { background: var(--ok-bg); border: 1px solid var(--ok-border);
+         color: #14532d; padding: 10px 14px; border-radius: var(--radius-s);
+         margin-bottom: 14px; font-weight: 700; font-size: 13px; }
+  /* Отказ в сохранении читается иначе, чем «сохранено»: зелёная плашка на
+     сообщении «не сохранено» — это ровно та тихая потеря данных, от которой
+     мы и защищаемся. */
+  .msg.msg-err { background: var(--danger-bg); border-color: var(--danger-border);
+                 color: var(--danger); }
+  /* Поле, не прошедшее проверку, и подпись под ним. */
+  input.bad, select.bad, textarea.bad { border-color: var(--danger-border);
+                                        background: var(--danger-bg); }
+  .field-err { display: block; margin-top: 3px; font-size: 11px;
+               font-weight: 700; color: var(--danger); }
+  .status { display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 12px; border-radius: 999px;
+            font-size: 12px; font-weight: 700; background: var(--brand-100);
+            color: var(--brand-700); vertical-align: middle;
+            white-space: nowrap; }
+  .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%;
+                    background: var(--brand-400); flex: none; }
+  .status.Согласован { background: var(--ok-bg); color: var(--ok); }
+  .status.Согласован::before { background: var(--ok); }
+  .status.Отклонён { background: var(--danger-bg); color: var(--danger); }
+  .status.Отклонён::before { background: var(--danger); }
+  .status.Доработка { background: var(--warn-bg); color: var(--warn); }
+  .status.Доработка::before { background: var(--warn); }
+  .status.no-dot::before { display: none; }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px;
+          padding: 2px 9px; border-radius: 999px; font-size: 11.5px;
+          font-weight: 700; white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.bad { background: var(--danger-bg); color: var(--danger); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+
+  .warn-note { display: inline-flex; align-items: center; gap: 4px;
+               color: var(--warn); font-weight: 700; font-size: 12px; }
+
+  .muted { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+  .metric { display: inline-block; margin: 2px 30px 2px 0; }
+  .metric b { display: block; font-size: 20px; font-weight: 900;
+              color: var(--brand-900); font-variant-numeric: tabular-nums; }
+
+  /* ── Составные ячейки таблицы позиций ──
+     21 колонка не помещалась ни на одном экране. Связанные факты об одной
+     сущности (наименование + код + сопоставление; объём + единица + засор)
+     живут в одной ячейке столбиком — таблица помещается целиком, а строка
+     читается как карточка позиции. */
+  .cell-sub { display: block; font-size: 10.5px; line-height: 1.3;
+              color: var(--text-muted); margin-top: 1px;
+              overflow-wrap: anywhere; }
+  /* Поля правки внутри ячейки: подпись и поле в одну строку, чтобы строка
+     позиции не вырастала в высоту — на экране должно помещаться много строк. */
+  .cell-fields { display: flex; flex-wrap: wrap; gap: 2px 5px; margin-top: 3px;
+                 align-items: center; }
+  .cell-item, .cell-place, .cell-group, .cell-buyer { font-size: 12px; }
+  .cell-fields label { display: inline-flex; align-items: center; gap: 3px;
+                       font-size: 10px; color: var(--text-muted);
+                       white-space: nowrap; letter-spacing: -.1px; }
+  .cell-fields label.variant-on { color: var(--brand-900); font-weight: 800; }
+  .cell-fields input { padding: 2px 4px; font-size: 11.5px; height: 22px;
+                       border-radius: 5px; }
+  .w-xxs { width: 42px; }
+  /* Ширины колонок подобраны так, чтобы поля правки помещались в ОДНУ
+     строку внутри ячейки: перенос поля на вторую строку удваивал высоту
+     строки таблицы и резал число видимых позиций. */
+  .cell-item { min-width: 200px; max-width: 300px; }
+  .cell-place { min-width: 150px; max-width: 220px; font-size: 12px; }
+  .cell-group { min-width: 158px; max-width: 200px; }
+  .cell-group input { width: 100%; margin-bottom: 2px; padding: 2px 5px;
+                      font-size: 11.5px; height: 22px; border-radius: 5px; }
+  .cell-vol { min-width: 132px; }
+  .cell-sale { min-width: 168px; }
+  .cell-buyer { min-width: 150px; max-width: 200px; }
+  .cell-buyer input.cp-input { width: 100%; padding: 2px 5px; font-size: 11.5px;
+                               height: 22px; border-radius: 5px; }
+  .cell-actions { width: 88px; white-space: nowrap; }
+  /* ── Сетка составных таблиц (.items-grid — лот, .grid-lines — реестр,
+     пункты, версии, своды) ──
+     У составных ячеек (поля правки, подписи, указания) без вертикальных
+     разделителей колонки сливались в сплошное полотно. Линии — лёгкие,
+     только чтобы глаз вёл колонку; выравнивание по верху — строки-карточки
+     начинаются с одной линии. */
+  .items-grid td, .items-grid th,
+  .grid-lines td, .grid-lines th { border-left: 1px solid var(--brand-100); }
+  .items-grid td:first-child, .items-grid th:first-child,
+  .grid-lines td:first-child, .grid-lines th:first-child { border-left: 0; }
+  .items-grid > tbody > tr > td,
+  .grid-lines > tbody > tr > td { vertical-align: top; }
+  .items-grid tbody tr.group-item-row:hover td:not(.calc) {
+    background: var(--brand-50); }
+  /* Поля правки в строках лота молчат, пока строка не под курсором или в
+     ней нет фокуса: сотня рамок ввода превращала таблицу в бланк. Значения
+     видны всегда — прячутся только рамки, геометрия не меняется. */
+  .items-grid .group-item-row input:not([type="checkbox"]),
+  .items-grid .group-item-row select {
+    border-color: transparent; background: transparent; }
+  .items-grid .group-item-row:hover input:not([type="checkbox"]),
+  .items-grid .group-item-row:focus-within input:not([type="checkbox"]),
+  .items-grid .group-item-row:hover select,
+  .items-grid .group-item-row:focus-within select {
+    border-color: var(--brand-200); background: #fff; }
+  /* Указание продавца из перечня: полный текст — во всплывающей подсказке,
+     в ячейке максимум две строки, иначе одна позиция с длинным указанием
+     растягивала таблицу на пол-экрана. */
+  .instr-note { display: -webkit-box; -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical; overflow: hidden;
+                max-width: 320px; cursor: help; }
+  /* Формы в ячейках пунктов отгрузки: поля в строку с переносом, селекты и
+     ввод базы не сжимаются до «ба…» — колонкам заданы минимальные ширины,
+     полю базы отдана вся оставшаяся ширина ячейки. */
+  .cell-role { min-width: 230px; }
+  .cell-wh { min-width: 240px; }
+  .point-form { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+                align-items: center; }
+  .point-form select { width: auto; min-width: 84px; flex: 0 0 auto; }
+  .point-form input:not(.w-xs) { flex: 1 1 120px; min-width: 120px; }
+  .point-form .w-xs { flex: 0 0 52px; }
+  .point-form .btn-icon { flex: 0 0 auto; }
+  .cell-wh .point-form select { flex: 1 1 150px; min-width: 150px;
+                                max-width: 100%; }
+  .th-sub { font-weight: 400; font-size: 10.5px; color: var(--text-muted); }
+  /* Разделение строк: чередование, чёткая граница, подсветка под курсором. */
+  tbody.group-body tr.group-item-row { border-top: 1px solid var(--row-border); }
+  tbody.group-body tr.group-item-row:nth-of-type(even) { background: var(--row-hover); }
+  tbody.group-body tr.group-item-row:hover { background: var(--brand-50); }
+  tbody.group-body tr.group-item-row td { vertical-align: top; padding: 5px 7px;
+                                          line-height: 1.35; }
+  tbody.group-body tr.group-item-row td.num { font-variant-numeric: tabular-nums; }
+
+  /* ── Плотность длинных таблиц: затраты (31 статья) и P&L (16 строк) ──
+     Строка в 47px растягивала раздел затрат на 1563px — половина статей
+     уходила под сгиб. Уплотнение до ~30px показывает весь P&L целиком. */
+  #sec-costs table td, #sec-costs table th,
+  #sec-pnl table td, #sec-pnl table th,
+  #sec-bases table td, #sec-bases table th { padding: 3px 8px; }
+  #sec-costs table input, #sec-costs table select,
+  #sec-bases table input { height: 24px; padding: 2px 6px; font-size: 12px; }
+  #sec-costs table, #sec-pnl table, #sec-bases table { font-size: 12.5px; }
+  #sec-costs tbody tr:nth-child(even), #sec-pnl tbody tr:nth-child(even),
+  #sec-bases tbody tr:nth-child(even) { background: var(--row-hover); }
+  #sec-costs tbody tr:hover, #sec-pnl tbody tr:hover,
+  #sec-bases tbody tr:hover { background: var(--brand-50); }
+  .warn-list { margin: 6px 0 0; padding-left: 18px; }
+  .warn-list li { margin: 3px 0; }
+  .inline-form { display: inline; }
+  /* Строка правки справочника: поля тянутся, кнопка не переносится. */
+  td > .inline-form { display: flex; flex-wrap: wrap; gap: 6px;
+                      align-items: center; }
+  td > .inline-form input { flex: 1 1 150px; min-width: 0; }
+  td > .inline-form button { flex: none; }
+  /* Вложенная строка свода по направлениям: база внутри направления. */
+  td.sub-row { padding-left: 26px; color: var(--text-muted); }
+  .bp-head { align-items: flex-start; }
+  .decision-panel { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(240px, 360px);
+                    gap: 16px; align-items: end; }
+  .decision-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .decision-actions button { margin-top: 0; }
+  .info-line { margin: 4px 0 12px; color: var(--text); line-height: 1.45; }
+  .danger-text { color: var(--danger); font-weight: 700; }
+  .table-gap { margin-top: 8px; }
+  .details-gap { margin-top: 12px; }
+  .row-accent > td, th.row-accent { background: var(--ok-bg); }
+  .table-section-row td { background: var(--info-bg); color: var(--brand-900);
+                          font-weight: 700; border-top: 1px solid var(--info-border); }
+  /* Вправо уходит только ПРЯМОЙ span-контейнер итогов: правило на все span
+     вырывало вложенные числа свода из текста, и они слипались в конце
+     строки без меток («прибыль руб1 581 258651 582…»). */
+  .table-section-row td > span { float: right; font-weight: 400;
+                                 color: var(--text); }
+  .table-section-row td > span b,
+  .table-section-row [data-group-calc] { font-weight: 800;
+                                         color: var(--brand-900);
+                                         font-variant-numeric: tabular-nums; }
+  .group-heading td { position: sticky; top: 32px; z-index: 2; }
+  .group-heading .group-toggle { margin-right: 8px; }
+  .group-body.is-collapsed .group-item-row { display: none; }
+  .group-body.is-collapsed .group-toggle svg { transform: rotate(-90deg); }
+  .table-toolbar { display: flex; align-items: center; justify-content: space-between;
+                   gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+  .toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .indent-1 { padding-left: 24px; }
+  .indent-2 { padding-left: 38px; }
+  .nowrap { white-space: nowrap; }
+  .align-top { vertical-align: top; }
+  .cost-name { min-width: 230px; }
+  .param-chip { display: inline-flex; align-items: center; gap: 6px;
+                margin: 2px 10px 2px 0; vertical-align: middle; }
+  .param-chip label { margin: 0; font-size: 11px; white-space: nowrap; }
+  .param-chip input, .cm-input { width: 90px; }
+  .inline-edit { display: flex; gap: 6px; align-items: center; min-width: 280px; }
+  .inline-edit input { min-width: 220px; }
+  .suggestion { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+                margin-top: 5px; padding: 5px 8px; background: var(--info-bg);
+                border: 1px solid var(--info-border); border-radius: var(--radius-s);
+                font-size: 12px; }
+  .upload-panel { display: flex; gap: 10px; align-items: end; flex-wrap: wrap;
+                  background: var(--brand-50); border: 1px solid var(--brand-200);
+                  padding: 12px; border-radius: var(--radius-s); margin-bottom: 10px; }
+  .upload-panel button { margin-top: 0; }
+  .upload-hint { flex-basis: 100%; line-height: 1.4; }
+  .file-input { border: 0; padding: 4px 0; background: transparent; }
+  .check-line { display: flex; align-items: center; gap: 7px; margin-top: 20px; }
+  .check-line input { width: auto; }
+  .attachment-list { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                     margin-bottom: 8px; }
+  .attachment-list a { display: inline-flex; align-items: center; gap: 4px; }
+  .cell-actions { white-space: nowrap; min-width: 118px; }
+  .cell-actions input { display: inline-block; vertical-align: middle; }
+  .w-xs { width: 52px; }
+  .w-sm { width: 90px; }
+  .w-md { width: 110px; }
+  .cp-input { min-width: 130px; }
+  .metric-strip { display: flex; flex-wrap: wrap; gap: 10px 18px;
+                  padding: 12px; background: var(--brand-50);
+                  border: 1px solid var(--brand-200); border-radius: var(--radius-s); }
+  .metric-strip .metric { margin: 0; min-width: 150px; }
+  .metric b.pos, b.pos { color: var(--ok); }
+  .metric b.neg, b.neg { color: var(--danger); }
+  .page-toolbar { display: flex; align-items: center; justify-content: space-between;
+                  gap: 12px; flex-wrap: wrap; }
+  .page-toolbar .links { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .summary-grid { display: grid; gap: 10px;
+                  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .summary-tile { background: var(--brand-50); border: 1px solid var(--brand-200);
+                  border-radius: var(--radius-s); padding: 12px; min-width: 0; }
+  .summary-tile .label { color: var(--text-muted); font-size: 12px; font-weight: 700; }
+  .summary-tile .value { color: var(--brand-900); font-size: 22px; font-weight: 900;
+                         font-variant-numeric: tabular-nums; margin-top: 3px; }
+  .summary-tile.good .value { color: var(--ok); }
+  .summary-tile.bad .value { color: var(--danger); }
+  .compact-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .hint-panel { background: var(--brand-50); border: 1px solid var(--brand-200);
+                border-radius: var(--radius-s); padding: 12px; margin: 12px 0; }
+  .hint-head { display: flex; align-items: flex-start; justify-content: space-between;
+               gap: 12px; flex-wrap: wrap; }
+  .hint-head p { margin: 4px 0 0; }
+  .hint-head button { margin-top: 0; }
+  .hint-list { display: grid; gap: 8px; margin-top: 8px; }
+  .hint-row { display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(180px, .8fr) minmax(220px, 1fr);
+              gap: 10px; align-items: start; padding: 9px 10px;
+              background: var(--surface); border: 1px solid var(--row-border);
+              border-radius: var(--radius-s); }
+  /* Цены по каналам сбыта под ориентиром: компактная таблица-раскрывашка. */
+  .hint-buyers { margin: 2px 0 8px 10px; }
+  .hint-buyers > summary { cursor: pointer; font-size: var(--fs-xs);
+                           padding: 3px 0; }
+  .mini-table { width: 100%; border-collapse: collapse;
+                font-size: var(--fs-xs); margin-top: 4px; }
+  .mini-table th, .mini-table td { padding: 3px 8px; text-align: left;
+                                   border-bottom: 1px solid var(--row-border); }
+  .mini-table th { color: var(--text-2); font-weight: 500; }
+  .mini-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .route-reco-row { display: grid; grid-template-columns: minmax(260px, 1.2fr) minmax(230px, 1fr) minmax(120px, .55fr);
+                    gap: 14px; align-items: start; padding: 10px 12px;
+                    background: var(--surface); border: 1px solid var(--row-border);
+                    border-radius: var(--radius-s); }
+  .route-reco-row > div { min-width: 0; display: grid; gap: 3px; }
+  .route-reco-row b { color: var(--brand-900); line-height: 1.25;
+                      overflow-wrap: anywhere; }
+  .hint-fields { display: flex; gap: 5px; flex-wrap: wrap; }
+  .action-cell { white-space: nowrap; width: 1%; }
+  .icon-action { padding: 5px 7px; margin: 0; line-height: 0; }
+  .graph-box { height: 460px; border: 1px solid var(--brand-200);
+               border-radius: var(--radius-s); background: var(--surface); }
+  .graph-controls { display: flex; align-items: center; gap: 8px;
+                    justify-content: flex-end; margin: 0 0 8px; }
+  .graph-controls input[type="range"] { width: 180px; padding: 0; }
+  .flow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+               gap: 10px; }
+  .flow-card { border: 1px solid var(--brand-200); border-radius: var(--radius-s);
+               padding: 10px 12px; background: var(--surface); }
+  .flow-card b { font-size: 14px; color: var(--brand-900); }
+  .flow-meta { color: var(--text-muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
+  .flow-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px;
+               border-radius: 999px; background: var(--brand-50);
+               border: 1px solid var(--brand-200); font-size: 12px; white-space: nowrap; }
+  .flow-dot { width: 12px; height: 12px; border-radius: 4px; display: inline-block; flex: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px;
+            font-size: 12px; color: var(--text-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .panel3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .panel3 .card { margin-bottom: 0; }
+  .hint { font-size: 12px; color: var(--text-muted); margin: 2px 0 0; line-height: 1.4; }
+  .edit-row { background: var(--brand-50); }
+  .edit-row td { padding: 8px; }
+  .row-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+  .row-form label { margin-top: 0; }
+  .row-form > div { min-width: 120px; }
+  .list-clean { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .list-clean a { display: inline-flex; align-items: center; gap: 6px; }
+  .pager { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  @media (max-width: 1000px) {
+    .panel3 { grid-template-columns: 1fr; }
+  }
+  details > summary { color: var(--brand-600); font-weight: 700;
+                      cursor: pointer; user-select: none; }
+  details > summary:hover { color: var(--brand-900); }
+  @media (max-width: 760px) {
+    main { padding: 0 12px; margin-top: 14px; }
+    header { padding: 0 12px; overflow-x: auto; }
+    .page-head .page-actions, .sec-head .sec-aside { margin-left: 0; width: 100%; }
+    .decision-panel { grid-template-columns: 1fr; }
+    .kpi-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card { padding: 14px; }
+    .grid { grid-template-columns: 1fr; }
+    .metric-strip .metric { min-width: 46%; }
+    .hint-row { grid-template-columns: 1fr; }
+    .route-reco-row { grid-template-columns: 1fr; }
+  }
+  ::selection { background: var(--brand-200); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevrons-up" viewBox="0 0 24 24"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></symbol>
+    <symbol id="i-chevrons-down" viewBox="0 0 24 24"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+  </defs>
+</svg>
+<header>
+  <a class="logo" href="/">МетОптТорг<span style="font-weight:400;color:var(--brand-200)">
+    · Бизнес-планы</span></a>
+  {# «Бизнес-планы» в логотипе уже ведут в реестр — отдельной вкладки нет. #}
+  <nav>
+    <a href="/portfolio">Портфель лотов</a>
+    <a href="/references">Справочники</a>
+  </nav>
+  {% if user %}
+  {# Роль задана учётной записью — переключателя ролей больше нет. #}
+  <div class="user-box">
+    <div class="user-id">
+      <span class="user-name">{{ user['full_name'] or user['login'] }}</span>
+      <span class="user-role">{{ roles.get(user['role'], user['role']) }}</span>
+    </div>
+    <a href="/password" title="Сменить пароль">Пароль</a>
+    {% if role in ('admin', 'director') %}<a href="/journal">Журнал</a>{% endif %}
+    {% if role == 'admin' %}<a href="/users">Пользователи</a>{% endif %}
+    <form method="post" action="/logout">
+      <button class="btn-logout" type="submit">Выйти</button>
+    </form>
+  </div>
+  {% endif %}
+</header>
+<main>
+  {% if msg %}
+  <div class="msg {{ 'msg-err' if msg.startswith(('Не сохранено', 'Карточку изменил', 'Нет прав', 'Укажите', 'Неверн', 'Форма пришла')) }}"
+       role="status">{{ msg }}</div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script>
+// Глобальные улучшения доступности и защита от случайных действий.
+document.addEventListener('DOMContentLoaded', () => {
+  const scrollKey = 'bp-scroll:' + location.pathname;
+  const savedScroll = sessionStorage.getItem(scrollKey);
+  if (savedScroll && !location.hash) {
+    const y = Number(savedScroll);
+    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+    sessionStorage.removeItem(scrollKey);
+  } else if (savedScroll && location.hash) {
+    sessionStorage.removeItem(scrollKey);
+  }
+
+  // Связка label ↔ поле (клик по подписи и скринридер)
+  let uid = 0;
+  document.querySelectorAll('label').forEach(l => {
+    if (l.htmlFor || l.querySelector('input,select,textarea')) return;
+    const el = l.nextElementSibling;
+    if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      if (!el.id) el.id = 'fld' + (++uid);
+      l.htmlFor = el.id;
+    }
+  });
+  // aria-label для компактных кнопок-иконок.
+  document.querySelectorAll('button').forEach(b => {
+    if (b.getAttribute('aria-label')) return;
+    const label = b.title || b.querySelector('svg')?.getAttribute('aria-label');
+    if (label) b.setAttribute('aria-label', label);
+  });
+  // Числовая клавиатура для числовых полей
+  const numRe = /^(sale_price_|own_|cut_|split_|amount_|volume_t|distance_km|vol_|rev_|costs_|ship_|reloc_|lot_cost|auction_step|min_lot|value)$|_(pct|rate|months|delta)$/;
+  document.querySelectorAll('input:not([type=date]):not([type=file]):not([type=hidden])')
+    .forEach(i => {
+      if (i.classList.contains('cm-input') || numRe.test(i.name || ''))
+        i.setAttribute('inputmode', 'decimal');
+    });
+
+  function setGroupState(groupId, collapsed) {
+    const body = document.querySelector(`[data-group-id="${groupId}"]`);
+    if (!body) return;
+    body.classList.toggle('is-collapsed', collapsed);
+    const btn = body.querySelector(`[data-toggle-group="${groupId}"]`);
+    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  document.querySelectorAll('[data-toggle-group]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const body = document.querySelector(`[data-group-id="${btn.dataset.toggleGroup}"]`);
+      setGroupState(btn.dataset.toggleGroup, !body?.classList.contains('is-collapsed'));
+    });
+  });
+  document.querySelectorAll('[data-collapse-all]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`[data-group-body="${btn.dataset.collapseAll}"]`)
+        .forEach(body => setGroupState(body.dataset.groupId, true));
+    });
+  });
+  document.querySelectorAll('[data-expand-all]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`[data-group-body="${btn.dataset.expandAll}"]`)
+        .forEach(body => setGroupState(body.dataset.groupId, false));
+    });
+  });
+
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', () => {
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
+    });
+  });
+});
+// Подтверждение любого удаления (формы и кнопки с formaction .../delete)
+document.addEventListener('click', e => {
+  const confirmButton = e.target.closest('button[data-confirm]');
+  if (confirmButton && !confirm(confirmButton.dataset.confirm)) {
+    e.preventDefault();
+    return;
+  }
+  const b = e.target.closest('button[formaction$="/delete"]');
+  if (b && !confirm('Удалить безвозвратно?')) e.preventDefault();
+}, true);
+document.addEventListener('submit', e => {
+  if (e.target.action && e.target.action.endsWith('/delete')
+      && !e.submitter?.formAction?.endsWith('/delete')) {
+    if (!confirm('Удалить безвозвратно?')) e.preventDefault();
+  }
+}, true);
+
+// ── Несохранённые изменения: липкая панель сохранения ──
+// Любая форма с несколькими полями (таблицы цен, затрат, графиков) при
+// изменении показывает внизу панель «Сохранить» — не нужно искать кнопку
+// в конце длинной таблицы; уход со страницы с правками подтверждается.
+(function () {
+  const bar = document.createElement('div');
+  bar.id = 'dirty-bar';
+  bar.hidden = true;
+  bar.innerHTML = '<span class="dirty-note">Есть несохранённые изменения</span>' +
+                  '<button type="button" class="dirty-save">Сохранить</button>' +
+                  '<button type="button" class="dirty-cancel secondary">Отменить правки</button>';
+  document.body.appendChild(bar);
+  let dirtyForm = null;
+
+  function eligible(form) {
+    if (form.method.toLowerCase() !== 'post' || form.dataset.noDirty !== undefined) return false;
+    return form.querySelectorAll('input:not([type=hidden]):not([type=file]), select, textarea').length >= 4;
+  }
+  // Правки считаются по ЛЮБОЙ форме, а панель сохранения показывается только
+  // у длинных: уход со страницы должен предупреждать и после правки формы из
+  // двух полей — раньше такие правки пропадали молча.
+  const touched = new Set();
+  document.addEventListener('input', e => {
+    const form = e.target.closest('form');
+    if (!form || form.method.toLowerCase() !== 'post'
+        || e.target.classList.contains('cm-input')) return;
+    touched.add(form);
+    if (!eligible(form)) return;
+    e.target.classList.add('dirty');
+    dirtyForm = form;
+    bar.hidden = false;
+  });
+  bar.querySelector('.dirty-save').addEventListener('click', () => {
+    if (dirtyForm) { bar.hidden = true; dirtyForm.requestSubmit(); }
+  });
+  bar.querySelector('.dirty-cancel').addEventListener('click', () => {
+    bar.hidden = true;
+    document.querySelectorAll('.dirty').forEach(i => i.classList.remove('dirty'));
+    const f = dirtyForm; dirtyForm = null;
+    if (f) location.reload();
+  });
+  document.addEventListener('submit', e => {
+    touched.delete(e.target);
+    dirtyForm = null;
+    bar.hidden = true;
+  });
+  window.addEventListener('beforeunload', e => {
+    if (touched.size) { e.preventDefault(); e.returnValue = ''; }
+  });
+})();
+
+// ── Проверка чисел прямо в форме ────────────────────────────────────
+// Правила приходят с сервера (/api/field-rules) — те самые, по которым он
+// откажет в записи. Своего списка страница не держит: разойдясь, они дали бы
+// отказ там, где форма пропустила, и наоборот.
+//
+// Смысл проверки здесь один — поймать опечатку ДО отправки. Сервер всё равно
+// проверяет заново (это защита), но если отказ приходит от него, страница
+// перезагружается и весь набранный раздел приходится вводить снова.
+(function () {
+  const NUM = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+  let rules = null, limit = 1e12, aliases = {};
+
+  fetch('/api/field-rules').then(r => r.ok ? r.json() : null).then(data => {
+    if (!data) return;                       // не ответил — проверит сервер
+    rules = data.rules; limit = data.limit; aliases = data.aliases || {};
+  }).catch(() => {});
+
+  const ruleFor = name => {
+    if (!rules || !name) return null;
+    const key = name.replace(/_\d+$/, '');
+    return rules[aliases[key] || key] || null;
+  };
+  const show = v => Number.isInteger(v) ? String(v) : String(v).replace('.', ',');
+
+  function problem(input) {
+    const rule = ruleFor(input.name);
+    if (!rule) return '';
+    const text = input.value.replace(/\s+/g, '').replace(',', '.');
+    if (!text) return '';                    // пусто = очистка, это разрешено
+    if (!NUM.test(text)) return 'Это не число. Введите, например, 1 234,56';
+    const value = Number(text);
+    if (!Number.isFinite(value) || Math.abs(value) > limit)
+      return 'Слишком большое число';
+    if (rule.lo !== null && value < rule.lo)
+      return rule.lo === 0 ? 'Значение не может быть отрицательным'
+                           : `Допустимо от ${show(rule.lo)}`;
+    if (rule.hi !== null && value > rule.hi)
+      return `Допустимо от ${show(rule.lo || 0)} до ${show(rule.hi)}`;
+    return '';
+  }
+
+  function mark(input, text) {
+    input.classList.toggle('bad', !!text);
+    const next = input.nextElementSibling;
+    if (next && next.classList.contains('field-err')) next.remove();
+    if (!text) return;
+    const note = document.createElement('span');
+    note.className = 'field-err';
+    note.textContent = text;
+    input.insertAdjacentElement('afterend', note);
+  }
+
+  document.addEventListener('input', e => {
+    if (e.target.matches('input') && e.target.classList.contains('bad')) {
+      mark(e.target, problem(e.target));
+    }
+  });
+
+  document.addEventListener('submit', e => {
+    const form = e.target;
+    if (!rules || form.method.toLowerCase() !== 'post') return;
+    let first = null;
+    // Поля таблиц привязаны к форме атрибутом form="id" — их тоже проверяем.
+    const own = Array.from(form.elements).filter(el => el.tagName === 'INPUT');
+    own.forEach(input => {
+      const text = problem(input);
+      mark(input, text);
+      if (text && !first) first = input;
+    });
+    if (first) {
+      e.preventDefault();
+      e.stopPropagation();
+      first.scrollIntoView({block: 'center', behavior: 'smooth'});
+      first.focus({preventScroll: true});
+    }
+  }, true);
+})();
+
+// ── Подсказки при наведении: как получено значение и как считается ──
+// Один глобальный поповер для всех элементов с [data-tip]; существующие
+// title переносятся в data-tip (единый стиль вместо системного тултипа).
+(function () {
+  document.querySelectorAll('[title]').forEach(el => {
+    if (!el.dataset.tip && el.getAttribute('title')) {
+      el.dataset.tip = el.getAttribute('title');
+      el.removeAttribute('title');
+    }
+  });
+
+  const pop = document.createElement('div');
+  pop.id = 'tip-pop';
+  pop.setAttribute('role', 'tooltip');
+  pop.hidden = true;
+  document.body.appendChild(pop);
+
+  let current = null, showTimer = null;
+
+  function place(el) {
+    const r = el.getBoundingClientRect();
+    pop.style.left = '0px'; pop.style.top = '0px';
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    let x = r.left + r.width / 2 - pw / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - pw - 8));
+    let y = r.top - ph - 8;                 // над элементом
+    if (y < 8) y = r.bottom + 8;            // не влезает — под ним
+    pop.style.left = Math.round(x + window.scrollX) + 'px';
+    pop.style.top = Math.round(y + window.scrollY) + 'px';
+  }
+
+  function show(el) {
+    const text = el.dataset.tip;
+    if (!text) return;
+    current = el;
+    pop.textContent = text;
+    pop.hidden = false;
+    el.setAttribute('aria-describedby', 'tip-pop');
+    place(el);
+  }
+  function hide() {
+    if (current) current.removeAttribute('aria-describedby');
+    current = null;
+    pop.hidden = true;
+    clearTimeout(showTimer);
+  }
+
+  document.addEventListener('pointerover', e => {
+    const el = e.target.closest('[data-tip]');
+    if (!el || el === current) return;
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => show(el), 250);
+  });
+  document.addEventListener('pointerout', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el && (!e.relatedTarget || !el.contains(e.relatedTarget))) hide();
+  });
+  document.addEventListener('focusin', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el) show(el);
+  });
+  document.addEventListener('focusout', hide);
+  // Тач: показ по тапу, закрытие тапом мимо
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest('[data-tip]');
+    if (!el) { hide(); return; }
+    if (el !== current) show(el);
+  }, { passive: true });
+  window.addEventListener('scroll', () => { if (current) place(current); },
+                          { passive: true });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+})();
+</script>
+<script>
+// Нумерация разделов — по фактически показанным: часть блоков (аукцион,
+// сценарии) появляется не всегда, и «зашитые» в разметку номера давали бы
+// пропуски вида «10 → 15». Этапы должны считаться подряд.
+(() => {
+  const nums = document.querySelectorAll('.card[id^="sec-"] .sec-num');
+  nums.forEach((el, i) => { el.textContent = i + 1; });
+})();
+</script>
+</body>
+</html>

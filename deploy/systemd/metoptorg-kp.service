@@ -1,0 +1,22 @@
+[Unit]
+Description=МетОптТорг — сервис оценки КП и выходов металлов
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/metoptorg-kp
+Environment=METOPTTORG_DATA_DIR=/var/lib/metoptorg-kp
+Environment=DATABASE_URL=sqlite:////var/lib/metoptorg-kp/metopttorg.db
+EnvironmentFile=/etc/metoptorg-kp.env
+ExecStart=/opt/metoptorg-kp/.venv/bin/python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8091
+StateDirectory=metoptorg-kp
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/opt/metoptorg-kp
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

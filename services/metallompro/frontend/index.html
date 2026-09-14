@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#142248">
+<title>MetalLomPro · МетОптТорг</title>
+<script src="/static/chart.umd.min.js"></script>
+<style>
+/* ==========================================================================
+   MetalLomPro 2.0 — в фирменном стиле сервисов МетОптТорг.
+   Цвета и типографика — как на портале (:8079): взяты из logo_colored.svg,
+   а не подобраны на глаз. Светлая тема, navy-шапка, белые карточки.
+   ========================================================================== */
+:root{
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  --f-xs:11px; --f-sm:12px; --f-md:14px; --f-lg:16px; --f-xl:21px; --f-2xl:30px;
+  --font:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         "Helvetica Neue",Arial,sans-serif;
+  --r1:6px; --r2:10px; --r3:16px;
+
+  --bg:#EDF0F5; --surface:#FFFFFF; --surface-2:#F5F7FB;
+  --line:#D6DEEA; --edge:#7A88A6;
+
+  --navy:#142248; --steel:#485E88; --steel-2:#8390B1; --steel-3:#BCC3D7;
+  --steel-tint:#EDF1F8; --on-navy:#C6D2EA;
+
+  --t1:#141D33; --t2:#4C5871; --t3:#5F6B85; --t4:#8894AC;
+
+  --ok:#177A50; --ok-tint:#E6F4EC;
+  --warn:#9A6A0B; --warn-tint:#FEF9F0;
+  --crit:#B23A2F; --crit-tint:#FBEAE7;
+
+  --ease-out:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--t1);font-family:var(--font);font-size:var(--f-md);
+  line-height:1.45;-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;min-height:100vh;
+  background:
+    radial-gradient(980px 520px at 12% -12%, rgba(72,94,136,.14), transparent 62%),
+    radial-gradient(760px 420px at 96% 2%, rgba(20,34,72,.07), transparent 58%),
+    var(--bg);
+  background-attachment:fixed}
+a{color:var(--steel);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--steel);outline-offset:3px;border-radius:var(--r2)}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .lg *{opacity:1!important;transform:none!important}
+}
+
+/* ============================ ШАПКА ============================ */
+.top{background:linear-gradient(160deg,#16264F 0%,#142248 58%,#101C3C 100%);
+  color:#fff;position:relative;overflow:hidden}
+.top::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent)}
+.top-in{max-width:1180px;margin:0 auto;padding:var(--s4) var(--s5);
+  display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+
+/* Настоящий знак МетОптТорг (инлайн-копия logo_white.svg, как на портале) */
+.lg{display:block;width:132px;height:auto;flex:none;overflow:visible;margin:0}
+.lg svg{display:block;width:100%;height:auto;overflow:visible}
+.lg .p,.lg .w{transform-box:fill-box;transform-origin:center;
+  opacity:0;animation:pc .52s var(--ease-out) forwards;
+  animation-delay:calc(var(--i,0) * 26ms)}
+@keyframes pc{from{opacity:0;transform:scale(.72) rotate(-8deg)}to{opacity:1;transform:none}}
+.lg .w{animation-name:wc;animation-duration:.46s;
+  animation-delay:calc(320ms + var(--i,0) * 60ms)}
+@keyframes wc{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+.hd-text{min-width:0}
+.hd-text .app{font-size:var(--f-xl);font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1.15}
+.hd-text .sub{margin:2px 0 0;font-size:var(--f-sm);color:var(--on-navy)}
+.top-grow{flex:1 1 20px}
+.who{display:inline-flex;align-items:center;gap:var(--s2);font-size:var(--f-sm);
+  color:var(--on-navy);border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.09);padding:6px var(--s3);border-radius:999px;
+  min-height:32px;white-space:nowrap}
+.who b{color:#fff;font-weight:700}
+.who .out{cursor:pointer;color:var(--on-navy);opacity:.75;margin-left:2px}
+.who .out:hover{opacity:1;text-decoration:none;color:#fff}
+.freshline{font-size:var(--f-xs);color:var(--on-navy);opacity:.85;white-space:nowrap}
+
+/* ============================ НАВИГАЦИЯ ============================ */
+.nav{background:var(--surface);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:50;box-shadow:0 1px 2px rgba(20,34,72,.04)}
+.nav-in{max-width:1180px;margin:0 auto;padding:0 var(--s4);
+  display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.nav-in::-webkit-scrollbar{display:none}
+.nav-item{flex:none;padding:11px var(--s3) 9px;font-size:13px;font-weight:700;
+  color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;
+  letter-spacing:.01em;white-space:nowrap;transition:color .2s var(--ease-out)}
+.nav-item:hover{color:var(--steel);text-decoration:none}
+.nav-item.active{color:var(--navy);border-bottom-color:var(--steel)}
+.nav-cap{display:none}
+.nav-grp{flex:none;align-self:center;font-size:9px;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--steel-2);padding:0 6px 0 14px;
+  border-left:1px solid var(--line)}
+.nav-grp:first-child{border-left:none;padding-left:4px}
+
+/* ============================ ЛИСТ ============================ */
+.main{max-width:1180px;margin:0 auto;padding:var(--s5) var(--s5) var(--s7)}
+h2.screen-title{font-size:var(--f-2xl);font-weight:800;letter-spacing:-.022em;
+  margin:0 0 var(--s1);color:var(--navy)}
+.screen-sub{font-size:var(--f-md);color:var(--t2);margin-bottom:var(--s5)}
+.screen{display:none}.screen.on{display:block;animation:sin .3s var(--ease-out)}
+@keyframes sin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---- Карточки ---- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--s5);margin-bottom:var(--s4);position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9) 22%,
+    rgba(255,255,255,.9) 78%,transparent)}
+.card h3{display:flex;align-items:center;gap:var(--s3);margin:0 0 var(--s4);
+  font-size:var(--f-xs);font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--t3)}
+.card h3::after{content:"";flex:1;height:1px;
+  background:linear-gradient(90deg,var(--line),transparent)}
+
+.grid{display:grid;gap:var(--s3)}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .top-in{padding:var(--s3) var(--s4)}
+  .main{padding:var(--s4) var(--s4) var(--s6)}
+  .lg{width:104px}
+  .freshline{display:none}
+}
+
+/* ---- KPI-плитки ---- */
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--s4) var(--s4) var(--s3);position:relative;overflow:hidden;
+  transition:box-shadow .25s var(--ease-out),border-color .25s var(--ease-out)}
+.kpi:hover{border-color:#B4C1D8;
+  box-shadow:0 1px 2px rgba(20,34,72,.05),0 18px 32px -20px rgba(20,34,72,.3)}
+.kpi::before{content:"";position:absolute;inset:0 0 auto;height:3px;
+  background:linear-gradient(90deg,var(--steel),var(--steel-2))}
+.kpi-l{font-size:var(--f-xs);font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--t3);margin-bottom:var(--s2)}
+.kpi-v{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--navy);line-height:1.1}
+.kpi-u{font-size:var(--f-xs);color:var(--t3);margin-top:var(--s2);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sig{font-size:26px;font-weight:800;letter-spacing:-.01em}
+
+/* ---- Таблицы ---- */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;padding:7px 10px;color:var(--t3);font-size:var(--f-xs);
+  font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--surface-2);
+  color:var(--t1);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface-2)}
+.tbl-wrap{overflow-x:auto}
+.up{color:var(--ok);font-weight:700}.dn{color:var(--crit);font-weight:700}
+.acc{color:var(--steel);font-weight:700}
+.muted{color:var(--t3);font-size:var(--f-sm);font-weight:400}
+
+/* ---- Бейджи качества данных ---- */
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:800;
+  padding:2px 8px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase;
+  border:1px solid;white-space:nowrap}
+.b-live{color:var(--ok);border-color:#BBDECB;background:var(--ok-tint)}
+.b-cache{color:var(--warn);border-color:#EAD9AE;background:var(--warn-tint)}
+.b-manual{color:var(--steel);border-color:#CBD7EC;background:var(--steel-tint)}
+.b-calc{color:var(--t3);border-color:var(--line);background:var(--surface-2)}
+.b-na{color:var(--t4);border-color:var(--line);background:var(--surface-2)}
+
+/* ---- Радар ---- */
+.lvl{display:inline-block;width:10px;height:10px;border-radius:999px;
+  margin-right:var(--s2);vertical-align:middle;position:relative}
+.lvl-ok{background:#4BB985}.lvl-warn{background:#E5A83B}
+.lvl-alarm{background:#F0757C}
+.lvl-alarm::after{content:"";position:absolute;inset:0;border-radius:999px;
+  background:inherit;animation:ring 2.6s var(--ease-out) infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
+.lvl-na{background:var(--steel-3)}
+
+/* ---- Формы ---- */
+select,input,textarea{background:var(--surface);border:1px solid var(--line);
+  color:var(--t1);font-family:var(--font);font-size:var(--f-md);
+  padding:8px var(--s3);border-radius:var(--r2);outline:none;
+  transition:border-color .2s var(--ease-out)}
+select:focus,input:focus,textarea:focus{border-color:var(--steel);
+  box-shadow:0 0 0 3px rgba(72,94,136,.12)}
+button{background:var(--steel);color:#fff;font-family:var(--font);
+  font-size:var(--f-md);font-weight:800;padding:9px var(--s5);border:none;
+  border-radius:var(--r2);cursor:pointer;letter-spacing:.01em;
+  transition:background .2s var(--ease-out),transform .15s var(--ease-out)}
+button:hover{background:var(--navy)}
+button:active{transform:scale(.97)}
+button.sec{background:var(--surface);color:var(--steel);border:1px solid var(--line)}
+button.sec:hover{background:var(--steel-tint);border-color:#B4C1D8}
+button:disabled{opacity:.45;cursor:default}
+.form-row{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:flex-end;
+  margin-bottom:var(--s3)}
+.fg label{display:block;font-size:var(--f-xs);font-weight:800;color:var(--t3);
+  letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+
+/* ---- Лучший вариант (калькулятор) ---- */
+.best{background:linear-gradient(0deg,rgba(23,122,80,.04),rgba(23,122,80,.04)),var(--surface);
+  border:1px solid #BBDECB;border-radius:var(--r3);padding:var(--s5);
+  margin-bottom:var(--s3)}
+.best .t{font-size:var(--f-xl);color:var(--ok);font-weight:800;
+  letter-spacing:-.01em;margin-bottom:var(--s2)}
+.note{font-size:var(--f-sm);color:var(--t3);margin-top:var(--s2);line-height:1.5}
+
+/* ---- ИИ / markdown ---- */
+.md{line-height:1.6;font-size:var(--f-md);color:var(--t1)}
+.md h1,.md h2,.md h3{margin:var(--s3) 0 var(--s2);color:var(--navy);
+  font-size:var(--f-lg);font-weight:800}
+.md ul{padding-left:20px;margin:var(--s2) 0}
+.md li{margin-bottom:var(--s1)}
+.md strong{color:var(--navy)}
+.md code{background:var(--steel-tint);padding:1px 5px;border-radius:4px;font-size:13px}
+.chat-q{background:var(--steel-tint);border:1px solid #DCE5F5;border-radius:var(--r2);
+  padding:var(--s3) var(--s4);margin:var(--s3) 0 var(--s1);
+  font-weight:700;color:var(--navy)}
+.chat-a{background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r2);padding:var(--s3) var(--s4);margin-bottom:var(--s2)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);
+  border-top-color:var(--steel);border-radius:50%;
+  animation:rot .8s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.chartbox{position:relative;height:280px}
+
+/* ---- Сабтабы матрицы ---- */
+.subtabs{display:flex;gap:6px;margin-bottom:var(--s4);flex-wrap:wrap}
+.subtab{padding:8px 18px;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;
+  color:var(--t3);background:var(--surface);border:1px solid var(--line);
+  transition:all .2s var(--ease-out)}
+.subtab:hover{color:var(--steel);border-color:#B4C1D8;text-decoration:none}
+.subtab.active{color:#fff;background:var(--steel);border-color:var(--steel)}
+.mx-pane{display:none}.mx-pane.on{display:block}
+
+/* ---- Матрица-heatmap ---- */
+.tbl.mx td,.tbl.mx th{padding:5px 7px;font-size:12px;text-align:center;white-space:nowrap}
+.tbl.mx th.col{writing-mode:vertical-rl;transform:rotate(180deg);text-align:left;
+  height:120px;vertical-align:bottom;letter-spacing:.03em}
+.tbl.mx td.pl{text-align:left;font-weight:700;cursor:pointer;color:var(--steel)}
+.tbl.mx td.pl:hover{text-decoration:underline;color:var(--navy)}
+.tbl.mx td.cell{font-variant-numeric:tabular-nums;min-width:44px}
+.tbl.mx th.ourcol{color:var(--steel);border-bottom:2px solid var(--steel)}
+.dossier-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.dossier-head .nm{font-size:var(--f-xl);font-weight:800;color:var(--navy)}
+.dossier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s3)}
+.dossier-grid h4{font-size:var(--f-xs);font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--t3);margin:0 0 8px}
+
+/* ---- Загрузка файлов ---- */
+.dropzone{border:2px dashed var(--steel-3);border-radius:var(--r3);
+  padding:var(--s6);text-align:center;color:var(--t2);cursor:pointer;
+  margin-bottom:var(--s4);background:var(--surface);
+  transition:border-color .2s var(--ease-out),background .2s var(--ease-out)}
+.dropzone:hover,.dropzone.drag{border-color:var(--steel);background:var(--steel-tint)}
+
+/* ============================ ВХОД ============================ */
+#login-screen{position:fixed;inset:0;display:flex;align-items:center;
+  justify-content:center;z-index:1000;
+  background:
+    radial-gradient(980px 520px at 12% -12%, rgba(72,94,136,.14), transparent 62%),
+    radial-gradient(760px 420px at 96% 2%, rgba(20,34,72,.07), transparent 58%),
+    var(--bg)}
+.login-box{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r3);width:360px;overflow:hidden;
+  box-shadow:0 1px 2px rgba(20,34,72,.05),0 26px 48px -24px rgba(20,34,72,.35)}
+.login-head{background:linear-gradient(160deg,#16264F 0%,#142248 58%,#101C3C 100%);
+  padding:var(--s5);display:flex;flex-direction:column;gap:var(--s3);align-items:flex-start}
+.login-head .lg{width:150px}
+.login-head .app-nm{color:#fff;font-size:var(--f-lg);font-weight:800}
+.login-head .app-sub{color:var(--on-navy);font-size:var(--f-sm)}
+.login-body{padding:var(--s5)}
+.login-body input{width:100%;margin-bottom:var(--s3)}
+.login-err{color:var(--crit);font-size:var(--f-sm);margin-bottom:var(--s2);min-height:16px}
+
+/* ============================ ПОДВАЛ ============================ */
+.foot{max-width:1180px;margin:0 auto;padding:0 var(--s5) var(--s6);
+  color:var(--t3);font-size:var(--f-sm);text-align:center}
+.foot b{color:var(--t2);font-weight:700}
+</style>
+</head>
+<body>
+
+<div id="login-screen" style="display:none">
+  <div class="login-box">
+    <div class="login-head">
+      <div class="lg" aria-label="МетОптТорг">
+        <svg viewBox="0 0 233.588 116.047" role="img" aria-hidden="true">
+          <polygon class="p" style="--i:6" fill="#fff" points="199.151,94.794 214.97,78.977 199.086,63.094"/>
+          <polygon class="p" style="--i:4" fill="#fff" points="199.17,25.913 183.353,41.731 199.235,57.613"/>
+          <polygon class="p" style="--i:7" fill="#fff" points="233.588,60.855 217.771,45.038 201.888,60.92"/>
+          <polygon class="p" style="--i:5" fill="#fff" points="164.61,60.855 180.427,45.038 196.31,60.92"/>
+          <polygon class="p" style="--i:3" fill="#fff" points="164.61,22.483 180.427,38.3 196.31,22.418"/>
+          <polygon class="p" style="--i:2" fill="#fff" points="161.375,25.913 177.194,41.731 161.312,57.613"/>
+          <polygon class="p" style="--i:1" fill="#fff" points="133.979,22.46 156.351,22.46 156.351,0"/>
+          <polygon class="p" style="--i:0" fill="#fff" points="131.093,22.46 108.723,22.46 108.723,0"/>
+          <polygon class="p" style="--i:1" fill="#fff" points="117.143,27.131 132.96,42.949 148.843,27.068"/>
+          <polygon class="p" style="--i:0" fill="#fff" points="108.995,25.913 124.813,41.731 108.932,57.613"/>
+          <polygon class="p" style="--i:2" fill="#fff" points="156.209,25.913 140.392,41.731 156.272,57.613"/>
+          <polygon class="p" style="--i:8" fill="#fff" points="214.905,84.35 199.086,100.166 214.968,116.047"/>
+          <path class="w" style="--i:0" fill="#fff" d="M27.249,99.189h-6.968V76.533H20.23l-6.605,12.281L7.018,76.533H6.967v22.654H0V61.877h6.451l7.173,14.759
+            l7.174-14.759h6.451V99.189L27.249,99.189z M44.022,99.189H30.655V70.082h13.367v5.109h-7.277v6.604h6.038v4.646h-6.038v7.639
+            h7.277V99.189z M56.769,99.189h-6.142V75.191h-4.645v-5.108h15.379v5.108h-4.593L56.769,99.189L56.769,99.189z"/>
+          <path class="w" style="--i:1" fill="#fff" d="M69.826,92.635h6.244V68.328h-6.244V92.635z M69.396,99.189l-6.795-6.555V68.328l6.743-6.451h7.208
+            l6.744,6.451v24.307l-6.795,6.555H69.396L69.396,99.189z M92.688,99.189h-6.09V70.082h16.98v29.105h-6.09V74.727h-4.8V99.189
+            L92.688,99.189z M116.739,99.189h-6.141V75.191h-4.645v-5.108h15.378v5.108h-4.593L116.739,99.189L116.739,99.189z"/>
+          <path class="w" style="--i:2" fill="#fff" d="M135.574,99.189h-7.226V68.43h-5.572v-6.553h18.32v6.553h-5.521L135.574,99.189L135.574,99.189z
+            M147.187,94.08h5.213V75.141h-5.213V94.08z M146.825,99.189l-5.729-5.108v-18.94l5.676-5.059h6.039l5.676,5.059V94.08
+            l-5.676,5.107h-5.986V99.189z M167.571,84.326h4.336v-9.135h-4.336V84.326z M167.571,99.189h-6.09V70.082h11.561l4.902,3.975
+            v11.198l-4.902,3.974h-5.471V99.189L167.571,99.189z M186.925,99.189h-6.09V70.082h13.057v5.109h-6.967V99.189L186.925,99.189z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="app-nm">MetalLomPro</div>
+        <div class="app-sub">Аналитика и прогноз рынка лома</div>
+      </div>
+    </div>
+    <div class="login-body">
+      <div class="fg"><label>Логин</label><input id="li-user" autocomplete="username"></div>
+      <div class="fg"><label>Пароль</label><input id="li-pass" type="password" autocomplete="current-password"></div>
+      <div class="login-err" id="li-err"></div>
+      <button style="width:100%" onclick="doLogin()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+
+  <header class="top">
+    <div class="top-in">
+      <div class="lg" aria-label="МетОптТорг">
+        <svg viewBox="0 0 233.588 116.047" role="img" aria-hidden="true">
+          <polygon class="p" style="--i:6" fill="#fff" points="199.151,94.794 214.97,78.977 199.086,63.094"/>
+          <polygon class="p" style="--i:4" fill="#fff" points="199.17,25.913 183.353,41.731 199.235,57.613"/>
+          <polygon class="p" style="--i:7" fill="#fff" points="233.588,60.855 217.771,45.038 201.888,60.92"/>
+          <polygon class="p" style="--i:5" fill="#fff" points="164.61,60.855 180.427,45.038 196.31,60.92"/>
+          <polygon class="p" style="--i:3" fill="#fff" points="164.61,22.483 180.427,38.3 196.31,22.418"/>
+          <polygon class="p" style="--i:2" fill="#fff" points="161.375,25.913 177.194,41.731 161.312,57.613"/>
+          <polygon class="p" style="--i:1" fill="#fff" points="133.979,22.46 156.351,22.46 156.351,0"/>
+          <polygon class="p" style="--i:0" fill="#fff" points="131.093,22.46 108.723,22.46 108.723,0"/>
+          <polygon class="p" style="--i:1" fill="#fff" points="117.143,27.131 132.96,42.949 148.843,27.068"/>
+          <polygon class="p" style="--i:0" fill="#fff" points="108.995,25.913 124.813,41.731 108.932,57.613"/>
+          <polygon class="p" style="--i:2" fill="#fff" points="156.209,25.913 140.392,41.731 156.272,57.613"/>
+          <polygon class="p" style="--i:8" fill="#fff" points="214.905,84.35 199.086,100.166 214.968,116.047"/>
+          <path class="w" style="--i:0" fill="#fff" d="M27.249,99.189h-6.968V76.533H20.23l-6.605,12.281L7.018,76.533H6.967v22.654H0V61.877h6.451l7.173,14.759
+            l7.174-14.759h6.451V99.189L27.249,99.189z M44.022,99.189H30.655V70.082h13.367v5.109h-7.277v6.604h6.038v4.646h-6.038v7.639
+            h7.277V99.189z M56.769,99.189h-6.142V75.191h-4.645v-5.108h15.379v5.108h-4.593L56.769,99.189L56.769,99.189z"/>
+          <path class="w" style="--i:1" fill="#fff" d="M69.826,92.635h6.244V68.328h-6.244V92.635z M69.396,99.189l-6.795-6.555V68.328l6.743-6.451h7.208
+            l6.744,6.451v24.307l-6.795,6.555H69.396L69.396,99.189z M92.688,99.189h-6.09V70.082h16.98v29.105h-6.09V74.727h-4.8V99.189
+            L92.688,99.189z M116.739,99.189h-6.141V75.191h-4.645v-5.108h15.378v5.108h-4.593L116.739,99.189L116.739,99.189z"/>
+          <path class="w" style="--i:2" fill="#fff" d="M135.574,99.189h-7.226V68.43h-5.572v-6.553h18.32v6.553h-5.521L135.574,99.189L135.574,99.189z
+            M147.187,94.08h5.213V75.141h-5.213V94.08z M146.825,99.189l-5.729-5.108v-18.94l5.676-5.059h6.039l5.676,5.059V94.08
+            l-5.676,5.107h-5.986V99.189z M167.571,84.326h4.336v-9.135h-4.336V84.326z M167.571,99.189h-6.09V70.082h11.561l4.902,3.975
+            v11.198l-4.902,3.974h-5.471V99.189L167.571,99.189z M186.925,99.189h-6.09V70.082h13.057v5.109h-6.967V99.189L186.925,99.189z"/>
+        </svg>
+      </div>
+      <div class="hd-text">
+        <div class="app">MetalLomPro</div>
+        <p class="sub">Аналитика и прогноз рынка лома</p>
+      </div>
+      <span class="top-grow"></span>
+      <span class="freshline" id="foot-status"></span>
+      <span class="who"><span id="foot-user">—</span>
+        <span class="out" onclick="doLogout()" title="Выйти">выйти ↗</span></span>
+    </div>
+  </header>
+
+  <nav class="nav"><div class="nav-in">
+    <span class="nav-grp">Решения</span>
+    <a class="nav-item active" data-s="summary" onclick="show('summary')">Сводка</a>
+    <a class="nav-item" data-s="margin" onclick="show('margin')">Маржа</a>
+    <a class="nav-item" data-s="calc" onclick="show('calc')">Куда везти</a>
+    <a class="nav-item" data-s="rail" onclick="show('rail')">ЖД и вагоны</a>
+    <span class="nav-grp">Рынок</span>
+    <a class="nav-item" data-s="radar" onclick="show('radar')">Радар</a>
+    <a class="nav-item" data-s="forecast" onclick="show('forecast')">Прогноз</a>
+    <a class="nav-item" data-s="matrix" onclick="show('matrix')">Матрица связей</a>
+    <a class="nav-item" data-s="market" onclick="show('market')">Обзор</a>
+    <span class="nav-grp">Мы</span>
+    <a class="nav-item" data-s="sales" onclick="show('sales')">Продажи</a>
+    <a class="nav-item" data-s="logistics" onclick="show('logistics')">Логистика</a>
+    <span class="nav-grp">Сервис</span>
+    <a class="nav-item" data-s="ai" onclick="show('ai')">ИИ</a>
+    <a class="nav-item" data-s="survey" onclick="show('survey')">Обзвон</a>
+    <a class="nav-item" data-s="data" onclick="show('data')">Данные</a>
+  </div></nav>
+
+  <main class="main">
+
+    <!-- ═══ СВОДКА ═══ -->
+    <section class="screen on" id="s-summary">
+      <h2 class="screen-title">Сводка</h2>
+      <div class="screen-sub">Ключевые цены и сигналы. Бейдж на каждой цифре — источник и свежесть: <span class="badge b-live">live</span> <span class="badge b-manual">обзвон</span> <span class="badge b-cache">кеш</span> <span class="badge b-calc">расчёт</span></div>
+      <div class="grid g3" id="sig-tiles" style="margin-bottom:14px"></div>
+      <div class="grid g4" id="kpi-tiles" style="margin-bottom:14px"></div>
+      <div class="grid g2">
+        <div class="card"><h3>Цены обзвона (наш live-источник)</h3><div class="tbl-wrap"><table class="tbl" id="survey-tbl"></table></div></div>
+        <div class="card"><h3>Стратегия по металлам</h3><div id="strategy-box"></div>
+          <div class="note" id="two-phase-note"></div></div>
+      </div>
+      <div class="card"><h3>Индексы лома — три источника</h3>
+        <div class="grid g4" id="indices3-tiles"></div>
+        <div style="height:10px"></div>
+        <h3 style="margin-top:4px">Наш индекс FCA по методике MMI (повагонная база × цены заводов, без кэптивных)</h3>
+        <div class="grid g4" id="ourindex-tiles"></div>
+        <div class="note">RusLOM и MetallPlace вносятся вручную на экране «Обзвон» (раз в неделю), MMI — автоматически из еженедельного отчёта, Транслом — скрапер.</div></div>
+      <div class="card"><h3>Утренний брифинг ИИ</h3><div class="md" id="briefing-box">…</div></div>
+    </section>
+
+    <!-- ═══ ЖД И ВАГОНЫ ═══ -->
+    <section class="screen" id="s-rail">
+      <h2 class="screen-title">ЖД и вагоны</h2>
+      <div class="screen-sub" id="rail-period">Повагонная база отправок лома: реальные тарифы по маршрутам и вагонная экономика</div>
+      <div class="card"><h3>Вагонный калькулятор — свои / завода / наёмные</h3>
+        <div class="form-row">
+          <div class="fg"><label>Откуда</label><select id="rc-region">
+            <option value="PERM">Пермский край</option><option value="KOMI_NORTH">Коми (Усинск/Ухта)</option>
+            <option value="KOMI_PERM">Коми-Пермяцкий</option><option value="HMAO">ХМАО</option>
+            <option value="SOUTH">Юг (Волгоград)</option></select></div>
+          <div class="fg"><label>Завод</label><select id="rc-plant"></select></div>
+          <div class="fg"><label>CPT вагонная, ₽/т (0=из MMI)</label><input type="number" id="rc-cpt" style="width:130px" value="0"></div>
+          <div class="fg"><label>Цена при вагонах завода</label><input type="number" id="rc-plantprice" style="width:120px" value="0"></div>
+          <div class="fg"><label>Ставка частника, ₽/т</label><input type="number" id="rc-private" style="width:110px" value="3250"></div>
+          <div class="fg"><label>Свой вагон, ₽/т</label><input type="number" id="rc-own" style="width:100px" value="0"></div>
+          <button onclick="loadWagonCalc()">Сравнить</button>
+        </div>
+        <div class="muted" id="rc-note"></div>
+        <div id="rc-best"></div>
+        <div class="tbl-wrap"><table class="tbl" id="rc-tbl"></table></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h3>Фактические ЖД-тарифы по маршрутам</h3>
+          <div class="form-row"><div class="fg"><label>Регион отправления</label><select id="rr-region">
+            <option value="">Все</option><option value="PERM">Пермский край</option>
+            <option value="KOMI_NORTH">Коми</option><option value="HMAO">ХМАО</option>
+            <option value="SOUTH">Юг</option></select></div>
+            <button class="sec" onclick="loadRailRoutes()">Показать</button></div>
+          <div class="tbl-wrap"><table class="tbl" id="rr-tbl"></table></div></div>
+        <div class="card"><h3>Кто везёт из региона (разведка)</h3>
+          <div class="tbl-wrap"><table class="tbl" id="rcomp-tbl"></table></div>
+          <h3 style="margin-top:18px">Операторы вагонов в регионе</h3>
+          <div class="tbl-wrap"><table class="tbl" id="rop-tbl"></table></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ МАТРИЦА СВЯЗЕЙ ═══ -->
+    <section class="screen" id="s-matrix">
+      <h2 class="screen-title">Матрица связей</h2>
+      <div class="screen-sub" id="mx-week">Командный центр рынка: карта потоков, заводы, ломоприёмщики, влияния</div>
+      <div class="subtabs" id="mx-tabs">
+        <a class="subtab active" data-p="map" onclick="mxTab('map')">Карта рынка</a>
+        <a class="subtab" data-p="plants" onclick="mxTab('plants')">Заводы</a>
+        <a class="subtab" data-p="suppliers" onclick="mxTab('suppliers')">Ломоприёмщики</a>
+        <a class="subtab" data-p="web" onclick="mxTab('web')">Влияния</a>
+      </div>
+
+      <!-- ── Карта рынка ── -->
+      <div class="mx-pane on" id="mxp-map">
+        <div class="grid g4" id="mx-our" style="margin-bottom:14px"></div>
+        <div class="card"><h3>Матрица: заводы × области-поставщики — три источника</h3>
+          <div class="form-row" style="margin-bottom:8px">
+            <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="mxl-mmi" checked onchange="renderMatrixGrid()"> <span style="display:inline-block;width:12px;height:12px;background:rgba(72,94,136,.55);border-radius:3px"></span> MMI (отгрузки за неделю)</label>
+            <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="mxl-rail" checked onchange="renderMatrixGrid()"> <span style="display:inline-block;width:12px;height:12px;background:var(--ok);border-radius:3px"></span> Повагонная база (факт, <span id="mxl-rail-period"></span>)</label>
+            <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="mxl-ours" checked onchange="renderMatrixGrid()"> <span style="display:inline-block;width:12px;height:12px;background:#E8862B;border-radius:3px"></span> Наши продажи 1С (12 мес)</label>
+          </div>
+          <div class="tbl-wrap"><table class="tbl mx" id="mx-grid"></table></div>
+          <div class="note" id="mx-method"></div></div>
+        <div class="card"><h3>Куда уходит лом из наших регионов</h3>
+          <div class="tbl-wrap"><table class="tbl" id="mx-ourflows-tbl"></table></div></div>
+      </div>
+
+      <!-- ── Заводы ── -->
+      <div class="mx-pane" id="mxp-plants">
+        <div class="card"><h3>Реестр заводов: закуп лома, цены, наши продажи, netback</h3>
+          <div class="tbl-wrap"><table class="tbl" id="mx-plants-tbl"></table></div>
+          <div class="note">Закуп = ЖД-приход лома на завод за неделю (MMI). Δ нед — изменение CPT за неделю.
+          Netback Пермь = CPT − фактический ЖД-тариф из Перми. «Их продажи» (прокат) появятся, когда подключим еженедельники MMI по прокату.
+          Клик по заводу — полное досье.</div></div>
+        <div class="grid g2" id="mx-dossier-wrap" style="display:none">
+          <div class="card" style="grid-column:1/-1" id="mx-dossier"></div>
+        </div>
+      </div>
+
+      <!-- ── Ломоприёмщики ── -->
+      <div class="mx-pane" id="mxp-suppliers">
+        <div class="card"><h3>Ломоприёмщики и заготовители (грузоотправители повагонной базы)</h3>
+          <div class="form-row">
+            <div class="fg"><label>Регион отправления</label><select id="mx-sup-region" onchange="loadSuppliers()">
+              <option value="">Вся Россия</option><option value="PERM">Пермский край</option>
+              <option value="KOMI_NORTH">Коми</option><option value="HMAO">ХМАО</option>
+              <option value="SOUTH">Юг (Волгоград)</option></select></div>
+          </div>
+          <div class="tbl-wrap"><table class="tbl" id="mx-sup-tbl"></table></div>
+          <div class="note">Это конкуренты и партнёры по заготовке: объёмы, направления, фактические тарифы.
+          «Кэптив» — дочерние структуры заводов (по методике MMI исключаются из свободного рынка).</div></div>
+      </div>
+
+      <!-- ── Влияния ── -->
+      <div class="mx-pane" id="mxp-web">
+        <div class="card"><h3>Факторы рынка лома РФ (автосбор: макро + внешние + ИИ-новости)</h3>
+          <div class="tbl-wrap"><table class="tbl" id="mx-factors-tbl"></table></div></div>
+        <div class="card"><h3>Паутина влияний (ИИ): событие → канал → цена</h3>
+          <button class="sec" onclick="genWeb(this)">Построить паутину по свежим событиям (до 2 мин)</button>
+          <div id="mx-web" style="margin-top:12px"></div>
+          <div class="md" id="mx-web-summary"></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ МАРЖА ═══ -->
+    <section class="screen" id="s-margin">
+      <h2 class="screen-title">Маржа сегодня</h2>
+      <div class="screen-sub">Твой тоннаж × (лучшая чистая цена рынка − факт-себестоимость из 1С) = прибыль сейчас, и что с ней будет через 3 месяца</div>
+      <div class="card">
+        <div class="form-row">
+          <div class="fg"><label>Пермь, т</label><input type="number" id="mg-perm" style="width:95px" value="0"></div>
+          <div class="fg"><label>Коми-Пермяцкий, т</label><input type="number" id="mg-komi" style="width:95px" value="0"></div>
+          <div class="fg"><label>Коми Усинск/Ухта, т</label><input type="number" id="mg-komi_north" style="width:95px" value="0"></div>
+          <div class="fg"><label>ХМАО, т</label><input type="number" id="mg-hmao" style="width:95px" value="0"></div>
+          <div class="fg"><label>Юг, т</label><input type="number" id="mg-south" style="width:100px" value="0"></div>
+          <div class="fg"><label>Себест. ₽/т (0 = из 1С)</label><input type="number" id="mg-cost" style="width:130px" value="0"></div>
+          <button onclick="loadMargin()">Посчитать</button>
+        </div>
+        <div class="muted" id="margin-stock-note"></div>
+        <div class="muted" id="margin-cost-note"></div>
+      </div>
+      <div class="grid g3" id="margin-kpi" style="margin-bottom:14px"></div>
+      <div class="card"><h3>По регионам</h3><div class="tbl-wrap"><table class="tbl" id="margin-tbl"></table></div>
+        <div class="note" id="margin-note"></div></div>
+      <div class="card"><h3 id="stock-tbl-title">Остатки лома по базам</h3>
+        <div class="tbl-wrap"><table class="tbl" id="stock-tbl"></table></div>
+        <div class="note" id="stock-tbl-note"></div></div>
+    </section>
+
+    <!-- ═══ РАДАР ═══ -->
+    <section class="screen" id="s-radar">
+      <h2 class="screen-title">Радар раннего предупреждения</h2>
+      <div class="screen-sub">7 рыночных индикаторов + внутренние по 1С. Серый = данных нет (честно)</div>
+      <div class="card"><div class="tbl-wrap"><table class="tbl" id="radar-tbl"></table></div></div>
+    </section>
+
+    <!-- ═══ КУДА ВЕЗТИ ═══ -->
+    <section class="screen" id="s-calc">
+      <h2 class="screen-title">Куда везти выгоднее</h2>
+      <div class="screen-sub">Чистая выручка = цена завода − логистика (факт 1С, если есть)</div>
+      <div class="card">
+        <div class="form-row">
+          <div class="fg"><label>Откуда</label><select id="c-region">
+            <option value="PERM">Пермский край</option><option value="KOMI_PERM">Коми-Пермяцкий</option>
+            <option value="KOMI_NORTH">Коми (Усинск/Ухта)</option>
+            <option value="HMAO">ХМАО</option><option value="SOUTH">Юг (Волгоград)</option></select></div>
+          <div class="fg"><label>Тип лома</label><select id="c-metal">
+            <option value="A3_SCRAP">Лом 3А</option><option value="A5_SCRAP">Лом 5А</option>
+            <option value="A12_SCRAP">Лом 12А</option><option value="SHRED">Шред</option>
+            <option value="CAST">Чугун</option></select></div>
+          <div class="fg"><label>Объём, т</label><input id="c-weight" type="number" value="20" style="width:90px"></div>
+          <div class="fg"><label>Транспорт</label><select id="c-transport">
+            <option value="AUTO">Авто</option><option value="RD">Ж/д</option></select></div>
+          <button onclick="loadCalc()">Рассчитать</button>
+        </div>
+        <div class="muted" id="calc-rate-note"></div>
+      </div>
+      <div id="calc-best"></div>
+      <div class="card"><h3>Все варианты</h3><div class="tbl-wrap"><table class="tbl" id="calc-tbl"></table></div></div>
+    </section>
+
+    <!-- ═══ ПРОГНОЗ ═══ -->
+    <section class="screen" id="s-forecast">
+      <h2 class="screen-title">Прогноз</h2>
+      <div class="screen-sub">Факторная модель (детерминированная). Чёрный: двухфазный сценарий — плато до конца сентября, затем −1500…−2000 ₽/т</div>
+      <div class="card">
+        <div class="form-row">
+          <div class="fg"><label>Ряд</label><select id="f-series"></select></div>
+          <div class="fg"><label>Горизонт, мес</label><select id="f-months">
+            <option>3</option><option selected>6</option></select></div>
+          <button onclick="loadForecast()">Построить</button>
+        </div>
+        <div class="muted" id="f-base-note"></div>
+        <div class="chartbox"><canvas id="f-chart"></canvas></div>
+        <div class="note" id="f-phase"></div>
+      </div>
+      <div class="grid g3" id="f-factors"></div>
+      <div class="card"><h3>Сценарии и сравнение источников</h3>
+        <div class="form-row">
+          <div class="fg"><label>Ряд</label><select id="fs-series"></select></div>
+          <button class="sec" onclick="loadScenarios()">Построить сценарии</button>
+        </div>
+        <div class="chartbox"><canvas id="fs-chart"></canvas></div>
+        <div class="tbl-wrap" style="margin-top:12px"><table class="tbl" id="fs-tbl"></table></div>
+        <div class="note">Сценарии — сдвиг сигнала факторной модели ±0.2. Сравнение баз — та же модель от цены каждого источника: коридор расхождения показывает неопределённость данных, а не модели.</div></div>
+      <div class="card"><h3>ИИ-ревизия факторной модели</h3>
+        <button class="sec" onclick="genFactorsReview(this)">Запустить ревизию (ИИ проверит факторы по свежим данным)</button>
+        <div class="md" id="f-ai-review" style="margin-top:12px"></div>
+        <div class="note">ИИ ищет свежие рыночные данные и предлагает правки весов/направлений. Модель не меняется автоматически — предложения рассматривает человек.</div></div>
+    </section>
+
+    <!-- ═══ РЫНОК ═══ -->
+    <section class="screen" id="s-market">
+      <h2 class="screen-title">Рынок</h2>
+      <div class="screen-sub">Заводы, индексы, новости. История копится с момента запуска сервиса</div>
+      <div class="card">
+        <h3>История метрики</h3>
+        <div class="form-row">
+          <div class="fg"><label>Метрика</label><select id="m-metric">
+            <option value="lom3a">Лом 3А (индексы)</option>
+            <option value="plant_MMK">Прайс ММК</option>
+            <option value="usd_rub">USD/RUB</option>
+            <option value="key_rate">Ставка ЦБ</option>
+            <option value="hms_turkey">HMS CFR Турция</option>
+            <option value="copper_lme">Медь LME</option>
+            <option value="alum_lme">Алюминий LME</option></select></div>
+          <button class="sec" onclick="loadMarketChart()">Показать</button>
+          <button class="sec" onclick="triggerCollect(this)">Обновить данные сейчас</button>
+        </div>
+        <div class="chartbox"><canvas id="m-chart"></canvas></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h3>Заводы (справочник + live-прайсы)</h3><div class="tbl-wrap"><table class="tbl" id="plants-tbl"></table></div></div>
+        <div class="card"><h3>Цены ломоприёмок (обход сайтов)</h3>
+          <div class="tbl-wrap" style="max-height:420px;overflow-y:auto"><table class="tbl" id="local-prices-tbl"></table></div>
+          <div class="note">Закупочные цены конкурентов и приёмок из автоматического обхода. «llm» — извлечено ИИ со страницы.</div></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h3>Новости с ИИ-оценкой влияния</h3><div id="news-box" style="max-height:460px;overflow-y:auto"></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ ПРОДАЖИ VS РЫНОК ═══ -->
+    <section class="screen" id="s-sales">
+      <h2 class="screen-title">Наши продажи vs рынок</h2>
+      <div class="screen-sub">Фактические цены из 1С против индексов. Базисы разные — ориентир, не приговор</div>
+      <div class="card"><h3>Средняя цена продажи Лом 3А по месяцам</h3>
+        <div class="chartbox"><canvas id="sv-chart"></canvas></div>
+        <div class="note" id="sv-note"></div></div>
+      <div class="card"><h3>Контрагенты: наша цена против цены завода (по регионам)</h3>
+        <div class="tbl-wrap"><table class="tbl" id="buyers-vs-tbl"></table></div>
+        <div class="note">Рыночная цена — свежая CPT с ЖДТ по заводу (MMI). Δ считается к нашей цене за последние 2,5 месяца, если были продажи, иначе к средней за период. Отрицательная Δ — продаём ниже рыночной цены завода (разница может объясняться базисом FCA/качеством).</div></div>
+      <div class="card"><h3>Покупатели (12 мес)</h3><div class="tbl-wrap"><table class="tbl" id="buyers-tbl"></table></div></div>
+    </section>
+
+    <!-- ═══ ЛОГИСТИКА ═══ -->
+    <section class="screen" id="s-logistics">
+      <h2 class="screen-title">Логистика (факт 1С)</h2>
+      <div class="screen-sub">Фактическая стоимость доставки из «Отвесной». Дорогие рейсы — кандидаты на разбор</div>
+      <div class="grid g3" id="log-kpi" style="margin-bottom:14px"></div>
+      <div class="grid g2">
+        <div class="card"><h3>Тарифы по направлениям</h3><div class="tbl-wrap"><table class="tbl" id="routes-tbl"></table></div></div>
+        <div class="card"><h3>Дорогие рейсы (90 дней, выше 75-го перцентиля)</h3><div class="tbl-wrap"><table class="tbl" id="exp-tbl"></table></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ ИИ ═══ -->
+    <section class="screen" id="s-ai">
+      <h2 class="screen-title">ИИ-аналитик</h2>
+      <div class="screen-sub" id="ai-provider">…</div>
+      <div class="card">
+        <div class="form-row" style="align-items:stretch">
+          <textarea id="ai-q" placeholder="Например: Что сейчас с ММК? Стоит ли придержать медь? Куда лучше везти 100 т из Березников?" style="flex:1;min-height:60px"></textarea>
+          <button onclick="askAi()" id="ai-btn">Спросить</button>
+        </div>
+        <div id="ai-chat"></div>
+      </div>
+      <div class="card"><h3>Брифинг</h3>
+        <button class="sec" onclick="genBriefing(this)">Сгенерировать брифинг сейчас</button>
+        <div class="md" id="ai-briefing" style="margin-top:12px"></div></div>
+    </section>
+
+    <!-- ═══ ОБЗВОН ═══ -->
+    <section class="screen" id="s-survey">
+      <h2 class="screen-title">Ввод цен обзвона</h2>
+      <div class="screen-sub">Еженедельный обзвон заводов — главный live-источник. Пишется в историю и питает прогноз</div>
+      <div class="card">
+        <div class="form-row"><div class="fg"><label>Дата обзвона</label><input type="date" id="sv-date"></div></div>
+        <div class="tbl-wrap"><table class="tbl" id="sv-form"></table></div>
+        <div style="margin-top:12px"><button onclick="saveSurvey()">Сохранить</button> <span class="muted" id="sv-msg"></span></div>
+      </div>
+      <div class="card"><h3>Ручные индикаторы радара</h3>
+        <div class="form-row">
+          <div class="fg"><label>Прайс ММК 3А, ₽/т</label><input type="number" id="mq-plant_MMK" style="width:120px" placeholder="—"></div>
+          <div class="fg"><label>Полувагон, ₽/сут</label><input type="number" id="mq-wagon_rate" style="width:120px" placeholder="—"></div>
+          <div class="fg"><label>Арматура А500С, ₽/т</label><input type="number" id="mq-armatura_a500" style="width:120px" placeholder="—"></div>
+          <div class="fg"><label>RusLOM, ₽/т</label><input type="number" id="mq-ruslom_index" style="width:110px" placeholder="—"></div>
+          <div class="fg"><label>MetallPlace 3А, ₽/т</label><input type="number" id="mq-metallplace_index" style="width:120px" placeholder="—"></div>
+          <button class="sec" onclick="saveManualQuotes()">Записать</button>
+          <span class="muted" id="mq-msg"></span>
+        </div>
+        <div class="note">Прайс ММК скрыт за формой с телефоном (mmk-vtormet.ru), ставка полувагона — ИПЕМ.
+        Вносите при еженедельном обзвоне — эти цифры питают Радар.</div>
+      </div>
+      <div class="card"><h3>История обзвона</h3>
+        <div class="form-row">
+          <div class="fg"><label>Регион</label><select id="svh-region">
+            <option value="PERM">Пермь</option><option value="KOMI_PERM">Коми</option>
+            <option value="HMAO">ХМАО</option><option value="SOUTH">Юг</option></select></div>
+          <div class="fg"><label>Базис</label><select id="svh-basis">
+            <option value="CPT_AUTO">С доставкой</option><option value="FCA">FCA (забирают)</option></select></div>
+          <button class="sec" onclick="loadSurveyHistory()">Показать</button>
+        </div>
+        <div class="chartbox" style="height:220px"><canvas id="svh-chart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ═══ ДАННЫЕ ═══ -->
+    <section class="screen" id="s-data">
+      <h2 class="screen-title">Данные 1С</h2>
+      <div class="screen-sub">Выгрузки CSV: перетащи файлы — система распознает тип по заголовкам. Повторная загрузка не создаёт дублей</div>
+      <div class="dropzone" id="dz" onclick="document.getElementById('dz-file').click()">
+        Перетащи CSV-файлы сюда или нажми для выбора<br>
+        <span class="muted">Понимает: Выручка на загрузку · Отвесная · СебестоимостьТоваровОбороты</span>
+        <input type="file" id="dz-file" multiple accept=".csv" style="display:none">
+      </div>
+      <div id="upload-progress"></div>
+      <div class="card"><h3>Журнал импорта</h3><div class="tbl-wrap"><table class="tbl" id="imports-tbl"></table></div></div>
+      <div class="card"><h3>Обход сайтов приёмок (эвристика + ИИ-извлечение)</h3>
+        <div class="grid g4" id="cr-kpi" style="margin-bottom:12px"></div>
+        <div class="form-row">
+          <button class="sec" onclick="crawlRun(this)">Обойти сейчас</button>
+          <div class="fg"><label>ИИ-разведка новых сайтов</label><select id="cr-region">
+            <option value="PERM">Пермский край</option><option value="KOMI_NORTH">Коми</option>
+            <option value="HMAO">ХМАО</option><option value="SOUTH">Юг</option>
+            <option value="">Урал/Поволжье (крупные)</option></select></div>
+          <button class="sec" onclick="crawlDiscover(this)">Найти новые сайты</button>
+          <div class="fg"><label>Добавить сайт вручную (URL прайса)</label><input id="cr-url" style="width:280px" placeholder="https://..."></div>
+          <button class="sec" onclick="crawlAdd()">Добавить</button>
+          <span class="muted" id="cr-msg"></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:420px;overflow-y:auto"><table class="tbl" id="cr-tbl"></table></div>
+        <div class="note">Паттерн ScrapeGraphAI на нашем стеке: если обычный парсер не нашёл цену — страница уходит в ИИ-извлечение (бейдж «llm»).
+        Разведка ищет новые сайты приёмок с прайсами через Perplexity и добавляет их в реестр. Обход — каждые 6 часов автоматически.</div></div>
+      <div class="card"><h3>Свежесть данных</h3><div id="freshness-box" class="muted"></div>
+        <div class="note">Позже подключим SQL-базу экстрактора 1С — данные будут обновляться автоматически.</div></div>
+    </section>
+
+  </main>
+
+  <div class="foot">MetalLomPro · сервис компании <b>МетОптТорг</b> · данные собираются автоматически каждые 6 часов</div>
+</div>
+
+<script src="/static/app.js?v=20260827"></script>
+</body>
+</html>

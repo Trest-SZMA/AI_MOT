@@ -1,0 +1,17 @@
+<div class="month-nav">
+  {% if prev_p %}
+    <a class="mn-link" href="/period/{{ prev_p.id }}" title="Прошлый месяц">← {{ period_name(prev_p) }}</a>
+  {% else %}
+    <span class="mn-link off">← прошлых месяцев нет</span>
+  {% endif %}
+  <span class="mn-cur">{{ period_name(period) }}</span>
+  {% if next_p %}
+    {% if next_p.status == 'open' %}
+      <a class="mn-link" href="/" title="Текущий месяц">{{ period_name(next_p) }} →</a>
+    {% else %}
+      <a class="mn-link" href="/period/{{ next_p.id }}" title="Следующий месяц">{{ period_name(next_p) }} →</a>
+    {% endif %}
+  {% else %}
+    <span class="mn-link off">следующего месяца нет →</span>
+  {% endif %}
+</div>

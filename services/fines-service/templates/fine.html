@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Штраф № {{ fine.number }} — Отчет по штрафам{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Штраф № {{ fine.number }}</h1>
+  <div class="actions">
+    {% if fine.pdf_name %}<a class="btn" href="/pdf/fine/{{ fine.id }}" target="_blank">📄 Открыть PDF</a>{% endif %}
+    <form method="post" action="/fine/{{ fine.id }}/delete" class="inline"
+          onsubmit="return confirm('Удалить штраф № {{ fine.number }} из отчета?');">
+      <button class="btn danger">Удалить</button>
+    </form>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h3>Данные постановления</h3>
+    <table class="kv">
+      <tr><td>Период отчета</td><td><a href="/period/{{ period.id }}">{{ period_name(period) }}</a></td></tr>
+      <tr><td>Дата постановления</td><td>{{ fine.date | dmy }}</td></tr>
+      <tr><td>Компания</td><td>{{ fine.company or '—' }} {% if fine.inn %}<span class="muted">(ИНН {{ fine.inn }})</span>{% endif %}</td></tr>
+      <tr><td>Автомобиль</td><td>{{ fine.vehicle or '—' }} <b>{{ fine.plate or '' }}</b></td></tr>
+      <tr><td>Статья КоАП</td><td>{{ fine.article or '—' }}</td></tr>
+      <tr><td>Нарушение</td><td>{{ fine.violation or '—' }}</td></tr>
+      <tr><td>Дата/время нарушения</td><td>{{ fine.violation_date | dmy }} {{ fine.violation_time or '' }}</td></tr>
+      <tr><td>Место</td><td>{{ fine.violation_place or '—' }}</td></tr>
+      <tr><td>Сумма штрафа</td><td><b>{{ fine.amount | money }} руб.</b>
+        {% if fine.discount_amount %}<span class="muted">(со скидкой 75%: {{ fine.discount_amount | money }} руб.)</span>{% endif %}</td></tr>
+      <tr><td>Орган</td><td>{{ fine.authority or '—' }}</td></tr>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h3>Ручная корректировка</h3>
+    <form method="post" action="/fine/{{ fine.id }}/update" class="form">
+      <div class="form-grid">
+        <label>Дата постановления
+          <input type="text" name="date" value="{{ fine.date | dmy }}" placeholder="ДД.ММ.ГГГГ">
+        </label>
+        <label>Дата нарушения
+          <input type="text" name="violation_date" value="{{ fine.violation_date | dmy }}" placeholder="ДД.ММ.ГГГГ">
+        </label>
+        <label>Номер постановления
+          <input type="text" name="number" value="{{ fine.number or '' }}">
+        </label>
+        <label>Компания
+          <input type="text" name="company" value="{{ fine.company or '' }}">
+        </label>
+        <label>ИНН
+          <input type="text" name="inn" value="{{ fine.inn or '' }}">
+        </label>
+        <label>Автомобиль
+          <input type="text" name="vehicle" value="{{ fine.vehicle or '' }}">
+        </label>
+        <label>Гос. номер
+          <input type="text" name="plate" value="{{ fine.plate or '' }}">
+        </label>
+        <label>Статья КоАП
+          <input type="text" name="article" value="{{ fine.article or '' }}">
+        </label>
+        <label>Сумма штрафа, руб.
+          <input type="text" name="amount" value="{{ fine.amount | money }}">
+        </label>
+      </div>
+      <label>Нарушение
+        <input type="text" name="violation" value="{{ fine.violation or '' }}">
+      </label>
+      <label>Статус оплаты
+        <select name="status">
+          {% for s in ['Не оплачен', 'Оплачен', 'ИП возбуждено', 'Обжалуется', 'Отменен'] %}
+          <option value="{{ s }}" {{ 'selected' if fine.status==s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Сотрудник (водитель)
+        <input type="text" name="employee" value="{{ fine.employee or '' }}" placeholder="ФИО">
+      </label>
+      <label>Примечание
+        <textarea name="note" rows="3">{{ fine.note or '' }}</textarea>
+      </label>
+      <button class="btn primary">Сохранить</button>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <h3>Исполнительные производства и документы ФССП</h3>
+  {% if docs %}
+  <div class="table-wrap">
+  <table class="fines">
+    <thead><tr><th>Тип документа</th><th>№ ИП</th><th>Дата ИП</th><th>Дата документа</th><th>Должник</th><th class="num">Сумма, руб.</th><th></th></tr></thead>
+    <tbody>
+    {% for d in docs %}
+      <tr>
+        <td>{{ d.doc_type }}<div class="muted small">{{ d.title or '' }}</div></td>
+        <td class="mono">{{ d.ip_number or '—' }}</td>
+        <td>{{ d.ip_date | dmy }}</td>
+        <td>{{ d.doc_date | dmy }}</td>
+        <td>{{ d.debtor or '—' }}</td>
+        <td class="num">{{ d.amount | money }}</td>
+        <td class="nowrap">
+          {% if d.pdf_name %}<a class="mini btn" href="/pdf/ip/{{ d.id }}" target="_blank">PDF</a>{% endif %}
+          <form method="post" action="/ip/{{ d.id }}/unlink" class="inline"><button class="mini gray" title="Отвязать от штрафа">отвязать</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Документов ФССП по этому штрафу нет. Загрузите постановление о возбуждении ИП на главной странице — оно привяжется автоматически по номеру постановления.</p>
+  {% endif %}
+</div>
+{% endblock %}

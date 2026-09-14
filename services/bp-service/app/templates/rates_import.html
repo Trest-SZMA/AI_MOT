@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro money(v) %}{{ '{:,.0f}'.format(v or 0).replace(',', ' ') }}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Загрузка транспортных ставок</h1>
+    <div class="muted">Файл {{ file_name }} разобран. В базу пока ничего не
+      записано — проверьте документы и подтвердите. Запись заменит справочник
+      целиком.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/references#ref-transport">
+      {{ icon('arrow-left') }} К справочникам</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="sec-head"><h2>Документы в файле</h2></div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Документ</th><th>Дата</th><th>Вид операции</th>
+        <th>Статус в 1С</th><th>Перевозчик</th><th class="num">Строк</th>
+        <th>Как будет использоваться</th></tr></thead>
+    <tbody>
+    {% for d in parsed['docs'] %}
+    <tr><td>{{ d['doc_number'] }}</td><td>{{ d['doc_date'] }}</td>
+        <td>{{ d['doc_kind'] }}</td><td>{{ d['doc_status'] }}</td>
+        <td>{{ d['organization'] }}</td>
+        <td class="num">{{ d['rows'] }}</td>
+        <td>{% if 'прайс' in (d['doc_kind'] or '') | lower %}
+          <b>рабочие ставки</b>
+        {% else %}<span class="warn-note">пометка «на согласовании» —
+          в расчёты не идёт</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if parsed['skipped'] %}
+  <p class="muted">Пропущено строк без маршрута или цены:
+    {{ parsed['skipped'] }}.</p>
+  {% endif %}
+  {% if existing['total'] %}
+  <p class="warn-note">{{ icon('warn', 'icon-s') }} Сейчас в справочнике
+    {{ existing['total'] }} строк (загружены {{ existing['loaded_at'] }}) —
+    запись их заменит.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="sec-head"><h2>Строки ({{ parsed['rows'] | length }})</h2></div>
+  <div class="table-scroll" style="max-height: 420px">
+  <table>
+    <thead><tr><th>Маршрут</th><th>ТС</th><th>Ед.</th>
+        <th class="num">Цена</th><th>Условия</th><th>Документ</th>
+        <th>Роль</th></tr></thead>
+    <tbody>
+    {% for r in parsed['rows'] %}
+    <tr><td>{{ r['route'] }}</td><td>{{ r['vehicle'] }}</td>
+        <td>{{ r['unit'] }}</td>
+        <td class="num">{{ money(r['price']) }}</td>
+        <td>{{ r['conditions'] }}</td>
+        <td class="muted">{{ r['doc_number'] }} от {{ r['doc_date'] }}</td>
+        <td>{% if r['kind'] == 'current' %}рабочая
+        {% elif r['kind'] == 'proposed' %}<span class="warn-note">на
+          согласовании</span>
+        {% else %}<span class="muted">«было» (для сверки)</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<form method="post" action="/references/transport-rates/apply" class="card">
+  <input type="hidden" name="payload" value="{{ payload }}">
+  <input type="hidden" name="file_name" value="{{ file_name }}">
+  <button class="btn" type="submit">{{ icon('save') }}
+    Записать ставки (заменить справочник)</button>
+  <a class="btn secondary" href="/references#ref-transport">Отмена</a>
+</form>
+{% endblock %}

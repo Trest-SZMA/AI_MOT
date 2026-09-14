@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro money(v) %}{{ '{:,.0f}'.format(v).replace(',', ' ') }}{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Портфель лотов</h1>
+    <div class="muted">Все бизнес-планы одной таблицей: сколько вложено,
+      сколько вывезено, что заработали и как быстро оборачивается капитал.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/">{{ icon('arrow-left') }} Реестр БП</a>
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-tile">
+    <div class="label">Лотов в работе</div>
+    <div class="value">{{ rows | length }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Тоннаж портфеля</div>
+    <div class="value">{{ '{:,.0f}'.format(totals['volume']).replace(',', ' ') }}</div>
+    <div class="muted">тн закупки</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Вложено в лоты</div>
+    <div class="value">{{ money(totals['lot_cost']) }}</div>
+    <div class="muted">руб без НДС</div>
+  </div>
+  <div class="summary-tile {{ 'good' if totals['profit'] >= 0 else 'bad' }}">
+    <div class="label">Чистая прибыль</div>
+    <div class="value">{{ money(totals['profit']) }}</div>
+    <div class="muted">ROS {{ '%.1f' % totals['ros'] }}%</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label" data-tip="Сколько раз за год обернётся вложенный в лоты капитал при текущих сроках вывоза: 12 / срок вывоза, взвешенно по стоимости лотов.">Оборачиваемость</div>
+    <div class="value">{{ '%.1f' % totals['turns_year'] }}<span class="k-unit"> раз/год</span></div>
+    <div class="muted">{{ '%.1f' % totals['months_turn'] }} мес на оборот</div>
+  </div>
+  <div class="summary-tile {{ 'bad' if totals['left'] > 0.5 else 'good' }}">
+    <div class="label" data-tip="Разница между объёмом лотов и тем, что распределено в графиках вывоза: столько тонн ещё не имеет плана отгрузки.">Не распределено</div>
+    <div class="value">{{ '{:,.0f}'.format(totals['left']).replace(',', ' ') }}</div>
+    <div class="muted">тн без плана вывоза</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-scroll tall">
+  <table>
+    <thead><tr>
+      <th>БП</th><th>Продавец</th><th>Статус</th>
+      <th class="num">Тоннаж, тн</th>
+      <th class="num" data-tip="Стоимость лота без НДС — вложенные в закупку деньги.">Стоимость лота, руб</th>
+      <th class="num" data-tip="Запланировано к отгрузке в графике вывоза и сколько тонн ещё без плана.">Вывоз: план / остаток</th>
+      <th class="num">Выручка, руб</th>
+      <th class="num">Чистая прибыль, руб</th>
+      <th class="num">ROS, %</th>
+      <th class="num" data-tip="12 / срок вывоза — сколько оборотов капитала в год даёт эта сделка.">Оборотов в год</th>
+      <th class="num" data-tip="Фактическая выручка, внесённая в план-факте.">Факт, руб</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><a href="/bp/{{ r['bp']['id'] }}">{{ r['bp']['bp_number'] }}</a>
+        {% if r['bp']['source_name'] %}<br>
+        <span class="muted source-name">({{ r['bp']['source_name'] }})</span>{% endif %}</td>
+      <td>{{ r['bp']['seller_name'] or '—' }}</td>
+      <td><span class="status {{ r['bp']['status'] }}">{{ r['bp']['status'] }}</span></td>
+      <td class="num">{{ '{:,.1f}'.format(r['volume']).replace(',', ' ') }}</td>
+      <td class="calc num">{{ money(r['lot_cost']) }}</td>
+      <td class="calc num">{{ '{:,.0f}'.format(r['shipped']).replace(',', ' ') }}
+        {% if r['left'] > 0.5 %}<br>
+        <span class="warn-note">{{ '{:,.0f}'.format(r['left']).replace(',', ' ') }} без плана</span>
+        {% endif %}</td>
+      <td class="calc num">{{ money(r['revenue']) }}</td>
+      <td class="calc num {{ 'pos' if r['profit'] >= 0 else 'neg' }}">
+        <b>{{ money(r['profit']) }}</b></td>
+      <td class="calc num">{{ '%.1f' % r['ros'] }}
+        {% if r['ok'] %}<span class="pill ok">ок</span>{% endif %}</td>
+      <td class="calc num">{{ '%.1f' % r['turns_year'] }}</td>
+      <td class="num">{{ money(r['fact_revenue']) if r['fact_revenue'] else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="muted">Бизнес-планов с позициями пока нет.</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+    <tr>
+      <td colspan="3"><b>ИТОГО</b></td>
+      <td class="num"><b>{{ '{:,.1f}'.format(totals['volume']).replace(',', ' ') }}</b></td>
+      <td class="calc num"><b>{{ money(totals['lot_cost']) }}</b></td>
+      <td class="calc num"><b>{{ '{:,.0f}'.format(totals['shipped']).replace(',', ' ') }}</b></td>
+      <td class="calc num"><b>{{ money(totals['revenue']) }}</b></td>
+      <td class="calc num {{ 'pos' if totals['profit'] >= 0 else 'neg' }}">
+        <b>{{ money(totals['profit']) }}</b></td>
+      <td class="calc num"><b>{{ '%.1f' % totals['ros'] }}</b></td>
+      <td class="calc num"><b>{{ '%.1f' % totals['turns_year'] }}</b></td>
+      <td class="calc num"><b>{{ money(totals['fact_revenue']) }}</b></td>
+    </tr>
+    </tfoot>
+  </table>
+  </div>
+  <p class="muted">Каждый БП считается по своему активному варианту расчёта
+    (ДСП или Лукойл). Прибыль — чистая, после налога и стоимости капитала.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+httpx
+beautifulsoup4
+lxml
+apscheduler
+python-multipart
+itsdangerous
+passlib
+bcrypt
+python-dotenv

@@ -1,0 +1,10 @@
+[Unit]
+Description=МетОптТорг — таймер еженедельной выгрузки «Проверка_БП» (вс 03:10, до ночной сборки 04:03)
+
+[Timer]
+OnCalendar=Sun 03:10
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

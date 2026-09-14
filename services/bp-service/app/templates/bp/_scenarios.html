@@ -1,0 +1,38 @@
+{% if scenarios and not scenario_variants %}
+<div class="card" id="sec-scenarios">
+  <div class="sec-head">
+    <h2><span class="sec-num">14</span> Сценарии цен реализации</h2>
+    <div class="sec-aside"><span class="role-tag">Базовый ±{{ '%.0f' % bp['scen_price_delta'] }} руб/тн</span></div>
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Показатель</th>
+      {% for s in scenarios %}
+      <th class="{% if s['delta'] == 0 %}row-accent{% endif %}">
+        {{ s['name'] }}<br>
+        <span class="muted">{{ '%+.0f руб/тн' % s['delta'] if s['delta'] else 'текущие цены' }}</span></th>
+      {% endfor %}</tr></thead>
+    <tbody>
+    <tr><td>Выручка без НДС, руб</td>
+      {% for s in scenarios %}<td class="calc num">{{ '{:,.0f}'.format(s['revenue']).replace(',', ' ') }}</td>{% endfor %}</tr>
+    <tr><td>Средняя цена, руб/тн</td>
+      {% for s in scenarios %}<td class="calc num">{{ '%.0f' % s['revenue_per_t'] }}</td>{% endfor %}</tr>
+    <tr><td>Операционная прибыль, руб</td>
+      {% for s in scenarios %}<td class="calc num">{{ '{:,.0f}'.format(s['operating_profit']).replace(',', ' ') }}</td>{% endfor %}</tr>
+    <tr><td><b>Чистая прибыль, руб</b></td>
+      {% for s in scenarios %}
+      <td class="calc num {{ 'pos' if s['net_profit'] >= 0 else 'neg' }}">
+        <b>{{ '{:,.0f}'.format(s['net_profit']).replace(',', ' ') }}</b></td>
+      {% endfor %}</tr>
+    <tr><td>ЧП, руб/тн</td>
+      {% for s in scenarios %}<td class="calc num">{{ '%.0f' % s['net_profit_per_t'] }}</td>{% endfor %}</tr>
+    <tr><td>Рентабельность продаж</td>
+      {% for s in scenarios %}
+      <td class="calc">{{ '%.1f' % s['ros_pct'] }}%
+        {% if s['ok'] %}<span class="pill ok">проходит</span>{% else %}<span class="pill bad">ниже порога</span>{% endif %}</td>
+      {% endfor %}</tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}

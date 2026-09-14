@@ -1,0 +1,28 @@
+[Unit]
+Description=МЕТОПТОРГ — фактические остатки металлолома (dashboard + обновление данных)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/metoptorg-ostatki
+# venv: python-tds (SQL «Extractor») + openpyxl (чтение остатков) + конвейер
+ExecStart=/opt/metoptorg-ostatki/.venv/bin/python3 /opt/metoptorg-ostatki/server.py
+# Пароль SQL — только здесь, права 600. Дефис = файла может не быть (SQL не настроен).
+EnvironmentFile=-/etc/metoptorg-ostatki.env
+# Расчёт должен быть воспроизводимым (порядок суммирования влияет на наследование серии)
+Environment=PYTHONHASHSEED=0
+Restart=on-failure
+RestartSec=5
+# Порт 8090 — свой; НЕ трогаем соседей: fines-service(:8077), logistmot(:8080),
+# metoptorg-kp(:8091), metoptorg-realizaciya(:8092).
+MemoryHigh=2G
+MemoryMax=3G
+# Пишет только в свой каталог (data/, out/)
+ProtectSystem=strict
+ReadWritePaths=/opt/metoptorg-ostatki
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

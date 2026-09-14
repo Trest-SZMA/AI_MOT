@@ -1,0 +1,82 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['risks'] %}locked{% endif %}" id="sec-risks">
+  <div class="sec-head">
+    <h2><span class="sec-num">15</span> Риски</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Интегральная оценка: {{ risk_integral }}</span>
+      {% if not can_edit['risks'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Тип</th><th>Описание</th><th>Вероятность</th><th>Влияние</th>
+        <th>Меры снижения</th><th></th></tr></thead>
+    <tbody>
+    {% for r in risks %}
+    <tr>
+      {# Риски правятся на месте: формулировки уточняются по ходу проработки
+         сделки, заводить строку заново ради одного слова незачем. #}
+      {% if can_edit['risks'] %}
+      <td><input form="risk-{{ r['id'] }}" name="risk_type" value="{{ r['risk_type'] }}"></td>
+      <td><input form="risk-{{ r['id'] }}" name="description" value="{{ r['description'] or '' }}"></td>
+      <td><select form="risk-{{ r['id'] }}" name="probability">
+        {% for code, label in probability_labels.items() %}
+        <option value="{{ code }}" {% if r['probability'] == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}</select></td>
+      <td><select form="risk-{{ r['id'] }}" name="impact">
+        {% for code, label in impact_labels.items() %}
+        <option value="{{ code }}" {% if r['impact'] == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}</select></td>
+      <td><input form="risk-{{ r['id'] }}" name="mitigation" value="{{ r['mitigation'] or '' }}"></td>
+      {% else %}
+      <td>{{ r['risk_type'] }}</td><td>{{ r['description'] }}</td>
+      <td>{{ probability_labels.get(r['probability'], r['probability'] or '—') }}</td>
+      <td>{{ impact_labels.get(r['impact'], r['impact'] or '—') }}</td>
+      <td>{{ r['mitigation'] }}</td>
+      {% endif %}
+      <td>
+        {% if can_edit['risks'] %}
+        <form method="post" id="risk-{{ r['id'] }}" class="inline-form"
+              action="/bp/{{ bp['id'] }}/risks/{{ r['id'] }}/update"></form>
+        <button form="risk-{{ r['id'] }}" class="btn-icon secondary"
+                title="Сохранить риск">{{ icon('save') }}</button>
+        <form class="inline-form" method="post"
+              action="/bp/{{ bp['id'] }}/risks/{{ r['id'] }}/delete">
+          <button class="danger btn-icon" title="Удалить риск">{{ icon('trash') }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if can_edit['risks'] %}
+  <form method="post" action="/bp/{{ bp['id'] }}/risks">
+    <div class="grid">
+      <div><label>Тип риска</label>
+        <select name="risk_type">
+          {% for v in ['Рыночный', 'Контрагент', 'Логистический', 'Качества',
+                       'Финансовый', 'Иной'] %}
+          <option value="{{ v }}">{{ v }}</option>
+          {% endfor %}
+        </select></div>
+      <div><label>Описание</label><input name="description"></div>
+      <div><label>Вероятность</label>
+        <select name="probability">
+          {% for code, label in probability_labels.items() %}
+          <option value="{{ code }}" {% if code == 'С' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select></div>
+      <div><label>Влияние на сделку</label>
+        <select name="impact">
+          {% for code, label in impact_labels.items() %}
+          <option value="{{ code }}" {% if code == 'З' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select></div>
+      <div><label>Меры снижения</label><input name="mitigation"></div>
+    </div>
+    <button type="submit">{{ icon('plus') }} Добавить риск</button>
+  </form>
+  {% endif %}
+</div>

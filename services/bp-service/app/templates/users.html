@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Пользователи</h1>
+    <div class="muted">Учётная запись задаёт роль и права. Пароль хранится
+      только хешем — восстановить его нельзя, можно задать новый.</div>
+  </div>
+  <div class="page-actions"><a class="btn" href="/journal">{{ icon('search') }} Журнал действий</a></div>
+</div>
+
+<div class="card">
+  <div class="sec-head"><h2>Учётные записи</h2></div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th style="width:130px">Логин</th><th>ФИО</th><th style="width:215px">Роль</th>
+      <th style="width:90px">Активна</th><th style="width:150px">Последний вход</th>
+      <th style="width:80px">Сессий</th><th style="width:210px">Новый пароль</th>
+      <th style="width:110px"></th>
+    </tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr {% if not u['is_active'] %}class="muted"{% endif %}>
+      <td><b>{{ u['login'] }}</b>
+        {% if u['id'] == user['id'] %}<div class="muted">это вы</div>{% endif %}
+        {% if not u['password_hash'] %}
+        <div class="warn-note">{{ icon('warn', 'icon-s') }} пароль не задан —
+          вход невозможен</div>
+        {% elif u['must_change_password'] %}
+        <div class="warn-note">{{ icon('warn', 'icon-s') }} сменит пароль</div>{% endif %}</td>
+      <td><input form="uf{{ u['id'] }}" name="full_name" value="{{ u['full_name'] or '' }}"></td>
+      <td><select form="uf{{ u['id'] }}" name="role">
+        {% for code, label in role_labels.items() %}
+        <option value="{{ code }}" {% if code == u['role'] %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select></td>
+      <td style="text-align:center"><input form="uf{{ u['id'] }}" type="checkbox"
+        name="is_active" value="1" {% if u['is_active'] %}checked{% endif %}
+        aria-label="Учётная запись активна"></td>
+      <td class="muted">{{ u['last_login_at'] or 'не входил' }}</td>
+      <td style="text-align:center">{{ u['sessions'] }}</td>
+      <td>
+        <form method="post" action="/users/{{ u['id'] }}/password" class="row-form">
+          <input name="password" type="text" autocomplete="off"
+                 placeholder="задать пароль" minlength="8">
+          <button class="btn-sm" type="submit">{{ icon('lock') }} Задать</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="/users/{{ u['id'] }}/update" id="uf{{ u['id'] }}"></form>
+        <button class="btn-sm" form="uf{{ u['id'] }}" type="submit">{{ icon('save') }} Сохранить</button>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="muted" style="margin-top:8px">Отключение учётной записи и смена
+    пароля немедленно закрывают все её сессии.</div>
+</div>
+
+<div class="card">
+  <div class="sec-head"><h2>Новый пользователь</h2></div>
+  <form method="post" action="/users/add" class="row-form">
+    <div><label for="nl">Логин</label>
+      <input id="nl" name="login" required placeholder="ivanov"
+             pattern="[a-z0-9._\-]{3,32}"></div>
+    <div><label for="nn">ФИО</label>
+      <input id="nn" name="full_name" placeholder="Иванов И. И."></div>
+    <div><label for="nr">Роль</label>
+      <select id="nr" name="role">
+        {% for code, label in role_labels.items() %}
+        <option value="{{ code }}">{{ label }}</option>
+        {% endfor %}
+      </select></div>
+    <div><label for="np">Пароль</label>
+      <input id="np" name="password" required minlength="8"
+             placeholder="не короче 8 символов"></div>
+    <div><button type="submit">{{ icon('plus') }} Создать</button></div>
+  </form>
+  <div class="muted">Пароль сообщите пользователю лично — при первом входе
+    сервис потребует его сменить.</div>
+</div>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Реестр бизнес-планов</h1>
+    <div class="muted">Все сделки, статусы согласования и ключевые даты в одном списке.</div>
+  </div>
+  <div class="page-actions">
+    <form method="post" action="/bp/import" enctype="multipart/form-data"
+          class="import-form">
+      <label class="file-btn">
+        <svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>
+        <span>Импортировать готовый БП</span>
+        <input type="file" name="file" accept=".xlsx,.xlsm" required
+               onchange="this.form.requestSubmit()">
+      </label>
+    </form>
+    <form method="post" action="/bp/new">
+      <button type="submit">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+        Новый бизнес-план
+      </button>
+    </form>
+  </div>
+
+  {# ── Создать по образцу ──
+     Новая сделка начинается с нуля, хотя у одного продавца повторяются
+     дивизион, ставки, условия оплаты, состав статей и риски. Что именно
+     переносить — выбирает человек: сделки похожи по-разному. #}
+  {% if role in ('manager', 'admin') and plans %}
+  <details class="copy-panel">
+    <summary><b>Создать по образцу</b>
+      <span class="muted">— взять параметры готовой сделки в новый БП</span></summary>
+    <form method="post" action="/bp/copy" class="copy-form">
+      <label>Образец
+        <select name="source" required>
+          <option value="">— выберите БП —</option>
+          {%- for p in plans %}
+          <option value="{{ p['id'] }}">{{ p['bp_number'] }}{% if p['seller_name'] %} · {{ p['seller_name'][:40] }}{% endif %}</option>
+          {%- endfor %}
+        </select></label>
+      <div class="copy-parts">
+        <label><input type="checkbox" name="copy_costs" checked> статьи затрат</label>
+        <label><input type="checkbox" name="copy_risks" checked> риски</label>
+        <label><input type="checkbox" name="copy_scenarios" checked> сценарии</label>
+        <label><input type="checkbox" name="copy_route"> граф маршрута</label>
+        <label><input type="checkbox" name="copy_items"> позиции лота</label>
+      </div>
+      <button type="submit">
+        <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
+        Создать</button>
+      <p class="muted copy-hint">Параметры сделки (продавец, дивизион, ставки,
+        условия оплаты) переносятся всегда. Стоимость лота, шаг аукциона,
+        контрольные суммы, даты и статус — нет: они свои у каждой сделки.</p>
+    </form>
+  </details>
+  {% endif %}
+
+  {# ── Поиск и фильтры ──
+     16 БП можно было просмотреть глазами, сотня сделок в год — нет. #}
+  <form method="get" action="/" class="filter-bar">
+    <label class="filter-search">
+      <span class="visually-hidden">Поиск по реестру</span>
+      <input name="q" value="{{ filters['q'] }}" autocomplete="off"
+             placeholder="номер, продавец, покупатель, менеджер, № запроса"></label>
+    <label>Статус
+      <select name="status">
+        <option value="">любой</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if filters['status'] == s }}>{{ s }}</option>
+        {% endfor %}
+      </select></label>
+    <label>Дивизион
+      <select name="division">
+        <option value="">любой</option>
+        {% for d in divisions %}
+        <option value="{{ d }}" {{ 'selected' if filters['division'] == d }}>{{ d[:28] }}</option>
+        {% endfor %}
+      </select></label>
+    <label>Порядок
+      <select name="sort">
+        {% for key, title in sorts.items() %}
+        <option value="{{ key }}" {{ 'selected' if filters['sort'] == key }}>{{ title }}</option>
+        {% endfor %}
+      </select></label>
+    <label>Архив
+      <select name="archived">
+        <option value="" {{ 'selected' if not filters['archived'] }}>не показывать</option>
+        <option value="all" {{ 'selected' if filters['archived'] == 'all' }}>вместе с рабочими</option>
+        <option value="only" {{ 'selected' if filters['archived'] == 'only' }}>только архив</option>
+      </select></label>
+    <button type="submit">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+      Найти</button>
+    {% if filters['q'] or filters['status'] or filters['division'] or filters['archived'] or filters['sort'] != 'new' %}
+    <a class="btn secondary btn-sm" href="/">Сбросить</a>
+    {% endif %}
+  </form>
+  <div class="muted filter-note">
+    Показано {{ plans | length }} из {{ total_plans }}
+    {%- if archived_count %}; в архиве {{ archived_count }}{% endif -%}
+    {%- set shown_empty = plans | selectattr('id', 'in', empty_plans) | list | length %}
+    {%- if shown_empty %}; из них не считается {{ shown_empty }}
+    <span data-tip="Нет позиций, нет цен или не задана стоимость лота — расчёт
+          заведомо нулевой. Обычно это черновики и пробы: их стоит убрать в
+          архив, чтобы не мешали искать рабочие и не искажали портфель лотов.">— черновики и пробы</span>
+    {%- endif %}
+    {%- if filters['sort'] == 'lot_cost' or filters['sort'] == 'items' %}.
+    Прибыль и рентабельность по всем сделкам — в
+    <a href="/portfolio">портфеле лотов</a>{% endif %}
+  </div>
+
+<style>
+  .page-actions { display: flex; gap: var(--sp-3, 12px); align-items: center; }
+  .import-form .file-btn {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 9px 16px; border-radius: var(--radius-md, 8px);
+    border: 1px solid var(--border-strong, #94a3b8);
+    background: var(--surface-1, #fff); color: var(--text-1, #1e293b);
+    font: inherit; font-weight: 500; line-height: 1; white-space: nowrap;
+  }
+  .import-form .file-btn:hover { background: var(--surface-2, #f1f5f9); }
+  .import-form .file-btn input[type="file"] {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); border: 0;
+  }
+  /* История версий расчёта под строкой БП: свёрнутая декомпозиция реестра. */
+  .ver-row > td { padding: 0 10px 8px; background: var(--surface-2, #f8fafc); }
+  .ver-list > summary { cursor: pointer; font-size: 12px; padding: 6px 0;
+                        color: var(--brand-600, #3949ab); font-weight: 700; }
+  .ver-table { font-size: 12px; margin: 4px 0 8px; }
+  .ver-table th, .ver-table td { padding: 4px 8px; }
+
+  /* ── Создать по образцу ── */
+  .copy-panel { flex-basis: 100%; margin-top: 10px; padding: 8px 12px;
+                border: 1px solid var(--brand-200); border-radius: var(--radius);
+                background: var(--surface); }
+  .copy-panel > summary { cursor: pointer; font-size: 13px; }
+  .copy-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+               margin-top: 8px; }
+  .copy-form > label, .filter-bar > label { display: flex; flex-direction: column;
+               gap: 3px; font-size: 12px; font-weight: 700; }
+  .copy-parts { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+  .copy-parts label { display: inline-flex; align-items: center; gap: 5px;
+                      font-weight: 400; }
+  .copy-form button { margin: 0; }
+  .copy-hint { flex-basis: 100%; margin: 0; font-size: 12px; }
+
+  /* ── Поиск и фильтры реестра ── */
+  .filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+                flex-basis: 100%; margin-top: 12px; }
+  .filter-search { flex: 1 1 260px; }
+  .filter-search input { width: 100%; }
+  .filter-bar button, .filter-bar .btn { margin: 0; }
+  .filter-note { flex-basis: 100%; margin-top: 6px; font-size: 12px; }
+  .row-archive { margin-top: 4px; }
+  .row-archive button { margin: 0; }
+  .archived-row > td { opacity: .55; }
+  .archived-row a { color: var(--text-muted); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                     clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</div>
+
+<div class="card">
+<div class="table-scroll tall">
+<table class="grid-lines">
+  <thead><tr>
+    <th data-tip="Задача в Битрикс24, по которой ведётся сделка. Нажатие
+        открывает её на портале.">Задача</th>
+    <th>№ БП</th><th>Статус</th><th data-tip="Тип сделки определяется по составу
+        лота: от него зависят статьи затрат, процессы переработки и чьё участие
+        обязательно.">Тип</th><th>Версия</th><th>Продавец</th><th>Дивизион</th>
+    <th>Менеджер</th><th class="num">Позиций</th><th>Согласован</th><th>Оплата</th>
+    <th>Начало работ</th><th>Создан</th><th>Обновлён</th>
+  </tr></thead>
+  <tbody>
+  {% for p in plans %}
+  <tr class="{{ 'archived-row' if p['archived'] }}">
+    {# Ссылка на задачу Битрикс24: сделка ведётся в задаче, карточка — расчёт
+       по ней. Открывается на портале в новой вкладке. #}
+    <td class="bitrix-cell">
+      {% if bitrix_links.get(p['id']) %}
+      <a href="{{ bitrix_links[p['id']] }}" target="_blank" rel="noopener"
+         class="bitrix-link" title="Открыть задачу в Битрикс24">
+№{{ p['bitrix_task_id'] }}</a>
+      {% else %}<span class="muted">—</span>{% endif %}
+    </td>
+    <td><a href="/bp/{{ p['id'] }}/deal">{{ p['bp_number'] }}</a>
+      {% if p['scenario'] %}<span class="muted"> · {{ p['scenario'] }}</span>{% endif %}
+      {% if p['archived'] %}<span class="pill">архив</span>{% endif %}
+      {% if p['id'] in empty_plans %}
+      <span class="pill warn" data-tip="{{ empty_plans[p['id']] }} — расчёт
+            такого БП заведомо нулевой. Обычно это черновик или проба:
+            уберите в архив, чтобы не мешал искать рабочие.">не считается</span>
+      {% endif %}
+      {% if p['source_name'] %}<br><span class="muted source-name">({{ p['source_name'] }})</span>{% endif %}
+      {% if role in ('manager', 'director', 'admin') %}
+      {# Архив вместо удаления: у пробы тоже есть расчёт, версии и журнал.
+         Кнопка здесь, а не в колонке справа: та уезжает за край таблицы.
+         next в кодированном виде — иначе «&» из фильтров расклеил бы адрес. #}
+      <form method="post" class="row-archive"
+            action="/bp/{{ p['id'] }}/archive?next={{ (request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) | urlencode }}">
+        <input type="hidden" name="action" value="{{ 'restore' if p['archived'] else 'archive' }}">
+        <button class="secondary btn-sm" type="submit"
+                data-tip="{{ 'Вернуть БП в рабочий реестр и в портфель лотов.'
+                             if p['archived'] else
+                             'Убрать из рабочего реестра и из портфеля лотов. Данные остаются, признак снимается обратно.' }}">{{
+          'Вернуть из архива' if p['archived'] else 'В архив' }}</button>
+      </form>
+      {% endif %}</td>
+    <td><span class="status {{ p['status'] }}">{{ p['status'] }}</span></td>
+    <td>{% if p['bp_type'] %}<span class="pill"
+          {% if p['bp_type_source'] == 'manual' %}data-tip="Тип задан вручную"{% endif %}>{{
+          bp_type_names.get(p['bp_type'], p['bp_type']) }}</span>
+      {% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{{ p['version'] }}</td>
+    <td>{{ p['seller_name'] or '-' }}</td>
+    <td>{{ p['division'] or '-' }}</td>
+    <td>{{ p['manager'] or '-' }}</td>
+    <td class="num">{{ p['items_count'] }}</td>
+    <td>{{ p['approved_date'] or '-' }}</td>
+    <td>{{ p['payment_date'] or '-' }}</td>
+    <td>{{ p['work_start_date'] or '-' }}</td>
+    <td>{{ p['created_at'][:16] }}</td>
+    <td>{{ p['updated_at'][:16] }}</td>
+  </tr>
+  {% set vers = versions.get(p['id'], []) %}
+  {% if vers %}
+  {# Декомпозиция БП: история версий расчёта с датой, вариантом и сценарием.
+     Свёрнута — реестр остаётся коротким, разворачивается по клику. #}
+  <tr class="ver-row"><td colspan="13">
+    <details class="ver-list">
+      <summary>Версии расчёта: {{ vers|length }},
+        последняя {{ vers[0]['created_at'][:16] }}</summary>
+      <table class="ver-table">
+        <thead><tr><th>Версия</th><th>Изменено</th><th>Вариант</th>
+          <th>Сценарий</th><th class="num">ЧП ДСП</th><th class="num">ЧП Лукойл</th>
+          <th>Автор</th><th>Что правили</th></tr></thead>
+        <tbody>
+        {% for v in vers %}
+        <tr><td><a href="/bp/{{ p['id'] }}?variant={{ v['variant'] or 'bsp' }}">{{ v['version'] }}</a></td>
+          <td>{{ v['created_at'][:16] }}</td>
+          <td>{{ variant_labels.get(v['variant'], '-') }}</td>
+          <td>{{ v['scenario'] or '-' }}</td>
+          <td class="num">{{ '{:,.0f}'.format(v['net_profit_bsp']).replace(',', ' ') if v['net_profit_bsp'] is not none else '-' }}</td>
+          <td class="num">{{ '{:,.0f}'.format(v['net_profit_luk']).replace(',', ' ') if v['net_profit_luk'] is not none else '-' }}</td>
+          <td>{{ v['author'] or '-' }}</td>
+          <td class="muted">{{ v['change_note'] or '-' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </td></tr>
+  {% endif %}
+  {% else %}
+  <tr><td colspan="13" class="muted">
+    {% if filters['q'] or filters['status'] or filters['division'] %}
+    По этому запросу ничего не найдено. Проверьте написание или
+    <a href="/">сбросьте фильтры</a>.
+    {% else %}Бизнес-планов пока нет. Создайте первый.{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+</div>
+{% endblock %}

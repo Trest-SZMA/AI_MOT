@@ -1,0 +1,22 @@
+{
+  "updated_at": "2026-07-22",
+  "source": "Обзвон заводов (Павел, МетОптТорг) + Транслом/Rusmet индексы",
+  "user_prices_3a": {
+    "PERM":      {"fca": 25100, "cpt_auto": 28000, "note": "Реальные цены обзвона. Спред к индексу Урала +6010 - аномалия, не живёт дольше 6-10 недель"},
+    "KOMI_PERM": {"fca": 20400, "cpt_auto": null},
+    "HMAO":      {"fca": null,  "cpt_auto": 23500},
+    "SOUTH":     {"fca": null,  "cpt_auto": 22099, "note": "по индексу Транслом CPT жд Юг"}
+  },
+  "indices": {
+    "translom_index": 17810,
+    "fca_ekb": 20500,
+    "cpt_rd_ural": 21990,
+    "cpt_rd_south": 22099,
+    "hms_cfr_turkey_usd": 394,
+    "fob_black_sea_usd": 325,
+    "lom_3a_rf_avg": 18250
+  },
+  "lme": {"copper_usd": 12680, "alum_usd": 3080, "nickel_usd": 15500},
+  "colored_scrap_rf": {"copper_m1": 705000, "alum_mixed_fca": 153053},
+  "macro": {"usd_rub": 83.0, "key_rate_pct": 15.0}
+}

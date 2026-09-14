@@ -1,0 +1,619 @@
+{% from "bp/_macros.html" import icon, money, save_btn, pager with context %}
+<div class="card {% if not can_edit['items'] %}locked{% endif %}" id="sec-items">
+  <div class="sec-head">
+    <h2><span class="sec-num">5</span> Состав лота</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Менеджер / экономист</span>
+      <span class="role-tag">{{ pnl['rows'] | length }} позиций</span>
+      {% if not can_edit['items'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  {# ── Массовая правка ──
+     В книге экономист протягивает цену на 500 строк за секунду. Здесь то же
+     самое: выделить строки флажками → задать цену, план продажи или
+     покупателя всем сразу. Блок вынесен ИЗ формы цен: формы нельзя вкладывать
+     друг в друга, поэтому флажки живут в форме цен, а кнопка «Применить» —
+     в своей форме и забирает выделенное скриптом. #}
+  {% if can_edit['items'] and pnl_rows %}
+  <form method="post" class="bulk-form" id="bulk-form"
+        action="/bp/{{ bp['id'] }}/items/bulk?variant={{ variant }}">
+    <input type="hidden" name="item_ids" id="bulk-ids">
+    <div class="bulk-head">
+      <b>Массовая правка</b>
+      <span class="muted" id="bulk-count">строки не выделены</span>
+    </div>
+    <div class="bulk-fields">
+      <label>Цена реализации, руб/тн ({{ variant_label }})
+        <input name="sale_price" class="w-sm" placeholder="без изменения"></label>
+      <label>План продажи
+        <input name="sale_group" class="w-sm" list="dl_cargo_groups"
+               autocomplete="off" placeholder="без изменения"></label>
+      <label>Покупатель
+        <input name="buyer" class="w-md cp-input" list="dl_bulk_buyers"
+               autocomplete="off" placeholder="без изменения">
+        <datalist id="dl_bulk_buyers"></datalist></label>
+      <button type="submit" id="bulk-apply" disabled>{{ icon('check') }}
+        Применить к выделенным</button>
+    </div>
+    <p class="muted bulk-hint">Пустое поле не меняет ничего. Протянуть значение
+      одной строки вниз по колонке — Ctrl+D в поле или кнопка «Протянуть вниз».</p>
+  </form>
+  {% endif %}
+  {% if can_edit['items'] and bulk_undo %}
+  {# Отмена: массовое действие правит сотню строк разом, и без возврата
+     ошибка стоила бы восстановления всего БП из версии. #}
+  <form method="post" class="bulk-undo"
+        action="/bp/{{ bp['id'] }}/items/bulk/undo?variant={{ variant }}">
+    <button type="submit" class="secondary btn-sm">{{ icon('undo') }}
+      Отменить: {{ bulk_undo['note'] }}</button>
+  </form>
+  {% endif %}
+
+  <form method="post" action="/bp/{{ bp['id'] }}/items/prices" id="prices-form">
+  {% if pnl_rows %}
+  <div class="table-toolbar">
+    {% set group_count = pnl_rows | groupby('group') | list | length %}
+    {# Разрез групп: 1000 строк одной трубы в режиме «по номенклатуре»
+       складываются в одну группу с итогами и общим сворачиванием. #}
+    <div class="muted">Группировка ({{ group_count }}
+      {%- if group_count % 10 == 1 and group_count % 100 != 11 %} группа
+      {%- elif 2 <= group_count % 10 <= 4 and not 12 <= group_count % 100 <= 14 %} группы
+      {%- else %} групп{% endif %} на странице):
+      {% for mode, label in items_grp_modes.items() %}
+        {%- if not loop.first %} · {% endif %}
+        {%- if mode == items_grp %}<b>{{ label }}</b>
+        {%- else %}<a href="/bp/{{ bp['id'] }}/lot?variant={{ variant }}&grp={{ mode }}#prices-form">{{ label }}</a>
+        {%- endif %}
+      {% endfor %}</div>
+    <div class="toolbar-actions">
+      {% if can_edit['items'] %}
+      <button type="button" class="secondary btn-sm" id="copy-down"
+              data-tip="Значение поля, в котором стоит курсор, уходит во все
+              строки ниже по этой же колонке. То же делает Ctrl+D.">
+        {{ icon('arrow-down') }} <span id="copy-down-label">Протянуть вниз</span></button>
+      {% endif %}
+      <button type="button" class="secondary btn-sm" data-collapse-all="items">
+        {{ icon('chevrons-up') }} Свернуть группы</button>
+      <button type="button" class="secondary btn-sm" data-expand-all="items">
+        {{ icon('chevrons-down') }} Развернуть группы</button>
+    </div>
+  </div>
+  {% endif %}
+  {% if items_page %}{{ pager(items_page, '/bp/' ~ bp['id'] ~ '/lot', variant) }}{% endif %}
+  <div class="table-scroll tall">
+  <datalist id="dl_units">
+    {% for u in units %}<option value="{{ u }}">{% endfor %}
+    <option value="тн"><option value="т">
+  </datalist>
+  <datalist id="dl_cargo_groups">
+    {% for g in cargo_groups %}<option value="{{ g }}">{% endfor %}
+  </datalist>
+  <table class="items-grid">
+    <thead><tr>
+      {% if can_edit['items'] %}
+      <th class="col-pick"><input type="checkbox" id="pick-all"
+            title="Выделить все строки страницы" aria-label="Выделить все строки страницы"></th>
+      {% endif %}
+      <th>Позиция</th>
+      <th>Место и транспорт</th>
+      <th>Группа учёта и план продажи</th>
+      <th class="num" data-tip="Цена закупки одна на весь лот: стоимость лота / тоннаж. Показана в итогах и в плитке «Стоимость лота».">Объём закупки</th>
+      <th class="num">Реализация</th>
+      <th>Покупатель</th>
+      <th class="num">Выручка</th>
+      <th class="num">Затраты</th>
+      <th class="num">Прибыль</th>
+      <th></th>
+    </tr></thead>
+    {% for group, entries in pnl_rows | groupby('group') %}
+    {% set group_id = 'items-group-' ~ loop.index %}
+    {% set ns = namespace(volume=0, sale_volume=0, profit=0, costs=0) %}
+    {% for entry in entries %}
+      {% set ns.volume = ns.volume + entry.row.volume_t %}
+      {% set ns.sale_volume = ns.sale_volume + entry.row.sale_volume_t %}
+      {% set ns.profit = ns.profit + entry.row.profit %}
+      {% set ns.costs = ns.costs + entry.row.alloc_costs %}
+    {% endfor %}
+    <tbody class="group-body" data-group-body="items" data-group-id="{{ group_id }}">
+    <tr class="table-section-row group-heading">
+      <td colspan="{{ 11 if can_edit['items'] else 10 }}">
+        <button type="button" class="btn-icon secondary group-toggle"
+                data-toggle-group="{{ group_id }}" aria-expanded="true"
+                title="Свернуть или развернуть группу">{{ icon('chevron-down') }}</button>
+        <b>{{ group }}</b>
+        {# Итоги группы — по строкам ЭТОЙ страницы: группа, разрезанная
+           страницей, иначе показывала бы часть как целое. #}
+        <span data-group="{{ group_id }}">{{ entries | length }} поз.{% if
+          items_page and not items_page['all'] %} на странице{% endif %} ·
+          закупка <span data-group-calc="volume">{{ '%.3f' % ns.volume }}</span> тн ·
+          продажа <span data-group-calc="sale_volume">{{ '%.3f' % ns.sale_volume }}</span> тн ·
+          затраты базы <span data-group-calc="costs">{{ money(ns.costs) }}</span> руб ·
+          прибыль <span data-group-calc="profit">{{ money(ns.profit) }}</span> руб</span>
+      </td>
+    </tr>
+    {% for entry in entries %}
+    {% set r = entry.row %}
+    {% set item = entry.item %}
+    {% set item0 = entry.item %}
+    <tr class="group-item-row" data-row="{{ r['id'] }}:{{ r['sale_id'] or '' }}"
+        data-group-row="{{ group_id }}">
+      {% set src = items_by_id.get(r['id']) %}
+      {% if can_edit['items'] %}
+      {# Флажок только у первой строки позиции: разбитая по покупателям
+         позиция даёт несколько строк, а правится она одна. #}
+      <td class="col-pick">{% if entry.first_of_item %}
+        <input type="checkbox" class="row-pick" value="{{ r['id'] }}"
+               aria-label="Выделить позицию {{ r['nomenclature'][:40] }}">{% endif %}</td>
+      {% endif %}
+
+      {# 1. Позиция: наименование, код продавца и сопоставленная 1С —
+         три факта об одной сущности живут в одной ячейке, а не в трёх колонках. #}
+      <td class="cell-item">
+        <b>{{ r['nomenclature'] }}</b>
+        {# Вердикт коммерсанта: неликвид и не товарная партия решают судьбу
+           позиции раньше любой экономики (листы «свод Шумейко»/«СВОД»). #}
+        {% if src and src['liquidity'] and src['liquidity'] != 'товарная' %}
+        <span class="pill bad" data-tip="{{ src['expert_note'] or 'Вердикт коммерсанта по позиции' }}">{{ src['liquidity'] }}</span>
+        {% endif %}
+        <span class="cell-sub">
+          {%- if src and src['seller_code'] %}код {{ src['seller_code'] }}{% endif -%}
+          {%- if item0 and item0['nomen_1c'] %} · 1С: {{ item0['nomen_1c'][:34] }}
+            {%- if item0['match_confirmed'] %} ✓{% endif -%}
+          {%- else %} · <span class="warn-note">не сопоставлено</span>{% endif -%}
+        </span>
+      </td>
+
+      {# 2. Место и доли транспорта/цеха — всё про площадку в одном месте. #}
+      <td class="cell-place">
+        {{ (r['division'] or r['supplier'] or r['warehouse'] or '—')[:40] }}
+        {% if can_edit['items'] and entry.first_of_item %}
+        <span class="cell-fields">
+          <label title="Доля собственным транспортом, % (остальное наём)">св.тр<input name="own_{{ r['id'] }}" class="w-xxs"
+            value="{{ src['own_transport_pct'] if src and src['own_transport_pct'] is not none else '' }}"></label>
+          <label title="Доля подрезки на цехе, % (остальное на базе)">цех<input name="cut_{{ r['id'] }}" class="w-xxs"
+            value="{{ src['workshop_cut_pct'] if src and src['workshop_cut_pct'] is not none else '' }}"></label>
+        </span>
+        {% endif %}
+      </td>
+
+      {# 3. Классификация: чем считаем и как продаём — рядом, чтобы видеть связь. #}
+      <td class="cell-group">
+        {% set grp = analytic_groups.get(r['id']) %}
+        {% if can_edit['items'] and entry.first_of_item %}
+        <input name="cargo_group_{{ r['id'] }}" value="{{ grp or '' }}"
+               list="dl_cargo_groups" autocomplete="off" placeholder="группа учёта">
+        <input name="sale_group_{{ r['id'] }}" list="dl_cargo_groups" autocomplete="off"
+               value="{{ src['sale_group'] if src and src['sale_group'] else '' }}"
+               placeholder="продаём как: {{ r['sale_type'] }}">
+        {% else %}
+          {{ grp or '—' }}<span class="cell-sub">продаём: {{ r['sale_type'] }}</span>
+        {% endif %}
+      </td>
+
+      {# 4. Объём с единицей и засором — одна величина и её условия. #}
+      <td class="num cell-vol">
+        <b>{{ '%.3f' % r['volume_t'] }}</b>
+        {% if can_edit['items'] and entry.first_of_item %}
+        <span class="cell-fields">
+          <label title="Единица измерения позиции">ед<input name="unit_{{ r['id'] }}" class="w-xxs" list="dl_units"
+            value="{{ src['unit'] if src else '' }}" autocomplete="off"></label>
+          {% set cont = src['contamination_pct_luk'] if (variant == 'luk' and src
+                          and src['contamination_pct_luk'] is not none)
+                        else (src['contamination_pct'] if src else none) %}
+          <label title="Засор позиции, % (пусто — общий засор БП)">зас<input name="contamination_{{ r['id'] }}" class="w-xxs"
+            value="{{ '%g' % cont if cont is not none else '' }}"
+            placeholder="{{ '%g' % bp['contamination_pct'] if bp['contamination_pct'] else '0' }}"></label>
+        </span>
+        {% else %}<span class="cell-sub">{{ src['unit'] if src else '' }}</span>{% endif %}
+      </td>
+
+      {# 6. Реализация: объём после засора и цены обоих вариантов. #}
+      <td class="num cell-sale">
+        <b>{{ '%.3f' % r['sale_volume_t'] }}</b>
+        {% if can_edit['items'] %}
+        <span class="cell-fields">
+          <label class="{{ 'variant-on' if variant == 'bsp' }}">ДСП<input
+            name="sale_price_{{ r['id'] }}" class="w-xs"
+            value="{{ item['sale_price'] if item and item['sale_price'] is not none else '' }}"></label>
+          {% if bp['has_luk'] %}
+          <label class="{{ 'variant-on' if variant == 'luk' }}">Лук<input
+            name="sale_price_luk_{{ r['id'] }}" class="w-xs"
+            value="{{ src['sale_price_luk'] if src and src['sale_price_luk'] is not none else '' }}"
+            placeholder="как ДСП"></label>
+          {% endif %}
+        </span>
+        {% else %}<span class="cell-sub">{{ '%.0f' % r['sale_price'] }} руб/тн</span>{% endif %}
+        {# Указание продавца из перечня («БП ДСП»/«БП Лукойл»/«ШУМЕЙКО»):
+           показывается рядом с ценой, чтобы расхождение было видно сразу —
+           «указано: с места 22 500 + НДС», а в поле цены 13 500. #}
+        {% set instr = (src['sale_instruction_luk'] if variant == 'luk' and src
+                        and src['sale_instruction_luk']
+                        else (src['sale_instruction'] if src else none)) %}
+        {% if instr %}
+        <span class="cell-sub warn-note instr-note" title="Указание по реализации из перечня продавца
+              ({{ 'вариант «Лукойл»' if variant == 'luk' and src['sale_instruction_luk'] else 'ДСП/общее' }}): {{ instr }}">
+          указано: {{ instr }}</span>
+        {% endif %}
+      </td>
+
+      {# 7. Покупатель, отгрузка и кратность партии. #}
+      <td class="cell-buyer">
+        {% if r['sale_id'] %}
+        <span class="split-buyer" data-tip="Часть объёма по плану продажи варианта
+              {{ variant_label }} — правится в блоке «План продажи».">{{ r['buyer'] or '—' }}</span>
+        {% elif can_edit['items'] %}
+        <input name="buyer_{{ r['id'] }}" value="{{ r['buyer'] or '' }}"
+               list="cpdl_{{ r['id'] }}" class="cp-input" autocomplete="off"
+               placeholder="поиск по 1С">
+        <datalist id="cpdl_{{ r['id'] }}"></datalist>
+        <span class="cell-fields">
+          <label title="Кратность партии покупателя, тн">крат<input name="batch_{{ r['id'] }}" class="w-xxs"
+            value="{{ src['batch_size_t'] if src and src['batch_size_t'] else '' }}"></label>
+        </span>
+        {% else %}{{ r['buyer'] or '—' }}{% endif %}
+        {% if r['shipment'] %}<span class="cell-sub">{{ r['shipment'][:22] }}</span>{% endif %}
+        {% if r['tail_t'] %}<span class="tail-note"
+          data-tip="Остаток сверх целых партий — вывозится на переработку или
+          отдаётся другому покупателю.">хвост {{ '%.3f' % r['tail_t'] }} тн</span>{% endif %}
+      </td>
+
+      <td class="calc num" data-calc="revenue">{{ money(r['revenue']) }}</td>
+      <td class="calc num" title="прямые {{ money(r['alloc_direct']) }} (в т.ч. невозм. НДС {{ money(r['vat_unrec_cost']) }}) + капитал {{ money(r['alloc_capital']) }}">
+        <span data-calc="alloc_costs">{{ money(r['alloc_costs']) }}</span><span class="cell-sub"><span data-calc="cost_per_t">{{ '%.0f' % r['cost_per_t'] }}</span>/тн</span></td>
+      <td class="calc num {{ 'pos' if r['profit'] >= 0 else 'neg' }}" data-calc-cell="profit">
+        <span data-calc="profit">{{ money(r['profit']) }}</span><span class="cell-sub"><span data-calc="profit_per_t">{{ '%.0f' % r['profit_per_t'] }}</span>/тн</span></td>
+
+      <td class="cell-actions">
+        {% if can_edit['items'] and not r['sale_id'] %}
+        <input name="split_{{ r['id'] }}" class="w-xxs"
+               value="{{ '%.3f' % r['tail_t'] if r['tail_t'] else '' }}" placeholder="тн"
+               data-tip="Объём, который уйдёт в новую строку (другому покупателю или на переработку).">
+        <button class="btn-icon secondary" formmethod="post" title="Разделить позицию"
+                formaction="/bp/{{ bp['id'] }}/items/{{ r['id'] }}/split">{{ icon('scissors') }}</button>
+        <button class="danger btn-icon" formmethod="post" title="Удалить позицию"
+                formaction="/bp/{{ bp['id'] }}/items/{{ r['id'] }}/delete">{{ icon('trash') }}</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    {% else %}
+    <tbody>
+    <tr><td colspan="{{ 11 if can_edit['items'] else 10 }}" class="muted">Позиции еще не добавлены.</td></tr>
+    </tbody>
+    {% endfor %}
+    <tfoot>
+    <tr><td colspan="{{ 4 if can_edit['items'] else 3 }}"><b>ИТОГО</b>
+        {% if items_page and not items_page['all'] %}
+        <span class="muted">(по всему лоту, не только по странице)</span>{% endif %}</td>
+        <td class="calc num"><b data-total="purchase_volume">{{ '%.3f' % pnl['purchase_volume'] }}</b></td>
+        <td class="calc num"><b data-total="sale_volume">{{ '%.3f' % pnl['sale_volume'] }}</b></td>
+        <td></td>
+        <td class="calc num"><b data-total="revenue">{{ money(pnl['revenue']) }}</b></td>
+        <td class="calc num"><b data-total="direct_costs">{{ money(pnl['direct_costs']) }}</b></td>
+        <td class="calc num"><b data-total="profit_before_tax">{{ money(pnl['profit_before_tax']) }}</b></td>
+        <td></td></tr>
+    </tfoot>
+  </table>
+  </div>
+  {% if items_page %}{{ pager(items_page, '/bp/' ~ bp['id'] ~ '/lot', variant) }}{% endif %}
+  {% if can_edit['items'] and pnl['rows'] %}
+  <button type="submit">{{ icon('save') }} Сохранить цены и типы реализации</button>
+  {% if items_page and not items_page['all'] %}
+  <span class="muted">Сохраняются строки этой страницы; остальные не
+    затрагиваются.</span>
+  {% endif %}
+  {% endif %}
+  </form>
+
+  {# ── Свод по группам: заполнение оптом ──
+     В перечне бывают сотни строк одной номенклатуры, уходящих по двум
+     планам продажи. Экономист заполняет цену и план на свод — сервис
+     разносит их по всем позициям группы. #}
+  {% if aggregates and aggregates | length < (items | length) %}
+  <details class="details-gap" open>
+    <summary><b>Свод по группам</b>
+      <span class="muted">({{ aggregates | length }}
+        {{ 'строка' if aggregates | length == 1 else 'строк' }} вместо
+        {{ items | length }} позиций; заполнение цены, плана продажи и
+        засора оптом)</span></summary>
+    {# Разрез по местам: на больших лотах засор и цена свои у каждой
+       площадки — свод «место × группа» ставит их одним действием. #}
+    <p class="info-line">Разрез:
+      {% if agg_by_place %}
+        <b>место × группа</b> ·
+        <a href="/bp/{{ bp['id'] }}/lot?variant={{ variant }}#sec-aggregates">только группы</a>
+      {% else %}
+        <b>группы</b> ·
+        <a href="/bp/{{ bp['id'] }}/lot?variant={{ variant }}&agg=place#sec-aggregates">место × группа</a>
+      {% endif %}
+    </p>
+    <div class="table-scroll table-gap" id="sec-aggregates">
+    <table class="grid-lines">
+      <thead><tr>{% if agg_by_place %}<th>Место вывоза</th>{% endif %}
+        <th>Группа аналитического учёта</th><th>План продажи</th>
+        <th class="num">Позиций</th><th class="num">Объём</th>
+        <th class="num">Цена, руб/тн</th>
+        <th class="num" title="Пусто — берётся общий засор БП">Засор, %</th>
+        <th class="num">Выручка, руб</th>
+        {% if can_edit['items'] %}<th>Заполнить всю группу</th>{% endif %}</tr></thead>
+      <tbody>
+      {% for a in aggregates %}
+      <tr>
+        {% if agg_by_place %}<td>{{ a['place'] }}</td>{% endif %}
+        <td>{{ a['cargo_group'] }}</td>
+        <td>{{ a['sale_group'] or a['sale_type'] or '—' }}</td>
+        <td class="num">{{ a['positions'] }}</td>
+        <td class="num">{{ '%.3f' % a['volume'] }}
+          <span class="muted">{{ a['unit'] }}</span></td>
+        <td class="num">
+          {% if a['price_avg'] %}{{ '%.0f' % a['price_avg'] }}
+            {% if not a['price_uniform'] %}<br>
+            <span class="muted" data-tip="В группе несколько разных цен —
+                  показано средневзвешенное. Заполнение по своду выровняет их.">разные</span>
+            {% endif %}
+          {% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }} нет</span>{% endif %}
+          {% if a['no_price'] > 0.0005 %}<br>
+          <span class="warn-note">без цены {{ '%.3f' % a['no_price'] }}</span>{% endif %}
+        </td>
+        <td class="num">{{ a['contamination'] or '—' }}</td>
+        <td class="calc num">{{ money(a['revenue_base']) }}</td>
+        {% if can_edit['items'] %}
+        <td>
+          <form method="post" class="inline-form"
+                action="/bp/{{ bp['id'] }}/items/aggregate?variant={{ variant }}">
+            <input type="hidden" name="item_ids" value="{{ a['item_ids'] | join(',') }}">
+            <input name="price" class="w-xs" placeholder="цена"
+                   data-tip="Цена реализации на все {{ a['positions'] }} позиций
+                   группы в варианте {{ variant_label }}.">
+            <input name="sale_group" class="w-sm" list="dl_cargo_groups"
+                   autocomplete="off" placeholder="план продажи">
+            <input name="contamination" class="w-xs" placeholder="засор %"
+                   data-tip="Засор на все {{ a['positions'] }} позиций группы
+                   в варианте {{ variant_label }}. Пустое поле не меняет ничего.">
+            <button class="btn-icon secondary" title="Применить ко всей группе">{{ icon('check') }}</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+  {% endif %}
+
+
+  {# ── Рейсы, машины и дни: расчёт логиста ──
+     В книгах это лист «расчет», который логист вёл руками. Нормативы уже
+
+  {# ── План продажи: позицию можно разделить между покупателями ──
+     Строки свои у каждого варианта расчёта: в 1935 «ДСП» везёт трубу на
+     Чермет-Волжский, а «Лукойл» — на ВТЗ и Балаково. Блок вынесен из формы
+     цен: в HTML форму нельзя вложить в форму. #}
+  <details class="details-gap" {% if item_sales %}open{% endif %}>
+    <summary><b>План продажи по покупателям</b>
+      <span class="muted">(вариант {{ variant_label }};
+        покупателей в плане: {{ item_sales | length }})</span></summary>
+
+    {% if item_sales %}
+    <div class="table-scroll table-gap">
+    <table class="grid-lines">
+      <thead><tr><th>Позиция</th><th>Покупатель</th><th class="num">Объём, тн</th>
+        <th class="num">Цена, руб/тн</th><th>ПЛАН прод.</th><th class="num">Засор, %</th>
+        <th>Отгрузка</th><th>Примечание</th><th></th></tr></thead>
+      <tbody>
+      {% for s in item_sales %}
+      <tr>
+        <td>{{ s['nomenclature'] }}<br>
+          <span class="muted">{{ s['division'] or '-' }}</span></td>
+        <td>{{ s['buyer'] or '-' }}</td>
+        <td class="num">{{ '%.3f' % s['volume_t'] }}</td>
+        <td class="num">{{ '%.0f' % s['sale_price'] if s['sale_price'] else 'как позиция' }}</td>
+        <td>{{ s['sale_type'] or '-' }}</td>
+        <td class="num">{{ '%g' % s['contamination_pct'] if s['contamination_pct'] is not none else '-' }}</td>
+        <td>{{ s['shipment'] or '-' }}</td>
+        <td class="muted">{{ s['note'] or '' }}</td>
+        <td>{% if can_edit['items'] %}
+          <form method="post" action="/bp/{{ bp['id'] }}/sales/{{ s['id'] }}/delete?variant={{ variant }}">
+            <button class="danger btn-icon" title="Убрать покупателя из плана продажи">{{ icon('trash') }}</button>
+          </form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">Разбивки нет — каждая позиция продаётся целиком своему
+      покупателю из таблицы состава лота. Добавьте покупателя, если объём
+      позиции уходит нескольким заводам.</p>
+    {% endif %}
+
+    {% if can_edit['items'] %}
+    <form method="post" class="grid-form"
+          action="/bp/{{ bp['id'] }}/items/0/sales?variant={{ variant }}"
+          id="sale-form">
+      <div class="grid">
+        <div><label>Позиция *</label>
+          <select name="item_id" required id="sale-item">
+            <option value="">— выберите позицию —</option>
+            {# Список без переносов строк: в лоте на 1950 позиций отступы
+               разметки весят больше, чем сами названия. #}
+            {%- for it in items %}
+            <option value="{{ it['id'] }}" data-free="{{ '%.3f' % (item_free.get(it['id'], 0)) }}">{{ it['nomenclature'] }} — свободно {{ '%.3f' % (item_free.get(it['id'], 0)) }} тн</option>
+            {%- endfor %}
+          </select></div>
+        <div><label>Покупатель</label>
+          <input name="buyer" class="cp-input" list="dl_sale_buyer" autocomplete="off">
+          <datalist id="dl_sale_buyer"></datalist></div>
+        <div><label>Объём, тн *</label><input name="volume_t" required></div>
+        <div><label>Цена реализации, руб/тн</label>
+          <input name="sale_price" placeholder="пусто = цена позиции"></div>
+        <div><label>ПЛАН продажи</label>
+          <select name="sale_type"><option value="">как у позиции</option>
+            {% for t in sale_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select></div>
+        <div><label>Засор, %</label>
+          <input name="contamination_pct" placeholder="пусто = засор позиции"></div>
+        <div><label>Вид отгрузки</label>
+          <input name="shipment" list="dl_sale_shipment" data-suggest="shipment"
+                 autocomplete="off">
+          <datalist id="dl_sale_shipment"></datalist></div>
+        <div><label>Примечание</label><input name="note"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Добавить покупателя</button>
+    </form>
+    <script>
+    // Форма одна на все позиции: адрес отправки подставляем по выбранной.
+    (() => {
+      const form = document.getElementById('sale-form');
+      const sel = document.getElementById('sale-item');
+      if (!form || !sel) return;
+      form.addEventListener('submit', () => {
+        form.action = '/bp/{{ bp["id"] }}/items/' + sel.value +
+                      '/sales?variant={{ variant }}';
+      });
+    })();
+    </script>
+    {% endif %}
+  </details>
+
+  {# Реквизиты перечня продавца: обоснование цены, работ и рисков #}
+  {% if items %}
+  <details class="details-gap">
+    <summary><b>Реквизиты перечня продавца</b>
+      <span class="muted">(условия хранения, состояние, документы, балансовая
+        стоимость{% if items_page and not items_page['all'] %}; строки
+        {{ items_page['first'] }}–{{ items_page['last'] }} из
+        {{ items_page['total'] }}, как в составе лота{% endif %})</span></summary>
+    <form method="post" action="/bp/{{ bp['id'] }}/items/requisites?variant={{ variant }}">
+    <datalist id="dl_price_owner"></datalist>
+    <datalist id="dl_storage">
+      <option value="открытая площадка"><option value="закрытый склад">
+      <option value="навес"><option value="территория цеха">
+    </datalist>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>Номенклатура</th>
+        <th class="num" data-tip="Балансовая стоимость позиции у продавца — ориентир для торга и обоснование цены закупки.">Балансовая стоимость, руб</th>
+        <th>Условия хранения</th><th>Состояние</th>
+        <th data-tip="Наличие паспорта по коду отходов и прочей техдокументации — без неё лом не примут на заводе.">Документы</th>
+        <th>Доп. работы</th>
+        <th data-tip="Вердикт коммерсанта: товарная партия, неликвид, не ходовой размер. Определяет и цену, и саму возможность продажи.">Ликвидность</th>
+        <th>Кто дал цену</th>
+        <th data-tip="Предполагаемый период реализации из перечня продавца.">Период реализации</th>
+        <th data-tip="Причина возникновения лома: от списания, от ликвидации объекта.">Происхождение</th></tr></thead>
+      <tbody>
+      {# Строки той же страницы, что и в составе лота: таблица на все позиции
+         весила бы больше самой карточки, а правится всё равно видимое. #}
+      {% for it in page_items %}
+      <tr>
+        <td>{{ it['nomenclature'] }}</td>
+        <td class="num">
+          {% if can_edit['items'] %}
+          <input name="balance_cost_{{ it['id'] }}" class="w-sm"
+                 value="{{ it['balance_cost'] or '' }}" placeholder="руб">
+          {% else %}{{ money(it['balance_cost']) if it['balance_cost'] else '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="storage_conditions_{{ it['id'] }}" value="{{ it['storage_conditions'] or '' }}"
+                 list="dl_storage" autocomplete="off">
+          {% else %}{{ it['storage_conditions'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="condition_note_{{ it['id'] }}" value="{{ it['condition_note'] or '' }}">
+          {% else %}{{ it['condition_note'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="tech_doc_{{ it['id'] }}" value="{{ it['tech_doc'] or '' }}">
+          {% else %}{{ it['tech_doc'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="extra_works_{{ it['id'] }}" value="{{ it['extra_works'] or '' }}">
+          {% else %}{{ it['extra_works'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <select name="liquidity_{{ it['id'] }}">
+            <option value="">—</option>
+            {% for v in ['товарная', 'не товарная партия', 'неликвид', 'не ходовой размер'] %}
+            <option value="{{ v }}" {% if it['liquidity'] == v %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+          <input name="expert_note_{{ it['id'] }}" value="{{ it['expert_note'] or '' }}"
+                 placeholder="комментарий коммерсанта">
+          {% else %}{{ it['liquidity'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="price_set_by_{{ it['id'] }}" value="{{ it['price_set_by'] or '' }}"
+                 list="dl_price_owner" placeholder="фамилия">
+          {% if it['price_set_at'] %}<span class="cell-sub">{{ it['price_set_at'][:10] }}</span>{% endif %}
+          {% else %}{{ it['price_set_by'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="sale_period_{{ it['id'] }}" value="{{ it['sale_period'] or '' }}"
+                 placeholder="IV квартал 2026">
+          {% else %}{{ it['sale_period'] or '—' }}{% endif %}</td>
+        <td>{% if can_edit['items'] %}
+          <input name="origin_reason_{{ it['id'] }}" value="{{ it['origin_reason'] or '' }}"
+                 placeholder="от списания…">
+          {% else %}{{ it['origin_reason'] or '—' }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if can_edit['items'] %}
+    <button type="submit">{{ icon('save') }} Сохранить реквизиты перечня</button>
+    {% endif %}
+    </form>
+  </details>
+  {% endif %}
+
+  {% if can_edit['items'] %}
+  <form method="post" action="/bp/{{ bp['id'] }}/items">
+    <div class="grid">
+      <div><label>Поставщик (дивизион/город)</label>
+        <input name="supplier" placeholder="Усинск / Ухта"
+               list="dl_supplier" data-suggest="supplier" autocomplete="off">
+        <datalist id="dl_supplier"></datalist></div>
+      <div><label>Подразделение / месторождение</label>
+        <input name="division" placeholder="г. Усинск, ЦДНГ-1"
+               list="dl_division" data-suggest="division" autocomplete="off">
+        <datalist id="dl_division"></datalist></div>
+      <div><label>Место хранения (склад)</label>
+        <input name="warehouse" list="dl_warehouse" data-suggest="warehouse"
+               autocomplete="off">
+        <datalist id="dl_warehouse"></datalist></div>
+      <div><label>Номенклатура * (справочник)</label>
+        <input name="nomenclature" list="nomen_list" required></div>
+      <div><label>Тип закупки (пусто = из справочника)</label>
+        <select name="purchase_type">
+          <option value="">авто</option>
+          {% for t in sale_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        </select></div>
+      <div><label>Объём закупки, тн *</label><input name="volume_t" required></div>
+      <div><label>ПЛАН продажи (пусто = как закупка)</label>
+        <select name="sale_type">
+          <option value="">как закупка</option>
+          {% for t in sale_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        </select></div>
+      <div><label>Цена реализации, руб/тн</label><input name="sale_price"></div>
+      <div><label>Доля собств. транспортом, %</label>
+        <input name="own_transport_pct" placeholder="100 = всё своим"></div>
+      <div><label>Доля подрезки на цехе, %</label>
+        <input name="workshop_cut_pct" placeholder="остальное на базе"></div>
+      <div><label>Км перемещения до базы</label>
+        <input name="distance_km" placeholder="для норм ГСМ"></div>
+      <div><label>Покупатель по позиции</label>
+        <input name="buyer" list="dl_new_buyer" class="cp-input" autocomplete="off">
+        <datalist id="dl_new_buyer"></datalist></div>
+      <div><label>Вид отгрузки</label>
+        <input name="shipment" placeholder="вагон самовывоз / доставка"
+               list="dl_shipment" data-suggest="shipment" autocomplete="off">
+        <datalist id="dl_shipment"></datalist></div>
+      <div><label>Ответственный по ценам</label>
+        <input name="price_owner" list="dl_price_owner" data-suggest="price_owner"
+               autocomplete="off">
+        <datalist id="dl_price_owner"></datalist></div>
+      <div><label>Примечание</label><input name="note"></div>
+    </div>
+    <datalist id="nomen_list">
+      {% for n in nomenclature %}<option value="{{ n['name'] }}">{% endfor %}
+    </datalist>
+    <button type="submit">{{ icon('plus') }} Добавить позицию</button>
+  </form>
+  {% endif %}
+</div>

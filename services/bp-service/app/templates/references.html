@@ -1,0 +1,856 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro money(v) %}{{ '{:,.0f}'.format(v or 0).replace(',', ' ') }}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Справочники</h1>
+    <div class="muted">Контрагенты, номенклатура, склады, подразделения, нормативы и настройки расчета.
+      <span class="ref-hint">Разделы свёрнуты — нажмите заголовок, чтобы раскрыть.</span></div>
+  </div>
+</div>
+
+<div class="card" id="sec-counterparties">
+  <form method="get" action="/references" class="decision-panel">
+    <div><label>Поиск по контрагентам, складам, подразделениям</label>
+      <input name="q" value="{{ q }}" placeholder="например: ЛУКОЙЛ, Усинск, ЧЕРМЕТ"></div>
+    <div class="decision-actions"><button type="submit">{{ icon('search') }} Найти</button></div>
+  </form>
+</div>
+
+<details class="card" id="ref-vehicles">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Техника и загрузка рейсов</h2>
+    <div class="sec-aside"><span class="role-tag">{{ vehicles_total }} машин</span></div>
+  </summary>
+  <p class="muted">Парк из 1С и то, сколько на самом деле грузят. Паспортная
+    грузоподъёмность отвечает на вопрос «сколько можно», медиана рейсов — «сколько
+    возят», доля рейсов сверх паспорта — где систематически идёт перевес. Рейсы
+    легче тонны и тяжелее 60 тонн в статистику не идут: часть весов в отвесной
+    записана в килограммах, и такие строки уводили 95-й процентиль на сотни тонн.
+    Догадка «это, наверное, килограммы» нормативом погрузки быть не может, поэтому
+    они отброшены и посчитаны отдельно.</p>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Тип техники</th><th class="num">Машин</th>
+        <th class="num">Паспорт, тн</th><th class="num">Кузов, м3</th>
+        <th class="num">Рейсов</th><th class="num">Медиана, тн</th>
+        <th class="num">95-й проц.</th><th class="num" data-tip="Доля рейсов, где вес
+            по ТТН больше паспортной грузоподъёмности. Прежде чем считать это
+            перевесом, надо проверить методику: вес по ТТН может относиться к
+            документу целиком, а не к одной машине.">Тяжелее паспорта</th></tr></thead>
+    <tbody>
+    {% for t in vehicle_types %}
+    <tr>
+      <td>{{ t['vehicle_type'] }}</td>
+      <td class="num">{{ t['units'] }}</td>
+      <td class="num">{{ '%.1f' % t['cap_min'] }}{% if t['cap_max'] != t['cap_min'] %}&ndash;{{ '%.1f' % t['cap_max'] }}{% endif %}</td>
+      <td class="num">{% if t['vol_min'] %}{{ '%.0f' % t['vol_min'] }}{% if t['vol_max'] != t['vol_min'] %}&ndash;{{ '%.0f' % t['vol_max'] }}{% endif %}{% else %}&mdash;{% endif %}</td>
+      {% if t['load'] %}
+      <td class="num">{{ t['load']['trips'] }}{% if t['load']['dropped'] %}<span class="muted"
+          data-tip="Отброшено рейсов вне диапазона 1–60 тонн">&minus;{{ t['load']['dropped'] }}</span>{% endif %}</td>
+      <td class="num"><b>{{ '%.1f' % t['load']['median_t'] }}</b></td>
+      <td class="num muted">{{ '%.1f' % t['load']['p95_t'] }}</td>
+      <td class="num">{% if t['load']['over_pct'] is not none %}
+        {% if t['load']['over_pct'] >= 10 %}<span class="warn-note">{{ icon('warn', 'icon-s') }}
+          {{ '%.0f' % t['load']['over_pct'] }}%</span>{% else %}{{ '%.0f' % t['load']['over_pct'] }}%{% endif %}
+        {% else %}&mdash;{% endif %}</td>
+      {% else %}
+      <td class="num muted" colspan="4">рейсов в статистике нет</td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not vehicle_types %}
+  <p class="muted">Парк не загружен. Выгрузка 1С «ТС» кладётся в папку импорта,
+    затем запускается <code>import_1c_csv.py</code>.</p>
+  {% endif %}
+</details>
+
+<details class="card" id="ref-cargo">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Категории груза и нормы погрузки</h2>
+    <div class="sec-aside"><span class="role-tag">{{ cargo_categories | length }}</span></div>
+  </summary>
+  <p class="muted">Сколько тонн войдёт в рейс, решает не только грузоподъёмность:
+    лёгкий объёмный лом (негабарит, стружка, кабель в бухтах) упирается в кубатуру
+    кузова задолго до тоннажа. Вместимость считается как меньшее из двух
+    ограничений — по массе и по объёму, где объём умножается на насыпную плотность
+    груза. Значения плотности заведены типовыми и <b>требуют подтверждения
+    нормативным документом</b>: обосновать ими погрузку перед проверкой нельзя,
+    считать рейсы — можно.</p>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Категория</th><th>Узнаём по словам</th>
+        <th class="num">Плотность, т/м3</th><th>Источник</th><th></th></tr></thead>
+    <tbody>
+    {% for c in cargo_categories %}
+    <tr>
+      <td colspan="5">
+        <form method="post" action="/references/cargo-categories/{{ c['id'] }}" class="inline-form">
+          <input name="name" value="{{ c['name'] }}" aria-label="Категория">
+          <input name="match_words" value="{{ c['match_words'] or '' }}"
+                 placeholder="слова через «;»" aria-label="Слова распознавания">
+          <input name="density" value="{{ c['density_t_m3'] or '' }}" class="w-sm"
+                 aria-label="Плотность, т/м3">
+          <input name="source" value="{{ c['source'] or '' }}"
+                 placeholder="источник значения" aria-label="Источник">
+          <button type="submit">{{ icon('save') }} Сохранить</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+
+<details class="card" id="ref-cost-matrix">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Матрица затрат по типам сделок</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ cost_matrix | length }} строк</span>
+      {% if cost_matrix_updated %}
+      <span class="role-tag">собрана {{ cost_matrix_updated[:16] }}</span>
+      {% endif %}
+    </div>
+  </summary>
+  <p class="muted">Сколько на самом деле стоит тонна по каждой статье — по уже
+    состоявшимся расчётам и по факту 1С, начиная с {{ cost_matrix_from }}
+    (настройка <code>cost_matrix_from</code>). Источники держатся раздельно:
+    расхождение между тем, что закладывали в расчёты, и тем, что показал факт,
+    само по себе информация. Показана медиана, а не среднее — одна сделка с
+    дальним наёмным транспортом сдвигает среднее так, что нормативом им
+    пользоваться нельзя. Наблюдения, выпавшие за межквартильный размах,
+    в медиану не входят и посчитаны отдельно.</p>
+  {% if role in ('economist', 'director', 'admin') %}
+  <form method="post" action="/references/cost-matrix/rebuild" class="inline-form">
+    <button type="submit">{{ icon('refresh') }} Пересобрать матрицу</button>
+  </form>
+  {% endif %}
+  <div class="table-scroll tall table-gap">
+  <table>
+    <thead><tr><th>Тип сделки</th><th>Секция</th><th>Статья</th><th>Источник</th>
+        <th class="num">Наблюдений</th><th class="num">Руб/тн</th>
+        <th class="num">Коридор</th><th>Период</th></tr></thead>
+    <tbody>
+    {% for m in cost_matrix %}
+    <tr>
+      <td>{% if m['bp_type'] %}{{ bp_type_names.get(m['bp_type'], m['bp_type']) }}
+          {% else %}<span class="muted">все типы</span>{% endif %}</td>
+      <td class="muted">{{ m['section'] }}</td>
+      <td>{{ m['item'] }}{% if m['note'] %}<div class="muted">{{ m['note'] }}</div>{% endif %}</td>
+      <td class="muted">{{ m['source'] }}</td>
+      <td class="num">{{ m['samples'] }}{% if m['outliers'] %}<span class="muted"
+          data-tip="Наблюдений отброшено как выбросы">&minus;{{ m['outliers'] }}</span>{% endif %}</td>
+      <td class="num"><b>{{ money(m['rub_per_t']) }}</b></td>
+      <td class="num muted">{{ money(m['p_min']) }}&ndash;{{ money(m['p_max']) }}</td>
+      <td class="muted">{% if m['period_min'] %}{{ m['period_min'] }} … {{ m['period_max'] }}
+          {% else %}&mdash;{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not cost_matrix %}
+  <p class="muted">Матрица пока пуста — нажмите «Пересобрать матрицу».</p>
+  {% endif %}
+</details>
+
+<details class="card" id="ref-sources" open>
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Состояние справочников</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ ref_summary['total'] }}</span>
+      {% if ref_summary['stale'] %}
+      <span class="lock-tag">{{ icon('warn', 'icon-s') }} просрочено {{ ref_summary['stale'] }}</span>
+      {% endif %}
+      {% if ref_summary['no_owner'] %}
+      <span class="role-tag">без владельца {{ ref_summary['no_owner'] }}</span>
+      {% endif %}
+    </div>
+  </summary>
+  <p class="muted">Из этих справочников собирается расчёт. Здесь видно, откуда каждый
+    берётся, когда обновлялся в последний раз и кто за него отвечает. Справочник,
+    который не обновляли дольше своей нормы, помечен — иначе расчёт молча опирается
+    на прошлогодние цифры, а спросить об этом не у кого. Норма и владелец
+    правятся в строке.</p>
+  <div class="table-scroll tall table-gap">
+  <table>
+    <thead><tr><th>Справочник</th><th>Происхождение</th><th class="num">Строк</th>
+        <th>Обновлён</th><th class="num" data-tip="Через сколько дней справочник
+            считается устаревшим">Норма, дней</th><th>Владелец</th><th></th></tr></thead>
+    <tbody>
+    {% for r in ref_state %}
+    <tr>
+      <td><b>{{ r['title'] }}</b>
+        {% if r['source_file'] %}<div class="muted">{{ r['source_file'] }}</div>{% endif %}</td>
+      <td class="muted">{{ r['origin'] }}</td>
+      <td class="num">{{ r['rows'] if r['rows'] is not none else '—' }}</td>
+      <td>
+        {% if r['unknown'] %}<span class="muted">не отмечалось</span>
+        {% elif r['stale'] %}<span class="warn-note">{{ icon('warn', 'icon-s') }}
+          {{ r['updated_at'][:10] }}, {{ r['days'] }} дн.</span>
+        {% else %}{{ r['updated_at'][:10] }}<span class="muted"> · {{ r['days'] }} дн.</span>
+        {% endif %}
+      </td>
+      {# Поля правки разложены по своим колонкам и связаны с формой по id:
+         форма не может обернуть несколько ячеек строки, а свёрнутая в одну
+         ячейку она переносила поля в столбик и растягивала строку втрое. #}
+      <td class="num">
+        {% if can_edit_sources %}
+        <input form="src_{{ r['key'] }}" name="period_days" class="w-xs"
+               value="{{ r['period_days'] }}" aria-label="Периодичность, дней">
+        {% else %}{{ r['period_days'] }}{% endif %}
+      </td>
+      <td>
+        {% if can_edit_sources %}
+        <input form="src_{{ r['key'] }}" name="owner" value="{{ r['owner'] or '' }}"
+               placeholder="кто отвечает" aria-label="Владелец справочника">
+        {% else %}{{ r['owner'] or '—' }}{% endif %}
+      </td>
+      <td class="action-cell">
+        {% if can_edit_sources %}
+        <form method="post" action="/references/sources/{{ r['key'] }}"
+              id="src_{{ r['key'] }}" class="inline-form"></form>
+        <button form="src_{{ r['key'] }}" class="icon-action"
+                title="Сохранить владельца и периодичность">{{ icon('save') }}</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Обновление выгрузок 1С: файлы кладутся в папку импорта на сервере
+    (<code>/opt/bp-service/1c</code>), затем запускается
+    <code>import_1c_csv.py</code> — он сам отмечает здесь дату, файл и число строк.</p>
+</details>
+
+<details class="card" id="ref-bp-types">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Типы бизнес-планов</h2>
+    <div class="sec-aside"><span class="role-tag">{{ bp_types_list | length }}</span></div>
+  </summary>
+  <p class="muted">Тип сделки определяется по составу лота при загрузке перечня и задаёт
+    логику расчёта: какие статьи затрат характерны, какие процессы переработки ожидаются
+    и чьё участие обязательно. Порог доминирования — {{ bp_type_threshold | round | int }}%
+    тоннажа (настройка <code>bp_type_threshold_pct</code>); ниже порога сделка считается
+    смешанной. Выбранный человеком тип повторной загрузкой перечня не перетирается.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Тип</th><th>Позиции лота</th><th>Характерные статьи затрат</th>
+        <th>Ожидаемые процессы</th><th>Обязательное участие</th><th class="num">Сделок</th></tr></thead>
+    <tbody>
+    {% for t in bp_types_list %}
+    <tr>
+      <td><b>{{ t['name'] }}</b><div class="muted">{{ t['description'] or '' }}</div></td>
+      <td>{{ t['item_types'] or '—' }}</td>
+      <td class="muted">{{ t['cost_items'] or '—' }}</td>
+      <td class="muted">{{ t['processes'] or '—' }}</td>
+      <td class="muted">{{ t['required_roles'] or '—' }}</td>
+      <td class="num">{{ bp_types_usage.get(t['code'], 0) }}</td>
+    </tr>
+    <tr>
+      <td colspan="6">
+        <form method="post" action="/references/bp-types/{{ t['id'] }}" class="inline-form">
+          <input name="name" value="{{ t['name'] }}" aria-label="Название типа">
+          <input name="item_types" value="{{ t['item_types'] or '' }}"
+                 placeholder="типы позиций через «;»" aria-label="Типы позиций">
+          <input name="cost_items" value="{{ t['cost_items'] or '' }}"
+                 placeholder="статьи затрат через «;»" aria-label="Статьи затрат">
+          <input name="processes" value="{{ t['processes'] or '' }}"
+                 placeholder="процессы через «;»" aria-label="Процессы">
+          <input name="required_roles" value="{{ t['required_roles'] or '' }}"
+                 placeholder="роли через «;»" aria-label="Обязательное участие">
+          <button type="submit">{{ icon('save') }} Сохранить</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+
+<details class="card">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Номенклатура БП и группы 1С</h2>
+      <div class="sec-aside"><span class="role-tag">Синергия</span></div>
+  </summary>
+  <div class="table-scroll tall">
+  <table>
+    <thead><tr><th>Наименование в БП</th><th>Категория</th><th>Тип</th>
+        <th>Группа 1С</th><th>GUID 1С</th><th>Синонимы</th></tr></thead>
+    <tbody>
+    {% for n in nomenclature %}
+    <tr><td>{{ n['name'] }}</td><td>{{ n['category'] or '-' }}</td>
+        <td>{{ n['purchase_type'] }}</td>
+        <td>{% if n['group_1c'] %}{{ n['group_1c'] }}{% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }} нет</span>{% endif %}</td>
+        <td class="muted">{{ (n['group_guid'] or '-')[:8] }}</td>
+        <td class="muted">{{ (n['aliases'] or '')[:60] }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Таблица формируется автоматически из выгрузки 1С. Ручное добавление позиций отключено.</p>
+</details>
+
+<details class="card">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Группы аналитического учета</h2>
+      <div class="sec-aside"><span class="role-tag">{{ nomen_groups | length }}</span></div>
+  </summary>
+  <details>
+    <summary>Показать группы</summary>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>Родитель</th><th>Группа</th><th>GUID</th></tr></thead>
+      <tbody>
+      {% for g in nomen_groups %}
+      <tr><td>{{ g['parent_group'] }}</td><td>{{ g['name'] }}</td>
+          <td class="muted">{{ (g['guid'] or '-')[:8] }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+</details>
+
+<details class="card">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Контрагенты 1С</h2>
+      <div class="sec-aside">
+        <span class="role-tag">Найдено {{ counterparties_total }}</span>
+        <span class="role-tag">Показаны {{ cp_page * 50 + 1 if counterparties else 0 }}-{{ cp_page * 50 + counterparties | length }}</span>
+      </div>
+  </summary>
+  <div class="table-scroll tall">
+  <table>
+    <thead><tr><th>Наименование</th><th>Тип</th><th>GUID</th></tr></thead>
+    <tbody>
+    {% for c in counterparties %}
+    <tr><td>{{ c['name'] }}</td><td>{{ c['ctype'] or '-' }}</td>
+        <td class="muted">{{ (c['guid'] or '')[:8] }}</td></tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">Ничего не найдено.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="pager">
+    {% if cp_page > 0 %}
+    <a class="btn secondary" href="/references?q={{ q | urlencode }}&cp_page={{ cp_page - 1 }}#sec-counterparties">{{ icon('arrow-left') }} Назад</a>
+    {% endif %}
+    <span class="muted">стр. {{ cp_page + 1 }} из {{ ((counterparties_total - 1) // 50) + 1 if counterparties_total else 1 }}</span>
+    {% if (cp_page + 1) * 50 < counterparties_total %}
+    <a class="btn secondary" href="/references?q={{ q | urlencode }}&cp_page={{ cp_page + 1 }}#sec-counterparties">Вперед</a>
+    {% endif %}
+  </p>
+</details>
+
+<div class="grid2">
+  <details class="card">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Склады 1С</h2>
+      <div class="sec-aside"><span class="role-tag">Всего {{ warehouses_total }}</span></div>
+    </summary>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Дивизион / проект</th><th class="num">Складов</th></tr></thead>
+      <tbody>
+      {% for g in warehouse_groups %}
+      <tr><td>{{ g['top_parent'] or '-' }}</td><td class="num">{{ g['c'] }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>Подразделение / склады</th><th>Дивизион</th></tr></thead>
+      <tbody>
+      {% for parent, group in warehouses | groupby('parent_group') %}
+      <tr class="table-section-row"><td colspan="2"><b>{{ parent }}</b></td></tr>
+      {% for w in group %}
+      <tr><td class="indent-1"><b>№{{ w['id'] }}</b> {{ w['name'] }}</td>
+          <td>{{ w['top_parent'] or '-' }}</td></tr>
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+
+  <details class="card">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Подразделения 1С</h2>
+      <div class="sec-aside"><span class="role-tag">Всего {{ divisions_total }}</span></div>
+    </summary>
+    <div class="table-scroll tall">
+    <table>
+      <thead><tr><th>Код</th><th>Наименование</th><th>Родитель</th></tr></thead>
+      <tbody>
+      {% for d in divisions %}
+      <tr><td>{{ d['code'] }}</td><td>{{ d['name'] }}</td>
+          <td>{{ d['parent_name'] or d['parent_code'] or '-' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+</div>
+
+<div class="grid2">
+  <details class="card">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Виды работ / процессы 1С</h2>
+    </summary>
+    <div class="table-scroll tall">
+    <table>
+      <thead><tr><th>Вид работ</th></tr></thead>
+      <tbody>
+      {% for w in work_types %}<tr><td>{{ w['name'] }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+
+  <details class="card">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Нормативы затрат</h2>
+      <div class="sec-aside">
+      <span class="role-tag">Последняя загрузка: {{ norms_updated_at[:16] if norms_updated_at else 'не фиксировалась' }}</span>
+      {% if role in ('economist', 'admin') %}
+      <form class="inline-form" method="post" action="/references/norms/refresh">
+      <button type="submit" class="btn-sm">{{ icon('refresh') }} Обновить</button>
+      </form>
+      {% endif %}
+    </div>
+    </summary>
+    <div class="table-scroll tall">
+    <table>
+      <thead><tr><th>База</th><th>Норматив</th><th class="num">Значение</th><th>Ед.</th>
+          {% if role in ('economist', 'admin') %}<th class="action-cell"></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for n in norms %}
+      <tr>
+        <td>{{ n['base'] or 'общий' }}</td>
+        <td>{{ n['label'] or n['key'] }}</td>
+        <td class="num">
+          {% if role in ('economist', 'admin') %}
+          <form class="inline-form" method="post" action="/references/norms/{{ n['id'] }}" id="norm_{{ n['id'] }}">
+            <input name="value" value="{{ n['value'] }}" class="w-sm">
+          </form>
+          {% else %}{{ n['value'] }}{% endif %}
+        </td>
+        <td>{{ n['unit'] or '' }}</td>
+        {% if role in ('economist', 'admin') %}
+        <td class="action-cell"><button form="norm_{{ n['id'] }}" class="icon-action" title="Сохранить">{{ icon('save') }}</button></td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+
+  <details class="card" id="ref-overhead">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Распределяемые расходы: обоснование ставки</h2>
+      <div class="sec-aside">
+      <span class="role-tag">Факт из 1С</span>
+      {% if overhead['rate_per_t'] %}
+      <span class="pill ok">{{ '%.2f' % overhead['rate_per_t'] }} руб/тн</span>
+      {% endif %}
+    </div>
+    </summary>
+    {% if overhead['items'] %}
+    <p class="muted">Косвенные расходы, разнесённые по подразделениям в 1С
+      (документ переразноски), делятся на объём операций периода — так
+      ставка руб/тн перестаёт быть «магическим числом». Ниже фактические
+      суммы за {{ overhead['months'] }} мес; объём —
+      {{ '{:,.0f}'.format(overhead['volume_t']).replace(',', ' ') }} тн
+      ({{ overhead['source'] }}).</p>
+    <div class="summary-grid compact-grid">
+      <div class="summary-tile"><div class="label">Косвенные расходы, руб</div>
+        <div class="value">{{ '{:,.0f}'.format(overhead['total']).replace(',', ' ') }}</div></div>
+      <div class="summary-tile"><div class="label">Объём, тн</div>
+        <div class="value">{{ '{:,.0f}'.format(overhead['volume_t']).replace(',', ' ') }}</div></div>
+      <div class="summary-tile"><div class="label">Ставка, руб/тн</div>
+        <div class="value">{{ '%.2f' % overhead['rate_per_t'] }}</div>
+        <div class="muted" data-tip="Норматив base_overhead_per_t в таблице «Нормативы затрат» — при желании подставьте это значение или уточните объём.">сравните с нормативом ниже</div></div>
+    </div>
+    <details class="details-gap">
+      <summary><b>Показать статьи</b>
+        <span class="muted">({{ overhead['items'] | length }} строк: подразделение × статья)</span></summary>
+      <div class="table-scroll tall table-gap">
+      <table>
+        <thead><tr><th>Подразделение</th><th>Статья расходов 1С</th>
+          <th class="num">Счёт</th><th class="num">Сумма, руб</th>
+          <th class="num">Мес.</th></tr></thead>
+        <tbody>
+        {% for i in overhead['items'] %}
+        <tr>
+          <td>{{ i['division'] or '—' }}</td>
+          <td>{{ i['item'] }}</td>
+          <td class="num">{{ i['account'] or '' }}</td>
+          <td class="calc num">{{ '{:,.0f}'.format(i['amount']).replace(',', ' ') }}</td>
+          <td class="num">{{ i['months'] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </details>
+    {% else %}
+    <p class="muted">Данных нет: загрузите выгрузку 1С
+      «_Распределение_прочих_расходов_» командой
+      <code>python import_1c_csv.py путь/к/csv</code>.</p>
+    {% endif %}
+    </details>
+
+  <details class="card" id="ref-factors">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Коэффициенты по номенклатуре (резка)</h2>
+      <div class="sec-aside">
+      <span class="role-tag">Множитель к нормам расхода</span>
+    </div>
+    </summary>
+    <p class="muted">Штангу и НКТ режут дольше обычного лома — газа и кислорода
+      уходит в 1,5–2 раза больше нормы. Коэффициент умножает расход кислорода,
+      бензина и смены резчиков для позиций, чьё наименование содержит маску.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Маска номенклатуры</th><th class="num">Коэффициент</th>
+        <th>Комментарий</th>
+        {% if role in ('economist', 'admin') %}<th class="action-cell"></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for f in nomen_factors %}
+      <tr>
+        <td><b>{{ f['pattern'] }}</b></td>
+        <td class="num">
+          {% if role in ('economist', 'admin') %}
+          <form class="inline-form" method="post" action="/references/nomen-factors"
+                id="factor_{{ f['id'] }}">
+            <input type="hidden" name="factor_id" value="{{ f['id'] }}">
+            <input name="factor" value="{{ f['factor'] }}" class="w-xs">
+          </form>
+          {% else %}{{ f['factor'] }}{% endif %}
+        </td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <input name="comment" value="{{ f['comment'] or '' }}" form="factor_{{ f['id'] }}">
+          {% else %}{{ f['comment'] or '' }}{% endif %}
+        </td>
+        {% if role in ('economist', 'admin') %}
+        <td class="action-cell">
+          <button form="factor_{{ f['id'] }}" class="icon-action" data-tip="Сохранить">{{ icon('save') }}</button>
+          <button form="factor_{{ f['id'] }}" name="delete" value="1"
+                  class="danger btn-icon" data-tip="Удалить коэффициент">{{ icon('trash') }}</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Коэффициентов нет — расход считается по общей норме.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if role in ('economist', 'admin') %}
+    <form method="post" action="/references/nomen-factors">
+      <div class="grid">
+        <div><label data-tip="Часть наименования позиции без учёта регистра: «штанг» подойдёт и «Штанга 19», и «штанги насосные».">Маска номенклатуры *</label>
+          <input name="pattern" placeholder="штанг" required></div>
+        <div><label>Коэффициент</label><input name="factor" value="1.5"></div>
+        <div><label>Комментарий</label><input name="comment"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Добавить коэффициент</button>
+    </form>
+    {% endif %}
+    </details>
+
+  <details class="card" id="ref-seasonal">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Сезонность мест вывоза (зимники)</h2>
+      <div class="sec-aside"><span class="role-tag">Месяцы, когда можно заехать</span></div>
+    </summary>
+    <p class="muted">На зимники техника проходит только по морозу — объём
+      таких мест нельзя делить поровну на все месяцы срока вывоза.
+      Автораспределение графика кладёт объём в доступные месяцы.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Место (маска)</th><th>Доступные месяцы</th><th>Комментарий</th>
+        {% if role in ('economist', 'admin') %}<th class="action-cell"></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for s in seasonal_rules %}
+      <tr>
+        <td><b>{{ s['pattern'] }}</b></td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <form class="inline-form" method="post" action="/references/seasonal"
+                id="seasonal_{{ s['id'] }}">
+            <input type="hidden" name="rule_id" value="{{ s['id'] }}">
+            <input name="months" value="{{ s['months'] }}" class="w-md"
+                   data-tip="Номера месяцев через запятую: 12,1,2,3,4 — с декабря по апрель.">
+          </form>
+          {% else %}{{ s['months'] }}{% endif %}
+        </td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <input name="comment" value="{{ s['comment'] or '' }}" form="seasonal_{{ s['id'] }}">
+          {% else %}{{ s['comment'] or '' }}{% endif %}
+        </td>
+        {% if role in ('economist', 'admin') %}
+        <td class="action-cell">
+          <button form="seasonal_{{ s['id'] }}" class="icon-action" data-tip="Сохранить">{{ icon('save') }}</button>
+          <button form="seasonal_{{ s['id'] }}" name="delete" value="1"
+                  class="danger btn-icon" data-tip="Удалить правило">{{ icon('trash') }}</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Правил нет — все месяцы считаются доступными.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if role in ('economist', 'admin') %}
+    <form method="post" action="/references/seasonal">
+      <div class="grid">
+        <div><label data-tip="Часть названия места, склада, подразделения или примечания позиции: «зимник», «варандей».">Место (маска) *</label>
+          <input name="pattern" placeholder="зимник" required></div>
+        <div><label>Доступные месяцы *</label>
+          <input name="months" placeholder="12,1,2,3,4" required></div>
+        <div><label>Комментарий</label><input name="comment"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Добавить правило</button>
+    </form>
+    {% endif %}
+    </details>
+
+  <details class="card" id="ref-tariffs">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Тарифы погрузки по местам вывоза</h2>
+      <div class="sec-aside"><span class="role-tag">Кран: свой у поставщика или наём</span></div>
+    </summary>
+    <p class="muted">У части поставщиков (Советский, Когалым) грузят своим краном —
+      затрат нет. В остальных местах кран нанимается: тариф за полную машину,
+      неполная считается по доле тарифа.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Место (маска)</th><th>Свой кран</th>
+        <th class="num">Тариф за машину, руб</th><th class="num">Неполная, %</th>
+        <th>Тип груза</th><th>Комментарий</th>
+        {% if role in ('economist', 'admin') %}<th class="action-cell"></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for t in loading_tariffs %}
+      <tr>
+        <td><b>{{ t['place'] }}</b></td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <form class="inline-form" method="post" action="/references/loading-tariffs"
+                id="tariff_{{ t['id'] }}">
+            <input type="hidden" name="tariff_id" value="{{ t['id'] }}">
+            <input type="checkbox" name="own_crane" value="1"
+                   {% if t['own_crane'] %}checked{% endif %}>
+          </form>
+          {% else %}{{ 'да' if t['own_crane'] else 'нет' }}{% endif %}
+        </td>
+        <td class="num">
+          {% if role in ('economist', 'admin') %}
+          <input name="rate_per_trip" value="{{ t['rate_per_trip'] or '' }}"
+                 class="w-sm" form="tariff_{{ t['id'] }}" placeholder="—">
+          {% else %}{{ t['rate_per_trip'] or '-' }}{% endif %}
+        </td>
+        <td class="num">
+          {% if role in ('economist', 'admin') %}
+          <input name="part_load_pct" value="{{ t['part_load_pct'] or '' }}"
+                 class="w-xs" form="tariff_{{ t['id'] }}">
+          {% else %}{{ t['part_load_pct'] or '-' }}{% endif %}
+        </td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <input name="cargo_type" value="{{ t['cargo_type'] or '' }}"
+                 class="w-sm" form="tariff_{{ t['id'] }}" placeholder="навалом">
+          {% else %}{{ t['cargo_type'] or '' }}{% endif %}
+        </td>
+        <td>
+          {% if role in ('economist', 'admin') %}
+          <input name="comment" value="{{ t['comment'] or '' }}" form="tariff_{{ t['id'] }}">
+          {% else %}{{ t['comment'] or '' }}{% endif %}
+        </td>
+        {% if role in ('economist', 'admin') %}
+        <td class="action-cell">
+          <button form="tariff_{{ t['id'] }}" class="icon-action" data-tip="Сохранить">{{ icon('save') }}</button>
+          <button form="tariff_{{ t['id'] }}" name="delete" value="1"
+                  class="danger btn-icon" data-tip="Удалить тариф">{{ icon('trash') }}</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">Тарифов нет — погрузка краном не начисляется.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if role in ('economist', 'admin') %}
+    <form method="post" action="/references/loading-tariffs">
+      <div class="grid">
+        <div><label data-tip="Часть названия места хранения, подразделения или поставщика позиции.">Место (маска) *</label>
+          <input name="place" placeholder="Когалым" required></div>
+        <div><label class="check-line"><input type="checkbox" name="own_crane" value="1">
+          грузит поставщик своим краном</label></div>
+        <div><label>Тариф за полную машину, руб</label><input name="rate_per_trip" placeholder="4500"></div>
+        <div><label>Неполная машина, % тарифа</label><input name="part_load_pct" value="50"></div>
+        <div><label>Тип груза</label><input name="cargo_type" placeholder="навалом / штуками"></div>
+        <div><label>Комментарий</label><input name="comment"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Добавить тариф</button>
+    </form>
+    {% endif %}
+    </details>
+
+  <details class="card" id="ref-transport">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Транспортные ставки перевозчика (приказ 1С)</h2>
+      <div class="sec-aside"><span class="role-tag">Ставки — с приказа,
+      не из истории</span></div>
+    </summary>
+    {% if transport_rates['total'] %}
+    <p class="info-line">Загружено <b>{{ transport_rates['total'] }}</b> строк
+      ({{ transport_rates['loaded_at'] }}, файл
+      {{ transport_rates['source_file'] }}). Документы:
+      {% for d in transport_rates['docs'] %}
+      <span class="role-tag">№{{ d['doc_number'] }} от {{ d['doc_date'] }} —
+        {{ d['doc_kind'] }}{% if 'прайс' not in (d['doc_kind'] or '') | lower
+        %}, {{ d['doc_status'] | lower }}{% endif %}</span>
+      {% endfor %}
+    </p>
+    <div class="table-scroll" style="max-height: 420px">
+    <table>
+      <thead><tr><th>Маршрут</th><th>ТС</th><th>Ед.</th>
+          <th class="num">Ставка, руб</th><th>Условия</th>
+          <th>Повышение (не подписано)</th></tr></thead>
+      <tbody>
+      {% for r in transport_rates_list %}
+      <tr><td><b>{{ r['route'] }}</b></td><td>{{ r['vehicle'] }}</td>
+          <td>{{ r['unit'] }}</td>
+          <td class="num">{{ money(r['price']) }}</td>
+          <td>{{ r['conditions'] }}</td>
+          <td>{% if r['proposed_lo'] %}<span class="warn-note">
+            {{ money(r['proposed_lo']) }}{% if r['proposed_hi'] != r['proposed_lo']
+            %}–{{ money(r['proposed_hi']) }}{% endif %} —
+            {{ r['proposed_status'] | lower }}
+            (№{{ r['proposed_doc'] }} от {{ r['proposed_date'] }})</span>
+          {% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">Ставки не загружены. Источник — выгрузка 1С регистра
+      «Установка транспортных ставок (учёт металлолома)» (csv). Рабочими
+      становятся ставки документа «Ввод согласованного прайса»; повышения в
+      статусе «На согласовании» показываются пометкой и в расчёты не идут.</p>
+    {% endif %}
+    {% if role in ('economist', 'admin') %}
+    <form method="post" action="/references/transport-rates"
+          enctype="multipart/form-data" class="inline-form">
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit">{{ icon('upload') }} Загрузить выгрузку
+        (с предпросмотром)</button>
+    </form>
+    {% endif %}
+    </details>
+
+  <details class="card" id="ref-prod-units">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Цеха и базы</h2>
+      <div class="sec-aside"><span class="role-tag">база — переработка и
+      отгрузка; цех — только вывоз</span></div>
+    </summary>
+    <p class="muted">Роли мест отгрузки задаются в карточке БП (вкладка
+      «Логистика» → пункты отгрузки) и действуют на все БП с этим местом.
+      Ниже — уже заданные роли и официальная структура подразделений 1С.</p>
+    {% if point_roles %}
+    <div class="table-scroll" style="max-height: 300px">
+    <table>
+      <thead><tr><th>Место отгрузки</th><th>Роль</th><th>База</th></tr></thead>
+      <tbody>
+      {% for p in point_roles %}
+      <tr><td>{{ p['name'] }}</td>
+          <td>{% if p['kind'] == 'база' %}<b>база</b>{% else %}цех{% endif %}</td>
+          <td>{{ p['base_name'] or '—' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">Роли пока не заданы — модель считает все этапы на
+      каждом месте.</p>
+    {% endif %}
+    {% if prod_units %}
+    <details class="details-gap">
+      <summary><b>Производственные подразделения 1С</b>
+        <span class="muted">({{ prod_units | length }}, выгрузка 1С —
+          обновляется скриптом import_prod_units)</span></summary>
+      <div class="table-scroll table-gap" style="max-height: 360px">
+      <table>
+        <thead><tr><th>Подразделение</th><th>Код</th><th>Родитель</th>
+            <th>База (аналитика 1С)</th></tr></thead>
+        <tbody>
+        {% for u in prod_units %}
+        <tr><td>{{ u['name'] }}</td><td class="muted">{{ u['code'] }}</td>
+            <td class="muted">{{ u['parent_name'] or '—' }}</td>
+            <td>{{ u['analytic_base'] or u['functional_base'] or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </details>
+    {% endif %}
+    </details>
+
+  <details class="card">
+    <summary>
+      <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <h2>Настройки расчета</h2>
+    </summary>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Параметр</th><th>Значение</th><th>Комментарий</th></tr></thead>
+      <tbody>
+      {% for s in settings %}
+      <tr><td>{{ s['key'] }}</td><td>{{ s['value'] }}</td><td>{{ s['comment'] or '' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+</div>
+{% endblock %}

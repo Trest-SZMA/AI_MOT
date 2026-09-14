@@ -1,0 +1,75 @@
+<div class="table-wrap">
+<table class="fines" id="finesTable" data-readonly="{{ '1' if readonly else '0' }}">
+  <thead>
+    <tr>
+      <th>№</th>
+      <th class="sortable" data-type="text">Дата</th>
+      <th class="sortable" data-type="text">Дата нарушения</th>
+      <th class="sortable" data-type="text">Номер постановления</th>
+      <th class="sortable" data-type="text">Компания</th>
+      <th class="sortable" data-type="text">Автомобиль</th>
+      <th class="sortable" data-type="text">Гос. номер</th>
+      <th class="sortable" data-type="text">Статья</th>
+      <th class="sortable" data-type="text">Нарушение</th>
+      <th class="sortable num" data-type="num">Сумма, руб.</th>
+      <th class="sortable" data-type="text">Сотрудник</th>
+      <th class="sortable" data-type="text">Статус</th>
+      <th>ИП</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+    {% set f = item.fine %}
+    <tr>
+      <td class="rownum">{{ loop.index }}</td>
+      <td class="nowrap editable" data-field="date" data-id="{{ f.id }}" data-sort="{{ f.date or '' }}">{{ f.date | dmy }}</td>
+      <td class="nowrap editable" data-field="violation_date" data-id="{{ f.id }}" data-sort="{{ f.violation_date or '' }}" title="{{ f.violation_time or '' }}">{{ f.violation_date | dmy }}</td>
+      <td class="mono editable" data-field="number" data-id="{{ f.id }}" data-sort="{{ f.number or '' }}" data-link="/fine/{{ f.id }}"><a href="/fine/{{ f.id }}">{{ f.number }}</a></td>
+      <td class="editable" data-field="company" data-id="{{ f.id }}">{{ f.company or '—' }}</td>
+      <td class="editable" data-field="vehicle" data-id="{{ f.id }}">{{ f.vehicle or '—' }}</td>
+      <td class="mono nowrap editable" data-field="plate" data-id="{{ f.id }}">{{ f.plate or '—' }}</td>
+      <td class="nowrap editable" data-field="article" data-id="{{ f.id }}">{{ f.article or '—' }}</td>
+      <td class="editable" data-field="violation" data-id="{{ f.id }}">{{ f.violation or '—' }}</td>
+      <td class="num editable" data-field="amount" data-id="{{ f.id }}" data-sort="{{ f.amount if f.amount is not none else 0 }}">{{ f.amount | money }}</td>
+      <td class="editable" data-field="employee" data-id="{{ f.id }}" title="Двойной клик — вписать ФИО">{{ f.employee or '—' }}</td>
+      <td class="status-cell" data-field="status" data-id="{{ f.id }}" data-sort="{{ f.status }}" title="Нажмите, чтобы сменить статус">
+        <span class="badge {{ 'ok' if f.status=='Оплачен' else ('warn' if f.status=='ИП возбуждено' else 'bad') }}">{{ f.status }}</span>
+      </td>
+      <td>
+        {% for d in item.ip_docs %}
+          <span class="badge ip" title="{{ d.title or d.doc_type }}">{{ d.doc_type }}{% if d.ip_number %} №&nbsp;{{ d.ip_number }}{% endif %}</span>
+        {% endfor %}
+      </td>
+      <td class="nowrap">
+        {% if not readonly %}
+        <form method="post" action="/fine/{{ f.id }}/status" class="inline">
+          {% if f.status != 'Оплачен' %}
+            <input type="hidden" name="status" value="Оплачен">
+            <button class="mini" title="Отметить оплаченным">✓ оплачен</button>
+          {% else %}
+            <input type="hidden" name="status" value="Не оплачен">
+            <button class="mini gray" title="Снять отметку об оплате">↩</button>
+          {% endif %}
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="14" class="empty">Штрафов пока нет — загрузите PDF постановления</td></tr>
+  {% endfor %}
+  </tbody>
+  {% if items %}
+  <tfoot>
+    <tr>
+      <td colspan="9" class="right"><b>ИТОГО:</b></td>
+      <td class="num" id="totalCell"><b>{{ stats.total | money }}</b></td>
+      <td colspan="4"></td>
+    </tr>
+  </tfoot>
+  {% endif %}
+</table>
+</div>
+{% if not readonly %}<p class="muted small">Двойной клик по ячейке — ручная правка; клик по заголовку столбца — сортировка.</p>
+{% else %}<p class="muted small">Клик по заголовку столбца — сортировка.</p>{% endif %}
+<script src="/static/table.js?v={{ static_v }}"></script>

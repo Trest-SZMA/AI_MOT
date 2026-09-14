@@ -1,0 +1,117 @@
+{# Сводные карточки месяца + статистика «что получаем чаще всего» (горизонтальные бары) #}
+{% set top_v = breakdowns.violations[0] if breakdowns.violations else None %}
+{% set top_car = breakdowns.vehicles[0] if breakdowns.vehicles else None %}
+<div class="stats">
+  <div class="card navy">
+    <div class="t">Всего за месяц</div>
+    <div class="v">{{ stats.cnt }} <small>шт.</small></div>
+    <div class="v2">{{ stats.total | money }} <small>руб.</small></div>
+    <div class="sub">средний штраф {{ stats.avg | money }} руб.
+      {% if prev_stats %}
+        {% set dc = stats.cnt - prev_stats.cnt %}{% set ds = stats.total - prev_stats.total %}
+        <br>к {{ period_name(prev_p) | lower }}:
+        <b class="{{ 'up' if dc > 0 else ('down' if dc < 0 else '') }}">{{ '+' if dc > 0 }}{{ dc }} шт.</b>,
+        <b class="{{ 'up' if ds > 0 else ('down' if ds < 0 else '') }}">{{ '+' if ds > 0 }}{{ ds | money }} руб.</b>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card ok">
+    <div class="t">Оплачено</div>
+    <div class="v">{{ stats.paid_cnt }} <small>шт.</small></div>
+    <div class="v2">{{ stats.paid_sum | money }} <small>руб.</small></div>
+    <div class="meter" title="{{ '%.0f' | format(stats.paid_pct) }} % суммы месяца оплачено"><span style="width: {{ '%.0f' | format(stats.paid_pct) }}%"></span></div>
+    <div class="sub">{{ '%.0f' | format(stats.paid_pct) }} % от суммы месяца</div>
+  </div>
+  <div class="card bad">
+    <div class="t">Не оплачено</div>
+    <div class="v">{{ stats.unpaid_cnt }} <small>шт.</small></div>
+    <div class="v2">{{ stats.unpaid_sum | money }} <small>руб.</small></div>
+    <div class="meter" title="{{ '%.0f' | format(stats.unpaid_pct) }} % суммы месяца не оплачено"><span style="width: {{ '%.0f' | format(stats.unpaid_pct) }}%"></span></div>
+    <div class="sub">{{ '%.0f' | format(stats.unpaid_pct) }} % от суммы месяца</div>
+  </div>
+  <div class="card warn">
+    <div class="t">Исполнительные производства</div>
+    <div class="v">{{ stats.ip_cnt }} <small>шт.</small></div>
+    <div class="v2">{{ stats.ip_sum | money }} <small>руб.</small></div>
+    {% set ip_pct = (stats.ip_cnt / stats.cnt * 100) if stats.cnt else 0 %}
+    <div class="meter" title="{{ '%.0f' | format(ip_pct) }} % штрафов с документами ФССП"><span style="width: {{ '%.0f' | format(ip_pct) }}%"></span></div>
+    <div class="sub">{{ '%.0f' | format(ip_pct) }} % штрафов дошли до приставов</div>
+  </div>
+  <div class="card">
+    <div class="t">Чаще всего</div>
+    {% if top_v %}
+      <div class="v3">{{ top_v.label }}</div>
+      <div class="sub">{{ top_v.cnt }} шт. · {{ '%.0f' | format(top_v.share) }} % штрафов · {{ top_v.total | money }} руб.</div>
+    {% endif %}
+    {% if top_car %}
+      <div class="v3 mt">{{ top_car.label }}</div>
+      <div class="sub">{{ top_car.cnt }} шт. · {{ top_car.total | money }} руб.</div>
+    {% endif %}
+    {% if not top_v %}<div class="sub">данных пока нет</div>{% endif %}
+  </div>
+</div>
+
+{% if stats.cnt %}
+{# круговые диаграммы: до 5 секторов в фиксированном порядке цветов + серое «прочее» #}
+{% set PIE = ['#3B6FC2', '#CF8712', '#1F9E86', '#D95F4C', '#7C67C9'] %}
+{% macro donut_card(title, rows, total) -%}
+<div class="chart-card">
+  <h4>{{ title }}</h4>
+  {% if rows %}
+  {% set ns = namespace(off=25, shown=0) %}
+  <div class="chart-body">
+    <svg viewBox="0 0 42 42" class="donut" role="img" aria-label="{{ title }}">
+      <circle cx="21" cy="21" r="15.915" fill="none" stroke="#EEF1F6" stroke-width="5"/>
+      {% for r in rows[:5] %}
+        {% set pct = r.cnt / total * 100 %}
+        {% set seg = pct - 1.2 if pct > 2 else 0.8 %}
+        <circle cx="21" cy="21" r="15.915" fill="none" stroke="{{ PIE[loop.index0] }}" stroke-width="5"
+                stroke-dasharray="{{ '%.2f' | format(seg) }} {{ '%.2f' | format(100 - seg) }}"
+                stroke-dashoffset="{{ '%.2f' | format(ns.off) }}">
+          <title>{{ r.label }}: {{ r.cnt }} шт. · {{ r.total | money }} руб. · {{ '%.0f' | format(pct) }} %</title>
+        </circle>
+        {% set ns.off = ns.off - pct %}{% set ns.shown = ns.shown + r.cnt %}
+      {% endfor %}
+      {% set rest = total - ns.shown %}
+      {% if rest > 0 %}
+        {% set pct = rest / total * 100 %}{% set seg = pct - 1.2 if pct > 2 else 0.8 %}
+        <circle cx="21" cy="21" r="15.915" fill="none" stroke="#B9C0D0" stroke-width="5"
+                stroke-dasharray="{{ '%.2f' | format(seg) }} {{ '%.2f' | format(100 - seg) }}"
+                stroke-dashoffset="{{ '%.2f' | format(ns.off) }}"><title>Прочее: {{ rest }} шт.</title></circle>
+      {% endif %}
+      <text x="21" y="20.2" class="donut-n">{{ total }}</text>
+      <text x="21" y="25.5" class="donut-l">штрафов</text>
+    </svg>
+    <div class="legend">
+      {% for r in rows[:5] %}
+      <div class="lg-row" title="{{ r.label }}">
+        <span class="dot" style="background: {{ PIE[loop.index0] }}"></span>
+        <span class="lg-label">{{ r.label }}</span>
+        <span class="lg-pct">{{ '%.0f' | format(r.cnt / total * 100) }} %</span>
+        <span class="lg-meta">{{ r.cnt }} шт. · {{ r.total | money }} руб.</span>
+      </div>
+      {% endfor %}
+      {% if rest > 0 %}
+      <div class="lg-row muted-row">
+        <span class="dot" style="background: #B9C0D0"></span>
+        <span class="lg-label">Прочее</span>
+        <span class="lg-pct">{{ '%.0f' | format(rest / total * 100) }} %</span>
+        <span class="lg-meta">{{ rest }} шт.</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}<div class="empty-note">нет данных</div>{% endif %}
+</div>
+{%- endmacro %}
+<details class="stats-details" {{ 'open' if stats_open }}>
+  <summary>Статистика месяца <span class="hint">— какие штрафы получаем больше всего</span></summary>
+  <div class="charts">
+    {{ donut_card('По видам нарушений', breakdowns.violations, stats.cnt) }}
+    {{ donut_card('По автомобилям', breakdowns.vehicles, stats.cnt) }}
+    {{ donut_card('По статьям', breakdowns.articles, stats.cnt) }}
+    {{ donut_card('По компаниям', breakdowns.companies, stats.cnt) }}
+    {{ donut_card('По водителям', breakdowns.employees, stats.cnt) }}
+  </div>
+</details>
+{% endif %}

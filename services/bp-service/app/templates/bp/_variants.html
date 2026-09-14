@@ -1,0 +1,70 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+{% if scenario_variants %}
+<div class="card" id="sec-variants">
+  <div class="sec-head">
+    <h2><span class="sec-num">12</span> Сценарии-варианты расчёта</h2>
+    <div class="sec-aside"><span class="role-tag">Полный пересчёт P&L с переопределением параметров</span></div>
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Показатель</th>
+      {% for s in scenario_variants %}
+      <th class="{% if loop.first %}row-accent{% endif %}">{{ s['name'] }}<br>
+        <span class="muted">{{ '%+.0f руб/тн' % s['delta'] if s['delta'] else 'текущие цены' }}</span></th>
+      {% endfor %}</tr></thead>
+    <tbody>
+    <tr><td>Переопределения параметров</td>
+      {% for s in scenario_variants %}
+      <td>{% if s['override_labels'] %}{% for l in s['override_labels'] %}{{ l }}<br>{% endfor %}
+          {% else %}<span class="muted">нет (параметры БП)</span>{% endif %}</td>
+      {% endfor %}</tr>
+    <tr><td>Выручка без НДС, руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['revenue']) }}</td>{% endfor %}</tr>
+    <tr><td>Средняя цена, руб/тн</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ '%.0f' % s['revenue_per_t'] }}</td>{% endfor %}</tr>
+    <tr><td>Порог закупки (лот), руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['lot_cost']) }}</td>{% endfor %}</tr>
+    <tr><td>НДС невозмещённый на затраты, руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['vat_unrecovered']) }}
+        <span class="muted">({{ '%.0f' % s['vat_unrecovered_pct'] }}%)</span></td>{% endfor %}</tr>
+    <tr><td>Операционная прибыль, руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['operating_profit']) }}</td>{% endfor %}</tr>
+    <tr><td>Капитал, руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['capital_cost']) }}</td>{% endfor %}</tr>
+    <tr><td>Налог, руб</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ money(s['income_tax']) }}</td>{% endfor %}</tr>
+    <tr><td><b>Чистая прибыль, руб</b></td>
+      {% for s in scenario_variants %}
+      <td class="calc num {{ 'pos' if s['net_profit'] >= 0 else 'neg' }}"><b>{{ money(s['net_profit']) }}</b></td>
+      {% endfor %}</tr>
+    <tr><td>ЧП, руб/тн</td>
+      {% for s in scenario_variants %}<td class="calc num">{{ '%.0f' % s['net_profit_per_t'] }}</td>{% endfor %}</tr>
+    <tr><td>Рентабельность продаж</td>
+      {% for s in scenario_variants %}
+      <td class="calc">{{ '%.1f' % s['ros_pct'] }}%
+        {% if s['ok'] %}<span class="pill ok">проходит</span>{% else %}<span class="pill bad">ниже порога</span>{% endif %}</td>
+      {% endfor %}</tr>
+    <tr><td>Сверка с файлом-источником (ЧП)</td>
+      {% for s in scenario_variants %}
+      <td class="calc num">
+        {% if s['control'] is not none %}
+        {{ money(s['control']) }}
+        {% if s['control_ok'] %}<span class="pill ok">совпало</span>
+        {% else %}<span class="pill bad">расходится</span>{% endif %}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      {% endfor %}</tr>
+    <tr><td></td>
+      {% for s in scenario_variants %}
+      <td>{% if s['comment'] %}<span class="muted">{{ s['comment'] }}</span>{% endif %}
+        {% if s['id'] and can_edit['lot'] %}
+        <form class="inline-form" method="post" action="/bp/{{ bp['id'] }}/scenarios/{{ s['id'] }}/delete">
+          <button class="danger icon-action" title="Удалить сценарий">{{ icon('trash') }}</button>
+        </form>
+        {% endif %}</td>
+      {% endfor %}</tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}

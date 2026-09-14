@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}ФССП без привязки — Отчет по штрафам{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Документы ФССП без привязки к штрафу</h1></div>
+
+{% if docs %}
+<p class="muted">Эти документы загружены, но соответствующий штраф не найден (например, штраф из прошлых месяцев ещё не загружен).
+Загрузите постановление о штрафе — привязка произойдёт автоматически, либо привяжите вручную.</p>
+
+<div class="table-wrap">
+<table class="fines">
+  <thead><tr><th>Тип</th><th>№ ИП</th><th>№ постановления о штрафе</th><th>Должник</th><th>Гос. номер</th><th class="num">Сумма</th><th>Привязать к штрафу</th><th></th></tr></thead>
+  <tbody>
+  {% for d in docs %}
+    <tr>
+      <td>{{ d.doc_type }}<div class="muted small">{{ d.doc_date | dmy }}</div></td>
+      <td class="mono">{{ d.ip_number or '—' }}</td>
+      <td class="mono">{{ d.fine_ref or '—' }}</td>
+      <td>{{ d.debtor or '—' }}</td>
+      <td class="mono">{{ d.plate or '—' }}</td>
+      <td class="num">{{ d.amount | money }}</td>
+      <td>
+        <form method="post" action="/ip/{{ d.id }}/link" class="inline">
+          <select name="fine_id" required>
+            <option value="" disabled selected>— выберите штраф —</option>
+            {% for f in fines %}
+            <option value="{{ f.id }}">№ {{ f.number }} · {{ f.vehicle }} {{ f.plate }} · {{ f.amount | money }} р.</option>
+            {% endfor %}
+          </select>
+          <button class="mini btn">Привязать</button>
+        </form>
+        <form method="post" action="/ip/{{ d.id }}/create_fine" class="inline"
+              onsubmit="return confirm('Создать запись штрафа № {{ d.fine_ref or '?' }} из данных этого документа ФССП и привязать к ней документы?');">
+          <button class="mini btn" title="Штраф не загружали? Создать его запись из данных постановления ФССП">➕ Создать штраф</button>
+        </form>
+      </td>
+      <td class="nowrap">
+        {% if d.pdf_name %}<a class="mini btn" href="/pdf/ip/{{ d.id }}" target="_blank">PDF</a>{% endif %}
+        <form method="post" action="/ip/{{ d.id }}/delete" class="inline" onsubmit="return confirm('Удалить документ?');">
+          <button class="mini gray">✕</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="alert ok">Все документы ФССП привязаны к штрафам ✓</div>
+{% endif %}
+{% endblock %}

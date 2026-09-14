@@ -1,0 +1,14 @@
+{% extends "bp_tab.html" %}
+
+{# Вкладка «Экономика» бизнес-плана. #}
+
+{% block tab_content %}
+{% include "bp/_costs.html" %}
+{% include "bp/_rates.html" %}
+{% include "bp/_pnl.html" %}
+{% include "bp/_bases.html" %}
+{% include "bp/_ladder.html" %}
+{% include "bp/_variants.html" %}
+{% include "bp/_scenario_add.html" %}
+{% include "bp/_scenarios.html" %}
+{% endblock %}

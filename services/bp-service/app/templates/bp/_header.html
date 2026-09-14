@@ -1,0 +1,100 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['header'] %}locked{% endif %}" id="sec-header">
+  <div class="sec-head">
+    <h2><span class="sec-num">2</span> Шапка сделки</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Менеджер</span>
+      {% if not can_edit['header'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <div class="bp-type">
+    <form method="post" action="/bp/{{ bp['id'] }}/type" class="bp-type-form">
+      <div><label>Тип сделки</label>
+        <select name="bp_type" {% if not can_edit['header'] %}disabled{% endif %}
+                data-tip="Тип задаёт логику расчёта: какие статьи затрат
+                характерны, какие процессы переработки ожидаются и чьё
+                участие обязательно. Определяется по составу лота при
+                загрузке перечня; выбранный вручную не перетирается.">
+          <option value="">— не определён —</option>
+          <option value="auto">Определить по составу лота</option>
+          {% for t in bp_type_list %}
+          <option value="{{ t['code'] }}"
+                  {% if bp['bp_type'] == t['code'] %}selected{% endif %}>
+            {{ t['name'] }}</option>
+          {% endfor %}
+        </select></div>
+      {% if can_edit['header'] %}
+      <div class="bp-type-actions"><button type="submit">{{ icon('save') }} Задать тип</button></div>
+      {% endif %}
+    </form>
+    <div class="bp-type-note">
+      {% if bp['bp_type'] %}
+        <span class="role-tag">{{ 'задан вручную' if bp['bp_type_source'] == 'manual'
+              else 'определён по составу' }}</span>
+        {% if bp_type_row and bp_type_row['description'] %}
+        <div class="muted">{{ bp_type_row['description'] }}</div>
+        {% endif %}
+        {% if bp['bp_type_source'] == 'manual' and bp_type_detected['code']
+              and bp_type_detected['code'] != bp['bp_type'] %}
+        <div class="warn-note">{{ icon('warn', 'icon-s') }}
+          По составу лота это «{{ bp_type_detected['code'] }}»:
+          {{ bp_type_detected['reason'] }}</div>
+        {% endif %}
+      {% else %}
+        <div class="muted">{{ bp_type_detected['reason'] }}</div>
+      {% endif %}
+      {% if bp_type_detected['shares'] %}
+      <div class="bp-type-shares">
+        {% for sh in bp_type_detected['shares'] %}
+        <span class="bp-type-share">{{ sh['item_type'] }}
+          <b>{{ '%.0f' | format(sh['pct']) }}%</b>
+          <span class="muted">{{ money(sh['tons']) }} тн</span></span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if bp_type_row and bp_type_row['processes'] %}
+      <div class="muted">Ожидаемые процессы: {{ bp_type_row['processes'] }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" action="/bp/{{ bp['id'] }}/section/header">
+    <div class="grid">
+      <div><label>Ответственный менеджер</label>
+        <input name="manager" value="{{ bp['manager'] or '' }}"
+               list="dl_manager" data-suggest="manager" autocomplete="off">
+        <datalist id="dl_manager"></datalist></div>
+      <div><label>Форма работы</label>
+        <select name="source_type">
+          {% for v in ['', 'Тендер', 'Аукцион', 'Прямая закупка'] %}
+          <option value="{{ v }}" {% if bp['source_type'] == v %}selected{% endif %}>
+            {{ v or '-' }}</option>
+          {% endfor %}
+        </select></div>
+      <div><label>№ запроса / перечня / тендера</label>
+        <input name="tender_ref" value="{{ bp['tender_ref'] or '' }}"></div>
+      <div><label>Задача в Битрикс24</label>
+        <input name="bitrix_task_id" value="{{ bp['bitrix_task_id'] or '' }}"
+               placeholder="номер задачи или ссылка"
+               data-tip="Номер задачи, по которой ведётся сделка. Можно вставить
+               целиком ссылку — номер возьмётся из неё. В реестре и в шапке
+               появится ссылка, открывающая задачу на портале."></div>
+      <div><label>Дивизион</label>
+        <input name="division" value="{{ bp['division'] or '' }}"
+               placeholder="Коми / Западная Сибирь / Пермь / Юг"
+               list="dl_bp_division" data-suggest="bp_division" autocomplete="off">
+        <datalist id="dl_bp_division"></datalist></div>
+      <div><label>Сценарий / версия расчёта</label>
+        <input name="scenario" value="{{ bp['scenario'] or '' }}" placeholder="v0 02.12.25"></div>
+      <div><label>Дата согласования БП</label>
+        <input type="date" name="approved_date" value="{{ bp['approved_date'] or '' }}"
+               title="Проставляется автоматически при согласовании руководителем"></div>
+      <div><label>Дата оплаты (закупки)</label>
+        <input type="date" name="payment_date" value="{{ bp['payment_date'] or '' }}"></div>
+      <div><label>Дата начала работ</label>
+        <input type="date" name="work_start_date"
+               value="{{ bp['work_start_date'] or '' }}"></div>
+    </div>
+    {{ save_btn('header') }}
+  </form>
+</div>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro money(v) %}{{ '{:,.0f}'.format(v or 0).replace(',', ' ') }}{% endmacro %}
+
+{% set field_names = {'bp_number': '№ БП', 'period': 'период', 'nomenclature': 'номенклатура',
+  'guid': 'GUID', 'volume': 'объём', 'revenue': 'выручка', 'costs': 'затраты',
+  'buyer': 'покупатель'} %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Загрузка факта · {{ bp['bp_number'] }}</h1>
+    <div class="muted">Файл {{ file_name }} разобран. В базу пока ничего не
+      записано — проверьте свод и подтвердите.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/bp/{{ bp['id'] }}/planfact">
+      {{ icon('arrow-left') }} К план-факту</a>
+  </div>
+</div>
+
+{% if parsed['problems'] %}
+<div class="card">
+  {% for p in parsed['problems'] %}
+  <p class="warn-note">{{ icon('warn', 'icon-s') }} {{ p }}</p>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="sec-head"><h2>Что распозналось в файле</h2></div>
+  <p class="info-line">
+    Строк с данными: <b>{{ parsed['rows'] | length }}</b>.
+    Колонки:
+    {% for field, idx in parsed['columns'].items() %}
+      <span class="role-tag">{{ field_names.get(field, field) }} →
+        {{ parsed['header'][idx] or ('колонка ' ~ (idx + 1)) }}</span>
+    {% else %}не распознано ни одной.{% endfor %}
+  </p>
+  {% if summary['skipped_other_bp'] %}
+  <p class="muted">Пропущено строк другого БП: {{ summary['skipped_other_bp'] }}.</p>
+  {% endif %}
+  {% if summary['skipped_no_month'] %}
+  <p class="warn-note">{{ icon('warn', 'icon-s') }}
+    Не удалось определить месяц у {{ summary['skipped_no_month'] }} строк.
+    {% if not calendar %}В карточке не задан месяц начала вывоза (блок «Лот»),
+    поэтому календарные даты в номера месяцев сделки не переводятся —
+    укажите его и загрузите файл заново.{% endif %}</p>
+  {% endif %}
+</div>
+
+{% if summary['months'] %}
+<form method="post" action="/bp/{{ bp['id'] }}/planfact/apply">
+<input type="hidden" name="source" value="{{ file_name }}">
+<div class="card">
+  <div class="sec-head">
+    <h2>Свод по месяцам сделки</h2>
+    <div class="sec-aside"><span class="role-tag">{{ summary['months'] | length }} мес.</span></div>
+  </div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Месяц</th><th class="num">Объём, тн</th>
+        <th class="num">Выручка, руб</th><th class="num">Затраты, руб</th>
+        <th class="num">Строк файла</th><th>Что было в факте</th></tr></thead>
+    <tbody>
+    {% for m in summary['months'] %}
+    <tr>
+      <td><b>{{ m['month'] }}</b>
+        <input type="hidden" name="vol_{{ m['month'] }}" value="{{ m['volume'] }}">
+        <input type="hidden" name="rev_{{ m['month'] }}" value="{{ m['revenue'] }}">
+        <input type="hidden" name="costs_{{ m['month'] }}" value="{{ m['costs'] }}"></td>
+      <td class="num">{{ '%.3f' % m['volume'] }}</td>
+      <td class="num">{{ money(m['revenue']) }}</td>
+      <td class="num">{{ money(m['costs']) }}</td>
+      <td class="num muted">{{ m['lines'] }}</td>
+      <td class="muted">
+        {% set old = existing.get(m['month']) %}
+        {% if old and (old['volume_t'] or old['revenue']) %}
+          {{ '%.3f' % (old['volume_t'] or 0) }} тн, {{ money(old['revenue']) }} руб
+        {% else %}пусто{% endif %}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td><b>Итого</b></td>
+      <td class="num"><b>{{ '%.3f' % summary['total_volume'] }}</b></td>
+      <td class="num"><b>{{ money(summary['total_revenue']) }}</b></td>
+      <td class="num"><b>{{ money(summary['total_costs']) }}</b></td>
+      <td colspan="2"></td>
+    </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="row-form" style="margin-top:12px">
+    <div><label for="mode">Если месяц уже заполнен</label>
+      <select id="mode" name="mode">
+        <option value="replace">заменить значением из файла</option>
+        <option value="add">прибавить к тому, что есть</option>
+      </select></div>
+    <div><button type="submit">{{ icon('save') }} Записать в факт</button></div>
+    <div><a class="btn btn-sm" href="/bp/{{ bp['id'] }}/planfact">Отмена</a></div>
+  </div>
+</div>
+</form>
+{% else %}
+<div class="card">
+  <p class="info-line">Записывать нечего: ни одна строка не легла в месяцы
+    сделки. Проверьте, что в файле есть колонка периода и что он попадает в
+    срок вывоза БП ({{ months_limit }} мес).</p>
+</div>
+{% endif %}
+{% endblock %}

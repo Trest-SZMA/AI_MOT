@@ -1,0 +1,25 @@
+# Что НЕ копировать из репозитория в /opt/<сервис> и что НЕ удалять там
+# при обновлении (rsync --delete не трогает исключённое).
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.env
+.env.*
+*.db
+*.db-journal
+data/
+out/
+output/
+builds/
+logs/
+backups/
+backup/
+attachments/
+1c/
+archive/
+exports/
+uploads/
+.DS_Store
+._*

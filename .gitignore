@@ -1,0 +1,7 @@
+.DS_Store
+._*
+*.tar.gz
+*.tgz
+*.dump
+# архивы данных никогда не кладём в git
+ai_mot_data_*

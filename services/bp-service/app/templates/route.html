@@ -1,0 +1,650 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro money(v) %}{{ '{:,.0f}'.format(v).replace(',', ' ') }}{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Маршрут сделки {{ bp['bp_number'] }}
+      <span class="status {{ bp['status'] }}">{{ bp['status'] }}</span></h1>
+    <div class="muted">Потоки металла, узлы маршрута, перемещения и процессы переработки.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/logistics">{{ icon('arrow-left') }} Карточка БП</a>
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-tile">
+    <div class="label">Потоков</div>
+    <div class="value">{{ flows | length }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Узлов</div>
+    <div class="value">{{ nodes | length }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Путей</div>
+    <div class="value">{{ edges | length }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Процессов</div>
+    <div class="value">{{ processes | length }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="sec-head">
+    <h2>Рекомендованный маршрут</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Склады и подразделения из справочника</span>
+    </div>
+  </div>
+  {% if route_reco['locations'] %}
+  <div class="summary-grid compact-grid">
+    <div class="summary-tile">
+      <div class="label">Металл из КП, тн</div>
+      <div class="value">{{ '%.0f' % route_reco['total_volume'] }}</div>
+    </div>
+    <div class="summary-tile">
+      <div class="label">Среднее плечо до точки, км</div>
+      <div class="value">
+        {% if route_reco['weighted_dist'] is not none %}{{ '%.0f' % route_reco['weighted_dist'] }}{% else %}—{% endif %}
+      </div>
+    </div>
+    <div class="summary-tile good">
+      <div class="label">Сокращение плеча, км/тн</div>
+      <div class="value">{{ '%.0f' % route_reco['weighted_saving_km'] }}</div>
+    </div>
+  </div>
+  <p class="muted">Оценка основана на сокращении лишнего плеча перемещения:
+    {{ '%.0f' % route_reco['avoided_tkm'] }} тн×км. Денежный ориентир по топливной
+    ставке {{ '%.1f' % route_reco['transport_rate'] }} руб/тн×км:
+    {{ '{:,.0f}'.format(route_reco['saving_rub']).replace(',', ' ') }} руб.
+    Это предварительный логистический ориентир, граф можно скорректировать вручную.</p>
+  <div class="hint-list">
+    {% for loc in route_reco['locations'][:8] %}
+    <div class="route-reco-row">
+      <div>
+        <span class="muted">Место хранения</span>
+        <b>{{ loc['place'] }}</b>
+        <span class="muted">{{ loc['items'] }} поз.; {{ '%.1f' % loc['volume'] }} тн металла</span>
+      </div>
+      <div>
+        <span class="muted">Рекомендуемая точка</span>
+        <b>{{ loc['route_point']['label'] }}</b>
+        {% if loc['route_point']['detail'] %}<span class="muted">{{ loc['route_point']['detail'] }}</span>{% endif %}
+      </div>
+      <div>
+        <span class="muted">Основание</span>
+        <b>{% if loc['avg_dist'] is not none %}{{ '%.0f' % loc['avg_dist'] }} км{% else %}км не указаны{% endif %}</b>
+        <span class="muted">сигнал из КП: {{ loc['base_point'] }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if can_edit %}
+  <form method="post" action="/bp/{{ bp['id'] }}/route/recommend">
+    <button type="submit" class="success" data-confirm="Заменить текущий граф рекомендованным маршрутом?">
+      {{ icon('sparkles') }} Построить граф по рекомендации</button>
+  </form>
+  {% endif %}
+  {% else %}
+  <span class="muted">Для рекомендации нужны позиции из КП с местом хранения и расстоянием до логистической точки.</span>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="sec-head">
+    <h2>Граф из данных БП</h2>
+    <div class="sec-aside"><span class="role-tag">Топология сделки, а не шаблон</span></div>
+  </div>
+  <p class="muted">Узлы и стрелки строятся из данных этого БП и РОЛЕЙ точек:
+    продавец → цеха → их базы → покупатель. Цеховые тонны стекаются в узел
+    базы, база отгружает покупателю суммарный объём — так же этапы считает
+    модель затрат. Объёмы — из позиций лота, транспорт — из вида отгрузки,
+    статьи затрат с базой привязываются к стрелкам автоматически. Место без
+    роли входит самостоятельной базой (роли задаются на «Логистике» и
+    действуют на все БП). Консолидация и перегрузы добавляются операцией
+    «вставить узел в путь» у нужной стрелки.</p>
+  {% if can_edit %}
+  <form method="post" action="/bp/{{ bp['id'] }}/route/build">
+    <button type="submit" data-confirm="Заменить текущий граф построенным по ролям точек? Привязки затрат к стрелкам будут пересобраны по базам статей.">
+      {{ icon('sparkles') }} Построить граф по ролям точек</button>
+  </form>
+  {% endif %}
+</div>
+
+{# Экономика графа: затраты стрелок и узлов считаются из таблиц БП #}
+<div class="card">
+  <div class="sec-head">
+    <h2>Экономика маршрута</h2>
+    <div class="sec-aside">
+      {% if econ['diff'] | abs < 1 %}
+      <span class="pill ok" data-tip="Сумма затрат на стрелках и узлах совпадает с итогом нормативной модели — граф разложил все затраты.">разложено полностью</span>
+      {% else %}
+      <span class="pill bad" data-tip="Часть затрат не легла на граф: у базы нет узла или у узла нет путей.">расхождение {{ money(econ['diff']) }} руб</span>
+      {% endif %}
+    </div>
+  </div>
+  <p class="muted">Линии графа — это затраты: сумма на стрелке считается из
+    таблиц БП (позиции → нормативная модель → этап «вывоз» или «отгрузка»)
+    и делится между путями по тоннажу; переработка ложится на узел базы.
+    Меняются позиции, доли транспорта, нормативы — цифры на графе меняются
+    сами.</p>
+  <div class="stage-grid">
+    <div class="stage-tile" data-tip="Транспорт, погрузка и отгрузка — всё, что происходит на путях между узлами.">
+      <div class="stage-name">На стрелках (перемещения)</div>
+      <div class="stage-sum">{{ money(econ['on_edges']) }} <span class="k-unit">руб</span></div>
+    </div>
+    <div class="stage-tile" data-tip="Резка, пресс, перегружатель, распределяемые расходы базы — затраты, привязанные к самим базам.">
+      <div class="stage-name">На узлах (переработка)</div>
+      <div class="stage-sum">{{ money(econ['on_nodes']) }} <span class="k-unit">руб</span></div>
+    </div>
+    <div class="stage-tile stage-total" data-tip="Итог нормативной модели затрат из карточки БП — он и раскладывается на граф.">
+      <div class="stage-name">Итого по модели</div>
+      <div class="stage-sum">{{ money(econ['model_total']) }} <span class="k-unit">руб</span></div>
+    </div>
+  </div>
+  {% if econ['unmatched'] %}
+  <p class="warn-note">{{ icon('warn', 'icon-s') }} Не нашли узел графа для баз:
+    {{ econ['unmatched'] | join('; ') }} — их затраты на граф не легли.
+    Постройте граф из данных БП или добавьте узлы вручную.</p>
+  {% endif %}
+</div>
+
+{% if route_checks %}
+<div class="card">
+  <div class="sec-head">
+    <h2>Проверка графа по данным БП</h2>
+    <div class="sec-aside">
+      {% set bad = route_checks | selectattr('level', 'equalto', 'bad') | list | length %}
+      {% set warn = route_checks | selectattr('level', 'equalto', 'warn') | list | length %}
+      {% if bad %}<span class="pill bad">{{ bad }} ошибок</span>{% endif %}
+      {% if warn %}<span class="pill" style="background:#fff3cd;color:#7a5b00">{{ warn }} предупреждений</span>{% endif %}
+      {% if not bad and not warn %}<span class="pill ok">все проверки пройдены</span>{% endif %}
+    </div>
+  </div>
+  <ul class="hint-list" style="list-style:none;padding-left:0">
+    {% for c in route_checks %}
+    <li>
+      {% if c['level'] == 'ok' %}<span class="pill ok">ok</span>
+      {% elif c['level'] == 'warn' %}<span class="pill" style="background:#fff3cd;color:#7a5b00">внимание</span>
+      {% else %}<span class="pill bad">ошибка</span>{% endif %}
+      {{ c['text'] }}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="sec-head">
+    <h2>Потоки номенклатуры</h2>
+    <div class="sec-aside"><span class="role-tag">Группировка по категориям</span></div>
+  </div>
+  {% if flows %}
+  <div class="flow-grid">
+    {% for f in flows %}
+    <div class="flow-card" style="border-color: {{ f['color'] }}">
+      <span class="flow-dot" style="background:{{ f['color'] }}"></span>
+      <b>{{ f['name'] }}</b> <span class="muted">({{ f['ptype'] }})</span>
+      <div class="flow-meta">
+        {{ f['count'] }} позиц., {{ ('%.1f' if f['volume'] >= 0.1 else '%.3f') % f['volume'] }} тн<br>
+        {% if f['own_pct'] is not none %}
+        транспорт: {{ '%.0f' % f['own_pct'] }}% свой / {{ '%.0f' % (100 - f['own_pct']) }}% наем<br>
+        подрезка: {{ '%.0f' % f['workshop_pct'] }}% цех / {{ '%.0f' % (100 - f['workshop_pct']) }}% база
+        {% else %}
+        доли транспорта и подрезки не заполнены
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <span class="muted">В БП пока нет позиций. Потоки появятся из раздела «Состав лота».</span>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="sec-head">
+    <h2>Граф маршрута</h2>
+    <div class="sec-aside"><span class="role-tag">Узлы можно перетаскивать</span></div>
+  </div>
+  <div class="graph-controls" aria-label="Масштаб графа">
+    <button type="button" class="secondary btn-icon" id="zoom_out" title="Уменьшить масштаб">
+      {{ icon('minus') }}</button>
+    <input type="range" id="zoom_range" min="50" max="160" value="100" step="5"
+           aria-label="Масштаб графа">
+    <button type="button" class="secondary btn-icon" id="zoom_in" title="Увеличить масштаб">
+      {{ icon('plus') }}</button>
+  </div>
+  <div id="graph" class="graph-box"></div>
+  <div id="graph-fallback" class="muted" style="display:none">
+    Не удалось загрузить библиотеку графа. Структура маршрута доступна в таблицах ниже.
+  </div>
+  <div class="legend">
+    <b>Узлы:</b>
+    {% for k, label in node_kinds.items() %}
+    <span><span class="flow-dot" style="background:{{ node_colors[k] }}"></span>{{ label }}</span>
+    {% endfor %}
+    <b>Потоки:</b>
+    {% for f in flows %}
+    <span><span class="flow-dot" style="background:{{ f['color'] }}"></span>{{ f['name'] }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+{% if can_edit %}
+<div class="panel3 details-gap">
+  <div class="card">
+    <div class="sec-head"><h2><span class="sec-num">1</span> Добавить узел</h2></div>
+    <p class="hint">Точка маршрута: база, цех, производство, ответхранение или сторона сделки.</p>
+    <form method="post" action="/bp/{{ bp['id'] }}/route/nodes">
+      <label>Тип узла</label>
+      <select name="kind" id="kind_select" onchange="toggleRefs()">
+        {% for k, label in node_kinds.items() %}
+        <option value="{{ k }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div id="ref_cp">
+        <label>Контрагент</label>
+        <input name="counterparty_name" list="dl_cp" placeholder="поиск по 1С"
+               autocomplete="off" data-api="/api/counterparties" data-hidden="counterparty_id">
+        <datalist id="dl_cp"></datalist>
+        <input type="hidden" name="counterparty_id" id="counterparty_id">
+      </div>
+      <div id="ref_wh">
+        <label>Склад / база</label>
+        <input name="warehouse_name" list="dl_wh" placeholder="имя или дивизион"
+               autocomplete="off" data-api="/api/warehouses" data-hidden="warehouse_id">
+        <datalist id="dl_wh"></datalist>
+        <input type="hidden" name="warehouse_id" id="warehouse_id">
+      </div>
+      <label>Название узла <span class="hint">(если пусто, возьмем из справочника)</span></label>
+      <input name="label">
+      <button type="submit">{{ icon('plus') }} Узел</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2><span class="sec-num">2</span> Добавить путь</h2></div>
+    <p class="hint">Перемещение потока между узлами. Один поток отображается одним цветом.</p>
+    <form method="post" action="/bp/{{ bp['id'] }}/route/edges">
+      <div class="grid2">
+        <div><label>Откуда</label>
+          <select name="from_node">
+            {% for n in nodes %}<option value="{{ n['id'] }}">{{ n['label'] }}</option>{% endfor %}
+          </select></div>
+        <div><label>Куда</label>
+          <select name="to_node">
+            {% for n in nodes %}<option value="{{ n['id'] }}">{{ n['label'] }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <label>Поток</label>
+      <select name="flow_group">
+        <option value="">все потоки</option>
+        {% for f in flows %}<option value="{{ f['name'] }}">{{ f['name'] }}
+          ({{ f['ptype'] }}, {{ '%.0f' % f['volume'] }} тн)</option>{% endfor %}
+      </select>
+      <div class="grid2">
+        <div><label>Транспорт</label><input name="transport" placeholder="авто / вагоны"></div>
+        <div><label>Объём, тн</label><input name="volume_t"></div>
+      </div>
+      <label>Комментарий</label><input name="comment">
+      <button type="submit">{{ icon('plus') }} Путь</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2><span class="sec-num">3</span> Добавить процесс</h2></div>
+    <p class="hint">Переработка на узле со сменой номенклатуры.</p>
+    <form method="post" action="/bp/{{ bp['id'] }}/route/processes">
+      <label>Узел</label>
+      <select name="node_id">
+        {% for n in nodes %}<option value="{{ n['id'] }}">{{ n['label'] }}</option>{% endfor %}
+      </select>
+      <label>Вид работ (справочник 1С)</label>
+      <input name="work_type" list="wt_list" required placeholder="Перемотка с выходом новой номенклатуры">
+      <div class="grid2">
+        <div><label>Вход</label><input name="input_nomen" list="nm_list"></div>
+        <div><label>Выход</label><input name="output_nomen" list="nm_list"></div>
+        <div><label>Объём, тн</label><input name="volume_t"></div>
+        <div><label>Комментарий</label><input name="comment"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Процесс</button>
+    </form>
+  </div>
+</div>
+<datalist id="wt_list">
+  {% for w in work_types %}<option value="{{ w['name'] }}">{% endfor %}
+</datalist>
+<datalist id="nm_list">
+  {% for n in nomenclature %}<option value="{{ n['name'] }}">{% endfor %}
+</datalist>
+<datalist id="cost_articles">
+  {% for a in cost_articles %}<option value="{{ a }}">{% endfor %}
+</datalist>
+{% endif %}
+
+<div class="grid2 details-gap">
+  <div class="card">
+    <div class="sec-head"><h2>Узлы</h2><div class="sec-aside"><span class="role-tag">{{ nodes | length }}</span></div></div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Тип</th><th>Название</th><th class="action-cell"></th></tr></thead>
+      <tbody>
+      {% for n in nodes %}
+      <tr id="view_node_{{ n['id'] }}">
+        <td><span class="flow-dot" style="background:{{ node_colors[n['kind']] }}"></span> {{ node_kinds[n['kind']] }}</td>
+        <td>{{ n['label'] }}</td>
+        <td class="action-cell">
+          {% if can_edit %}
+          <button class="icon-action secondary" type="button" title="Изменить" onclick="tgl('node_{{ n['id'] }}')">{{ icon('edit') }}</button>
+          <form class="inline-form" method="post" action="/bp/{{ bp['id'] }}/route/nodes/{{ n['id'] }}/delete">
+            <button class="danger icon-action" title="Удалить узел">{{ icon('trash') }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% if can_edit %}
+      <tr id="edit_node_{{ n['id'] }}" class="edit-row" style="display:none">
+        <td colspan="3">
+          <form class="row-form" method="post" action="/bp/{{ bp['id'] }}/route/nodes/{{ n['id'] }}/update">
+            <div><label>Тип</label>
+              <select name="kind">
+                {% for k, label in node_kinds.items() %}
+                <option value="{{ k }}" {% if n['kind'] == k %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select></div>
+            <div style="flex:1"><label>Название</label><input name="label" value="{{ n['label'] }}"></div>
+            <button class="icon-action" title="Сохранить">{{ icon('save') }}</button>
+            <button class="secondary" type="button" onclick="tgl('node_{{ n['id'] }}')">Отмена</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-head"><h2>Пути</h2><div class="sec-aside"><span class="role-tag">{{ edges | length }}</span></div></div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Маршрут</th><th>Поток</th><th>Транспорт</th><th class="num">Тн</th>
+        <th class="num" data-tip="Считается из таблиц БП: этап затрат («Вывоз с цеха на базу» или «Отгрузка с базы») × объём этого пути. Меняются позиции, доли транспорта или нормативы — цифра пересчитывается сама.">Затраты пути (из таблиц)</th>
+        <th data-tip="Строки затрат вне нормативной модели (административные, прочие), привязанные к этому перемещению вручную.">Привязано вручную</th>
+        <th class="action-cell"></th></tr></thead>
+      <tbody>
+      {% for e in edges %}
+      {% set linked = edge_costs.get(e['id'], []) %}
+      <tr id="view_edge_{{ e['id'] }}">
+        <td>{{ node_labels[e['from_node']] }} -> {{ node_labels[e['to_node']] }}</td>
+        <td>
+          {% set fcolor = '#607d8b' %}
+          {% for f in flows if f['name'] == e['flow_group'] %}{% set fcolor = f['color'] %}{% endfor %}
+          <span class="flow-chip"><span class="flow-dot" style="background:{{ fcolor }}"></span>{{ e['flow_group'] or 'все' }}</span>
+        </td>
+        <td>{{ e['transport'] or '-' }}</td>
+        <td class="num">{{ e['volume_t'] or '-' }}</td>
+        {% set ec = econ['edges'].get(e['id'], {}) %}
+        <td class="calc num">
+          {% if ec.get('total') %}
+          <b data-tip="{% for st, amt in ec['stages'].items() %}{{ st }}: {{ money(amt) }} руб&#10;{% endfor %}">{{ money(ec['total']) }}</b><br>
+          <span class="muted">{{ '{:,.0f}'.format(ec['per_t']).replace(',', ' ') }} руб/тн</span>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% if linked %}
+          <b>{{ money(linked | sum(attribute='amount')) }} руб</b>
+          <div class="muted">
+            {% for c in linked %}
+            {{ c['item'] }} — {{ money(c['amount']) }}
+            {% if can_edit %}
+            <form class="inline-form" method="post"
+                  action="/bp/{{ bp['id'] }}/route/edges/{{ e['id'] }}/costs/{{ c['id'] }}/unlink">
+              <button class="icon-action secondary" title="Отвязать статью от пути">{{ icon('x') }}</button>
+            </form>
+            {% endif %}<br>
+            {% endfor %}
+          </div>
+          {% else %}<span class="muted">нет привязки</span>{% endif %}
+        </td>
+        <td class="action-cell">
+          {% if can_edit %}
+          <button class="icon-action secondary" type="button" title="Изменить и привязать затраты" onclick="tgl('edge_{{ e['id'] }}')">{{ icon('edit') }}</button>
+          <form class="inline-form" method="post" action="/bp/{{ bp['id'] }}/route/edges/{{ e['id'] }}/delete">
+            <button class="danger icon-action" title="Удалить путь">{{ icon('trash') }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% if can_edit %}
+      <tr id="edit_edge_{{ e['id'] }}" class="edit-row" style="display:none">
+        <td colspan="7">
+          <form class="row-form" method="post" action="/bp/{{ bp['id'] }}/route/edges/{{ e['id'] }}/update">
+            <div><label>Поток</label>
+              <select name="flow_group">
+                <option value="">все</option>
+                {% for f in flows %}
+                <option value="{{ f['name'] }}" {% if e['flow_group'] == f['name'] %}selected{% endif %}>{{ f['name'] }}</option>
+                {% endfor %}
+              </select></div>
+            <div><label>Транспорт</label><input name="transport" value="{{ e['transport'] or '' }}"></div>
+            <div><label>Объём, тн</label><input name="volume_t" value="{{ e['volume_t'] or '' }}" class="w-sm"></div>
+            <div style="flex:1"><label>Комментарий</label><input name="comment" value="{{ e['comment'] or '' }}"></div>
+            <button class="icon-action" title="Сохранить">{{ icon('save') }}</button>
+            <button class="secondary" type="button" onclick="tgl('edge_{{ e['id'] }}')">Отмена</button>
+          </form>
+          <form class="row-form" method="post" action="/bp/{{ bp['id'] }}/route/edges/{{ e['id'] }}/costs">
+            <div><label>Привязать статью</label>
+              <select name="cost_id">
+                <option value="">— новая строка —</option>
+                {% for c in free_costs %}
+                <option value="{{ c['id'] }}">{{ c['section'] }}: {{ c['item'] }} ({{ money(c['amount']) }} руб)</option>
+                {% endfor %}
+              </select></div>
+            <div><label>Секция (для новой)</label>
+              <select name="section">
+                {% for s in cost_sections %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+              </select></div>
+            <div style="flex:1"><label>Статья (для новой)</label>
+              <input name="item" list="cost_articles" placeholder="Транспортные расходы на перемещение"></div>
+            <div><label>Сумма, руб</label><input name="amount" class="w-sm"></div>
+            <button class="icon-action" title="Привязать затраты к пути">{{ icon('plus') }}</button>
+          </form>
+          <form class="row-form" method="post" action="/bp/{{ bp['id'] }}/route/edges/{{ e['id'] }}/insert-node">
+            <div><label>Вставить узел в путь</label>
+              <select name="node_id">
+                <option value="">— новый узел —</option>
+                {% for n in nodes if n['id'] != e['from_node'] and n['id'] != e['to_node'] %}
+                <option value="{{ n['id'] }}">{{ node_kinds[n['kind']] }}: {{ n['label'] }}</option>
+                {% endfor %}
+              </select></div>
+            <div><label>Тип (для нового)</label>
+              <select name="kind">
+                {% for k, label in node_kinds.items() if k not in ('seller', 'buyer') %}
+                <option value="{{ k }}" {% if k == 'custody' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select></div>
+            <div style="flex:1"><label>Название (для нового)</label>
+              <input name="label" placeholder="Когалым (консолидация) / Пангоды (перегруз)"></div>
+            <div><label>Транспорт до узла</label><input name="transport1" class="w-md" placeholder="{{ e['transport'] or 'как у пути' }}"></div>
+            <div><label>Транспорт после</label><input name="transport2" class="w-md" placeholder="{{ e['transport'] or 'как у пути' }}"></div>
+            {% if linked %}
+            <div style="flex-basis:100%">
+              <label>Какие статьи переезжают на второе плечо (остальные останутся на первом)</label>
+              {% for c in linked %}
+              <label class="inline-form"><input type="checkbox" name="move_cost_{{ c['id'] }}" value="1">
+                {{ c['item'] }} — {{ money(c['amount']) }} руб</label>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <button class="icon-action" title="Разбить путь узлом">{{ icon('scissors') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% else %}
+      <tr><td colspan="6" class="muted">Путей пока нет. Добавьте путь в панели выше.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="sec-head">
+    <h2>Процессы на узлах</h2>
+    <div class="sec-aside"><span class="role-tag">{{ processes | length }}</span></div>
+  </div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Узел</th><th>Вид работ</th><th>Вход</th><th></th><th>Выход</th>
+        <th class="num">Объём, тн</th><th class="action-cell"></th></tr></thead>
+    <tbody>
+    {% for p in processes %}
+    <tr id="view_proc_{{ p['id'] }}">
+      <td>{{ node_labels[p['node_id']] }}</td>
+      <td>{{ p['work_type'] }}</td>
+      <td>{{ p['input_nomen'] or '-' }}</td><td>-></td>
+      <td><b>{{ p['output_nomen'] or '-' }}</b></td>
+      <td class="num">{{ p['volume_t'] or '-' }}</td>
+      <td class="action-cell">
+        {% if can_edit %}
+        <button class="icon-action secondary" type="button" title="Изменить" onclick="tgl('proc_{{ p['id'] }}')">{{ icon('edit') }}</button>
+        <form class="inline-form" method="post" action="/bp/{{ bp['id'] }}/route/processes/{{ p['id'] }}/delete">
+          <button class="danger icon-action" title="Удалить процесс">{{ icon('trash') }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% if can_edit %}
+    <tr id="edit_proc_{{ p['id'] }}" class="edit-row" style="display:none">
+      <td colspan="7">
+        <form class="row-form" method="post" action="/bp/{{ bp['id'] }}/route/processes/{{ p['id'] }}/update">
+          <div style="flex:1"><label>Вид работ</label><input name="work_type" list="wt_list" value="{{ p['work_type'] }}"></div>
+          <div style="flex:1"><label>Вход</label><input name="input_nomen" list="nm_list" value="{{ p['input_nomen'] or '' }}"></div>
+          <div style="flex:1"><label>Выход</label><input name="output_nomen" list="nm_list" value="{{ p['output_nomen'] or '' }}"></div>
+          <div><label>Объём, тн</label><input name="volume_t" value="{{ p['volume_t'] or '' }}" class="w-sm"></div>
+          <button class="icon-action" title="Сохранить">{{ icon('save') }}</button>
+          <button class="secondary" type="button" onclick="tgl('proc_{{ p['id'] }}')">Отмена</button>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+    {% else %}
+    <tr><td colspan="7" class="muted">Процессов пока нет. Добавьте процесс в панели выше.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<script>
+function tgl(id) {
+  const edit = document.getElementById('edit_' + id);
+  const open = edit.style.display === 'none';
+  edit.style.display = open ? '' : 'none';
+}
+
+function toggleRefs() {
+  const kind = document.getElementById('kind_select').value;
+  const isParty = kind === 'seller' || kind === 'buyer';
+  document.getElementById('ref_cp').style.display = isParty ? '' : 'none';
+  document.getElementById('ref_wh').style.display = isParty ? 'none' : '';
+}
+if (document.getElementById('kind_select')) toggleRefs();
+
+document.querySelectorAll('input[data-api]').forEach(inp => {
+  const dl = document.getElementById(inp.getAttribute('list'));
+  const hidden = document.getElementById(inp.dataset.hidden);
+  let map = {}, timer = null;
+  const sync = () => { hidden.value = map[inp.value] || ''; };
+  inp.addEventListener('input', () => {
+    sync();
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (inp.value.length < 2) return;
+      const items = await (await fetch(inp.dataset.api + '?q=' +
+                                       encodeURIComponent(inp.value))).json();
+      map = {};
+      dl.innerHTML = '';
+      const seen = {};
+      items.forEach(i => {
+        const value = seen[i.name] ? `${i.name} [${i.hint}]` : i.name;
+        seen[i.name] = true;
+        map[value] = i.id;
+        const o = document.createElement('option');
+        o.value = value;
+        if (i.hint) o.label = i.hint;
+        dl.appendChild(o);
+      });
+      sync();
+    }, 250);
+  });
+  inp.addEventListener('change', sync);
+});
+
+const s = document.createElement('script');
+s.src = 'https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js';
+s.onload = initGraph;
+s.onerror = () => document.getElementById('graph-fallback').style.display = '';
+document.head.appendChild(s);
+
+async function initGraph() {
+  const data = await (await fetch('/bp/{{ bp['id'] }}/route/data')).json();
+  const hasPositions = data.nodes.length && data.nodes.every(n => n.x !== null);
+  const nodes = new vis.DataSet(data.nodes.map(n => ({
+    id: n.id, label: n.label, title: n.title || undefined,
+    shape: 'box', margin: 12, borderWidth: 2,
+    color: { background: n.color, border: n.color,
+             highlight: { background: n.color, border: 'var(--brand-900)' } },
+    font: { color: '#fff', size: 14, face: 'Lato' },
+    shadow: { enabled: true, size: 4, x: 1, y: 2, color: 'rgba(20,34,72,.18)' },
+    ...(n.x !== null ? { x: n.x, y: n.y } : {}),
+  })));
+  const edges = new vis.DataSet(data.edges.map(e => ({
+    ...e, width: e.width || 2.5,
+    color: { color: e.color, highlight: e.color },
+    font: { size: 11, align: 'top', color: '#485e88', strokeWidth: 3, strokeColor: '#fff' },
+    smooth: { type: 'curvedCW', roundness: 0.12 },
+  })));
+  const network = new vis.Network(document.getElementById('graph'), { nodes, edges },
+    hasPositions
+      ? { physics: false, interaction: { hover: true, zoomView: false } }
+      : { layout: { hierarchical: { enabled: true, direction: 'LR',
+                                    sortMethod: 'directed', levelSeparation: 220,
+                                    nodeSpacing: 130 } },
+          physics: false, interaction: { hover: true, zoomView: false } });
+  const zoomRange = document.getElementById('zoom_range');
+  const applyZoom = value => {
+    const scale = Number(value) / 100;
+    network.moveTo({ scale, animation: { duration: 180, easingFunction: 'easeInOutQuad' } });
+  };
+  zoomRange.addEventListener('input', () => applyZoom(zoomRange.value));
+  document.getElementById('zoom_out').addEventListener('click', () => {
+    zoomRange.value = Math.max(Number(zoomRange.min), Number(zoomRange.value) - 10);
+    applyZoom(zoomRange.value);
+  });
+  document.getElementById('zoom_in').addEventListener('click', () => {
+    zoomRange.value = Math.min(Number(zoomRange.max), Number(zoomRange.value) + 10);
+    applyZoom(zoomRange.value);
+  });
+  network.on('dragEnd', async () => {
+    const pos = network.getPositions();
+    await fetch('/bp/{{ bp['id'] }}/route/positions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pos),
+    });
+  });
+}
+</script>
+{% endblock %}

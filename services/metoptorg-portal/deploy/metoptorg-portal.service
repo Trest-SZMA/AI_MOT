@@ -1,0 +1,36 @@
+[Unit]
+Description=МетОптТорг — портал рабочих сервисов (главная страница)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Порт 8079 — свой. НЕ трогаем соседей: fines-service(:8077),
+# logistmot-panel(:8080), metoptorg-ostatki(:8090), metoptorg-kp(:8091),
+# metoptorg-realizaciya(:8092). Портал ничего не проксирует: если он упадёт,
+# все пять сервисов продолжат работать, просто без витрины.
+WorkingDirectory=/opt/metoptorg-portal
+EnvironmentFile=/etc/metoptorg-portal.env
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Yekaterinburg
+ExecStart=/usr/bin/python3 /opt/metoptorg-portal/portal.py
+Restart=always
+RestartSec=5
+
+# --- ограничения: порталу нужно только читать свой каталог и ходить по TCP ---
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryMax=192M
+# Страница статична, ничего не пишет — каталог только на чтение.
+
+[Install]
+WantedBy=multi-user.target

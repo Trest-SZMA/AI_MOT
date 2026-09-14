@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% macro money(v) %}{{ '{:,.0f}'.format(v).replace(',', ' ') }}{% endmacro %}
+{% macro dev(v) %}
+  {%- if v is none -%}-
+  {%- else -%}
+  <span class="{{ 'pos' if v >= 0 else 'neg' }}">{{ '{:+,.1f}'.format(v).replace(',', ' ') }}</span>
+  {%- endif -%}
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>План-факт {{ bp['bp_number'] }}
+      <span class="status {{ bp['status'] }}">{{ bp['status'] }}</span></h1>
+    <div class="muted">Помесячное сравнение графика вывоза с фактической реализацией.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/economics">
+      <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+      Карточка БП
+    </a>
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/schedule">
+      <svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+      График вывоза
+    </a>
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-tile">
+    <div class="label">Объём план / факт, тн</div>
+    <div class="value">{{ '%.1f' % pf['totals']['plan_vol'] }} / {{ '%.1f' % pf['totals']['fact_vol'] }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Выручка план / факт</div>
+    <div class="value">{{ money(pf['totals']['plan_rev']) }}</div>
+    <div class="muted">факт {{ money(pf['totals']['fact_rev']) }}</div>
+  </div>
+  <div class="summary-tile {{ 'good' if pf['totals']['fact_profit'] >= pf['totals']['plan_profit'] else 'bad' }}">
+    <div class="label">Прибыль до налога, факт</div>
+    <div class="value">{{ money(pf['totals']['fact_profit']) }}</div>
+    <div class="muted">план {{ money(pf['totals']['plan_profit']) }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Источник плана</div>
+    <div class="muted">График вывоза умножается на средние показатели P&amp;L.</div>
+  </div>
+</div>
+
+{% if can_edit %}
+{# Загрузка факта из 1С: файл разбирается и показывается сводом, запись —
+   отдельным подтверждением (факт правит уже согласованный БП). #}
+<div class="card">
+  <div class="sec-head"><h2>Загрузить факт из 1С</h2></div>
+  <form method="post" action="/bp/{{ bp['id'] }}/planfact/import"
+        enctype="multipart/form-data" class="row-form">
+    <div><label for="factfile">Выгрузка реализации (xlsx, xlsm или csv)</label>
+      <input id="factfile" type="file" name="file" accept=".xlsx,.xlsm,.csv" required></div>
+    <div><button type="submit">
+      <svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>
+      Разобрать файл</button></div>
+  </form>
+  <div class="muted">Нужны колонки с объёмом и выручкой; период — дата,
+    «01.2026» или номер месяца сделки. Колонка «№ БП» необязательна: без неё
+    берутся все строки файла. Ничего не запишется, пока вы не подтвердите свод.</div>
+</div>
+{% endif %}
+
+<form method="post" action="/bp/{{ bp['id'] }}/planfact">
+<div class="card">
+  <div class="table-scroll tall">
+  <table>
+    <thead>
+    <tr><th rowspan="2">Мес</th>
+        <th colspan="4" class="num">ПЛАН</th>
+        <th colspan="5" class="num">ФАКТ
+          {% if can_edit %}<span class="muted">(вносит экономист)</span>{% endif %}</th>
+        <th colspan="2" class="num" data-tip="Факт минус план по объёму и выручке. План: реализация из графика вывоза × средние показатели P&L на 1 тн (по активному варианту). Факт вносится вручную; далее — загрузка из 1С.">Отклонение</th>
+        <th rowspan="2">Комментарий</th></tr>
+    <tr><th class="num">Объём, тн</th><th class="num">Выручка, руб</th><th class="num">Цена, руб/тн</th><th class="num">Прибыль, руб</th>
+        <th class="num">Объём, тн</th><th class="num">Выручка, руб</th><th class="num">Затраты, руб</th>
+        <th class="num">Цена, руб/тн</th><th class="num">Прибыль, руб</th>
+        <th class="num">Объём</th><th class="num">Выручка</th></tr>
+    </thead>
+    <tbody>
+    {% for r in pf['rows'] %}
+    <tr>
+      <td><b>{{ r['month'] }}</b></td>
+      <td class="calc num">{{ '%.1f' % r['plan_vol'] }}</td>
+      <td class="calc num">{{ money(r['plan_rev']) }}</td>
+      <td class="calc num">{{ '%.0f' % r['plan_price'] }}</td>
+      <td class="calc num">{{ money(r['plan_profit']) }}</td>
+      {% if can_edit %}
+      <td><input name="vol_{{ r['month'] }}" value="{{ r['fact_vol'] or '' }}"
+                 class="w-sm"></td>
+      <td><input name="rev_{{ r['month'] }}" value="{{ r['fact_rev'] or '' }}"
+                 class="w-md"></td>
+      <td><input name="costs_{{ r['month'] }}" value="{{ r['fact_costs'] or '' }}"
+                 class="w-md"></td>
+      {% else %}
+      <td>{{ '%.1f' % r['fact_vol'] if r['has_fact'] else '-' }}</td>
+      <td>{{ money(r['fact_rev']) if r['has_fact'] else '-' }}</td>
+      <td>{{ money(r['fact_costs']) if r['has_fact'] else '-' }}</td>
+      {% endif %}
+      <td class="calc num">{{ '%.0f' % r['fact_price'] if r['has_fact'] else '-' }}</td>
+      <td class="calc num">
+        {% if r['has_fact'] %}
+        <span class="{{ 'pos' if r['fact_profit'] >= 0 else 'neg' }}">
+          {{ money(r['fact_profit']) }}</span>
+        {% else %}-{% endif %}
+      </td>
+      <td class="num">{{ dev(r['dev_vol']) }}</td>
+      <td class="num">{{ dev(r['dev_rev']) }}</td>
+      <td>
+        {% if can_edit %}
+        <input name="comment_{{ r['month'] }}" value="{{ r['comment'] or '' }}">
+        {% else %}{{ r['comment'] or '' }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td><b>Итого</b></td>
+      <td class="calc num"><b>{{ '%.1f' % pf['totals']['plan_vol'] }}</b></td>
+      <td class="calc num"><b>{{ money(pf['totals']['plan_rev']) }}</b></td>
+      <td></td>
+      <td class="calc num"><b>{{ money(pf['totals']['plan_profit']) }}</b></td>
+      <td class="calc num"><b>{{ '%.1f' % pf['totals']['fact_vol'] }}</b></td>
+      <td class="calc num"><b>{{ money(pf['totals']['fact_rev']) }}</b></td>
+      <td></td><td></td>
+      <td class="calc num"><b>{{ money(pf['totals']['fact_profit']) }}</b></td>
+      <td colspan="3"></td>
+    </tr>
+    </tbody>
+  </table>
+  </div>
+  {# Квартальный срез — как в листе «анализ фин ЗС НКТ»: остаток лота на
+     01 число, план против факта за квартал и нарастающим итогом. #}
+  <h3 class="sub-head" data-tip="Кварталы считаются от месяца начала вывоза (блок «Лот»). Остаток на 01 число — сколько тонн лота ещё не реализовано к началу квартала: по плану и по факту отдельно.">Кварталы: план против факта</h3>
+  {% if not pf['quarters']['calendar'] %}
+  <p class="info-line">Месяц начала вывоза не задан, поэтому периоды считаются
+    от начала сделки. Укажите его в блоке «Лот» карточки — и срез станет
+    календарным (I кв 2026, II кв 2026).</p>
+  {% endif %}
+  <div class="table-scroll table-gap">
+  <table>
+    <thead>
+    <tr><th rowspan="2">Период</th><th rowspan="2">Месяцы</th>
+        <th colspan="2" class="num" data-tip="Остаток лота к реализации на 01 число первого месяца квартала: стоимость лота ещё не отработана на эти тонны.">Остаток на 01 число, тн</th>
+        <th colspan="3" class="num">ЗА КВАРТАЛ</th>
+        <th colspan="3" class="num">НАРАСТАЮЩИМ ИТОГОМ</th>
+        <th colspan="2" class="num">Отклонение</th></tr>
+    <tr><th class="num">план</th><th class="num">факт</th>
+        <th class="num">объём, тн</th><th class="num">выручка, руб</th>
+        <th class="num">прибыль, руб</th>
+        <th class="num">объём, тн</th><th class="num">выручка, руб</th>
+        <th class="num">выполнено, %</th>
+        <th class="num">объём</th><th class="num">выручка</th></tr>
+    </thead>
+    <tbody>
+    {% for q in pf['quarters']['rows'] %}
+    <tr>
+      <td><b>{{ q['label'] }}</b></td>
+      <td class="muted">{{ q['months'] | join(', ') }}</td>
+      <td class="calc num">{{ '%.1f' % q['balance_plan'] }}</td>
+      <td class="num">{{ '%.1f' % q['balance_fact'] if pf['quarters']['has_fact'] else '-' }}</td>
+      <td class="calc num">{{ '%.1f' % q['plan_vol'] }}
+        {% if q['has_fact'] %}<div class="muted">факт {{ '%.1f' % q['fact_vol'] }}</div>{% endif %}</td>
+      <td class="calc num">{{ money(q['plan_rev']) }}
+        {% if q['has_fact'] %}<div class="muted">факт {{ money(q['fact_rev']) }}</div>{% endif %}</td>
+      <td class="calc num">{{ money(q['plan_profit']) }}
+        {% if q['has_fact'] %}<div class="muted">факт {{ money(q['fact_profit']) }}</div>{% endif %}</td>
+      <td class="calc num">{{ '%.1f' % q['cum_plan_vol'] }}
+        {% if pf['quarters']['has_fact'] %}<div class="muted">факт {{ '%.1f' % q['cum_fact_vol'] }}</div>{% endif %}</td>
+      <td class="calc num">{{ money(q['cum_plan_rev']) }}
+        {% if pf['quarters']['has_fact'] %}<div class="muted">факт {{ money(q['cum_fact_rev']) }}</div>{% endif %}</td>
+      <td class="calc num">{{ '%.0f' % q['done_plan_pct'] }}
+        {% if pf['quarters']['has_fact'] %}<div class="muted">факт {{ '%.0f' % q['done_fact_pct'] }}</div>{% endif %}</td>
+      <td class="num">{{ dev(q['dev_vol']) }}</td>
+      <td class="num">{{ dev(q['dev_rev']) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="12" class="muted">График вывоза пуст — заполните его,
+        и кварталы посчитаются сами.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {# Полный P&L по месяцам — структура листа «анализ фин» книг экономистов #}
+  <h3 class="sub-head" data-tip="Каждая статья P&L разложена по месяцам пропорционально плановой реализации: сверху рубли, снизу руб/тн. Колонка ИТОГО совпадает с P&L сделки.">Плановый P&amp;L по месяцам</h3>
+  <div class="table-scroll tall table-gap">
+  <table>
+    <thead><tr><th>Показатель</th>
+      {% for r in pf['rows'] %}<th class="num">Мес {{ r['month'] }}</th>{% endfor %}
+      <th class="num row-accent">ИТОГО</th>
+      <th class="num" data-tip="Показатель в расчёте на тонну реализации — так экономисты сравнивают сделки между собой.">руб/тн</th></tr></thead>
+    <tbody>
+    {% for l in pf['lines'] %}
+    <tr {% if l['label'] in ('Чистая прибыль', 'Маржинальная прибыль') %}class="row-accent"{% endif %}>
+      <td data-tip="{{ l['hint'] }}">{{ l['label'] }}</td>
+      {% for m in l['months'] %}
+      <td class="calc num">{{ money(m['amount']) }}</td>
+      {% endfor %}
+      <td class="calc num row-accent"><b>{{ money(l['total']) }}</b></td>
+      <td class="calc num">{{ money(l['per_t']) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">План разложен по месяцам пропорционально плановой реализации
+    из графика вывоза. Факт по статьям появится с загрузкой данных из 1С —
+    сейчас факт вносится сводно (объём, выручка, затраты) в таблице выше.</p>
+
+  <p class="muted">Прибыль факта = выручка минус закупка по средней цене лота
+    ({{ '%.0f' % pf['purchase_per_t'] }} руб/тн) минус внесённые затраты.
+    Если план по месяцам пуст, заполните «График вывоза».</p>
+  {% if can_edit %}<button type="submit"><svg class="icon" aria-hidden="true"><use href="#i-save"></use></svg> Сохранить факт</button>{% endif %}
+</div>
+</form>
+{% endblock %}

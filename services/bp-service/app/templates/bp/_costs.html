@@ -1,0 +1,377 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['costs'] %}locked{% endif %}" id="sec-costs">
+  <div class="sec-head">
+    <h2><span class="sec-num">8</span> Затраты{% if bp['has_luk'] %}
+      <span class="pill variant-pill" data-tip="Живой пересчёт по модели и нормативам записывает суммы в активный вариант. Переключить вариант можно вверху карточки.">вариант: {{ variant_label }}</span>{% endif %}</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Экономист / логист</span>
+      <span id="cm_status" class="muted" role="status"></span>
+      {% if not can_edit['costs'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <p class="muted">Модель пересчитывается сразу при изменении параметра. Значение,
+    введённое здесь, действует только для этой сделки (подсвечивается); пустое
+    поле возвращает норматив из справочника.
+    <b>Суммы статей затрат при этом не меняются</b> — модель показывает, что
+    получается по нормативам; чтобы записать её суммы в расчёт, нажмите
+    «Записать суммы по модели» под таблицей.</p>
+
+  {% if cost_hints['total'] %}
+  <div class="hint-panel">
+    <div class="hint-head">
+      <div>
+        <b>Подсказки по затратам из перечня</b>
+        <p class="muted">Найдены пустые параметры, которые можно заполнить по тексту
+          позиций, месту хранения, виду отгрузки и примечаниям.</p>
+      </div>
+      {% if can_edit['costs'] or can_edit['items'] %}
+      <form method="post" action="/bp/{{ bp['id'] }}/costs/apply-hints">
+        <button type="submit">{{ icon('sparkles') }} Применить подсказки</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="summary-grid compact-grid">
+      <div class="summary-tile"><div class="label">Строк с подсказками</div>
+        <div class="value">{{ cost_hints['total'] }}</div></div>
+      <div class="summary-tile"><div class="label">Транспорт</div>
+        <div class="value">{{ cost_hints['summary']['own'] }}</div></div>
+      <div class="summary-tile"><div class="label">Обработка</div>
+        <div class="value">{{ cost_hints['summary']['cut'] }}</div></div>
+      <div class="summary-tile"><div class="label">Отгрузка и км</div>
+        <div class="value">{{ cost_hints['summary']['shipment'] + cost_hints['summary']['distance'] }}</div></div>
+    </div>
+    <details class="details-gap">
+      <summary><b>Показать позиции</b>
+        <span class="muted">(первые 25 строк с причинами)</span></summary>
+      <div class="hint-list">
+      {% for h in cost_hints['items'][:25] %}
+        <div class="hint-row">
+          <div><b>{{ h['item']['nomenclature'] }}</b><br>
+            <span class="muted">{{ h['item']['division'] or h['item']['warehouse'] or 'место не указано' }}</span></div>
+          <div class="hint-fields">
+            {% for key, value in h['fields'].items() %}
+            <span class="pill warn">
+              {% if key == 'own_transport_pct' %}Тр.соб. {{ '%.0f' % value }}%
+              {% elif key == 'workshop_cut_pct' %}Цех {{ '%.0f' % value }}%
+              {% elif key == 'distance_km' %}{{ '%.0f' % value }} км
+              {% elif key == 'shipment' %}{{ value }}
+              {% endif %}
+            </span>
+            {% endfor %}
+          </div>
+          <div class="muted">{{ h['reasons'] | join('; ') }}</div>
+        </div>
+      {% endfor %}
+      </div>
+    </details>
+  </div>
+  {% endif %}
+
+  {# Этапы сделки: у цеха и базы разные штат, управление и нормативы —
+     затраты видны раздельно, итог «цех плюс база». #}
+  <div class="stage-grid">
+    {% for st in cost_model['stages'] %}
+    <div class="stage-tile" data-tip="{{ st['hint'] }}">
+      <div class="stage-name">{{ st['name'] }}</div>
+      <div class="stage-sum">{{ money(st['amount']) }} <span class="k-unit">руб</span></div>
+      <div class="stage-per-t">{{ '{:,.0f}'.format(st['per_t']).replace(',', ' ') }}
+        <span class="muted">{{ st['unit'] }}</span></div>
+      {% if st['bases'] %}
+      <details class="stage-bases">
+        <summary class="muted">по базам ({{ st['bases'] | length }})</summary>
+        {% for b in st['bases'] %}
+        <div class="stage-base-row"><span>{{ b['base'] }}</span>
+          <b>{{ money(b['amount']) }}</b></div>
+        {% endfor %}
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="stage-tile stage-total"
+         data-tip="Консолидация этапов: цех (вывоз) + база (переработка и отгрузка). Совпадает с итогом модели ниже.">
+      <div class="stage-name">Итого цех + база</div>
+      <div class="stage-sum">{{ money(cost_model['total']) }} <span class="k-unit">руб</span></div>
+      <div class="stage-per-t">
+        {% set vol = pnl['purchase_volume'] or 0 %}
+        {{ '{:,.0f}'.format(cost_model['total'] / vol if vol else 0).replace(',', ' ') }}
+        <span class="muted">руб/тн лота</span></div>
+    </div>
+  </div>
+
+  {% if can_edit['costs'] %}
+  {% set vs = (variant_summary | selectattr('code', 'equalto', variant) | first) %}
+  <form method="post" class="model-write"
+        action="/bp/{{ bp['id'] }}/costs/norms?variant={{ variant }}">
+    <input type="hidden" name="variant" value="{{ variant }}">
+    <button type="submit" class="secondary"
+      {% if vs and vs.control_ok %}
+      {# Сходимость с книгой теряется этим действием — спрашиваем прямо. #}
+      data-confirm="Сейчас расчёт варианта «{{ variant_label }}» сходится с книгой экономистов. Суммы статей будут заменены нормативными, и сходимость потеряется. Прежние суммы останутся в предыдущей версии расчёта. Записать?"
+      {% endif %}
+      data-tip="Заменить суммы статей затрат на посчитанные по модели и нормативам. Пишется в активный вариант ({{ variant_label }}); суммы, пришедшие из книги, будут перезаписаны.">
+      {{ icon('save') }} Записать суммы по модели в расчёт</button>
+    <span class="muted model-write-note">
+      {% if vs and vs.control_ok %}Расчёт сходится с книгой — запись это изменит.
+      {% else %}Статьи затрат меняются только этим действием.{% endif %}</span>
+  </form>
+  {% endif %}
+
+  <div class="table-scroll tall">
+  <table>
+    <tbody>
+    {% for section, comps in cost_model['components'] | groupby('section') %}
+    <tr class="table-section-row"><td colspan="3"><b>{{ section }}</b>
+        <span>итого:
+          <b data-section="{{ section | urlencode }}">{{ money(cost_model['sections'].get(section, 0)) }}</b> руб</span></td></tr>
+      {% for article, art_comps in comps | groupby('article') %}
+      <tr>
+        <td class="indent-1" colspan="2"><b>{{ article }}</b>
+          {# Что эта статья стоила в тонне у сделок такого же типа и по факту
+             1С. Ориентир, а не подстановка: расхождение видно, решает человек. #}
+          {% set aid = cost_id_by_item.get(article) %}
+          {% set aog = cost_origins.get(aid) if aid else None %}
+          {% if aog %}
+          <div class="origin-tag {{ 'origin-manual' if aog['source'] == 'вручную' }}"
+               data-tip="{{ aog['source_ref'] or aog['source'] }}{% if aog['author'] %},
+               поставил {{ aog['author'] }}{% endif %}{% if aog['set_at'] %},
+               {{ aog['set_at'][:16] }}{% endif %}">
+            {{ aog['source'] }}{% if aog['set_at'] %}<span class="muted">
+              · {{ aog['set_at'][:10] }}</span>{% endif %}
+          </div>
+          {% endif %}
+          {% set mh = matrix_hints.get((section, article)) %}
+          {% if mh %}
+          <div class="matrix-hint" data-tip="Медиана по {{ mh['samples'] }}
+               наблюдениям c {{ cost_matrix_from }}, коридор
+               {{ money(mh['p_min']) }}–{{ money(mh['p_max']) }} руб/тн.
+               Источник: {{ mh['source'] }}.">
+            накоплено <b>{{ money(mh['rub_per_t']) }}</b> руб/тн
+            <span class="muted">· {{ mh['source'] }} · {{ mh['samples'] }} набл.</span>
+            {% set model_sum = cost_model['articles'].get(article, 0) %}
+            {% if sale_volume and model_sum %}
+              {% set fact = model_sum / sale_volume %}
+              {% set diff = (fact - mh['rub_per_t']) / mh['rub_per_t'] * 100 if mh['rub_per_t'] else 0 %}
+              {% if diff | abs >= 30 %}
+              <span class="warn-note">{{ icon('warn', 'icon-s') }}
+                по модели {{ money(fact) }} руб/тн, это {{ '%+.0f' % diff }}%</span>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+        <td class="calc num nowrap">
+          <b data-article="{{ article | urlencode }}">{{ money(cost_model['articles'].get(article, 0)) }}</b></td>
+      </tr>
+        {% for c in art_comps %}
+        <tr>
+          <td class="indent-2 cost-name" data-stage="{{ c['stage'] }}"
+              data-tip="Автоматический расчёт по нормативной модели: {{ c['hint'] or c['label'] }}. Параметры справа можно менять — значение действует только для этой сделки (подсвечивается), пустое поле возвращает норматив из справочника; сумма пишется в статью активного варианта.">
+            {{ c['label'] }}
+            {% if c['stage'] %}<span class="stage-chip">{{ c['stage'] }}</span>{% endif %}
+            {% if c['hint'] %}<br><span class="muted">
+              = {{ c['hint'] }}</span>{% endif %}
+          </td>
+          <td>
+            {% for p in c['params'] %}
+            <span class="param-chip">
+              <label>{{ p['label'] }}</label>
+              {% if can_edit['costs'] %}
+              <input class="cm-input {{ 'ovr' if p['overridden'] }}"
+                     data-key="{{ p['key'] }}" value="{{ p['value'] }}"
+                     autocomplete="off"
+                     title="Пусто: вернуть норматив ({{ p['unit'] }})">
+              {% else %}<b>{{ p['value'] }}</b> {{ p['unit'] }}{% endif %}
+            </span>
+            {% endfor %}
+          </td>
+          <td class="calc num nowrap align-top">
+            <span data-comp="{{ c['idx'] }}">{{ money(c['amount']) }}</span></td>
+        </tr>
+        {% endfor %}
+      {% endfor %}
+    {% endfor %}
+    <tr><td colspan="2"><b>ИТОГО по модели расчёта</b></td>
+        <td class="calc num"><b data-model-total>
+          {{ money(cost_model['total']) }}</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  {# Отклонения от накопленного уровня: где сумма расходится с тем, что
+     показывают прошлые расчёты и факт 1С. Не блокирует сохранение — но и не
+     даёт разойтись молча: закрыть отклонение можно только объяснением. #}
+  {% if origin_deviations %}
+  {% set unexplained = origin_deviations | rejectattr('explained') | list %}
+  <details class="details-gap" {% if unexplained %}open{% endif %} id="sec-deviations">
+    <summary><b>Отклонения от нормативов</b>
+      <span class="muted">({{ origin_deviations | length }}
+        {%- if unexplained %}, без объяснения {{ unexplained | length }}{% endif %})</span></summary>
+    <p class="muted">Сумма расходится с накопленным уровнем больше чем на
+      {{ '%.0f' % 30 }}%. Это не ошибка: у сделки может быть своя причина —
+      дальнее плечо, разовая техника, особые условия продавца. Но причина должна
+      быть записана, иначе цифру нечем защитить на согласовании.</p>
+    <form method="post" action="/bp/{{ bp['id'] }}/costs/update">
+      <div class="table-scroll table-gap">
+      <table>
+        <thead><tr><th>Статья</th><th class="num">В расчёте, руб/тн</th>
+            <th class="num">Накоплено, руб/тн</th><th class="num">Разница</th>
+            <th>Источник</th><th>Почему так</th></tr></thead>
+        <tbody>
+        {% for d in origin_deviations %}
+        <tr class="{{ 'dev-row-open' if not d['explained'] }}">
+          <td>{{ d['item'] }}<div class="muted">{{ d['section'] }}</div></td>
+          <td class="num">{{ money(d['per_t']) }}</td>
+          <td class="num">{{ money(d['hint']) }}
+            <div class="muted">{{ d['hint_source'] }} · {{ d['samples'] }} набл.</div></td>
+          <td class="num">
+            {% if d['explained'] %}{{ '%+.0f' % d['diff_pct'] }}%
+            {% else %}<span class="warn-note">{{ icon('warn', 'icon-s') }}
+              {{ '%+.0f' % d['diff_pct'] }}%</span>{% endif %}</td>
+          <td class="muted">{{ d['source'] or 'не указан' }}
+            {% if d['author'] %}<div class="muted">{{ d['author'] }}</div>{% endif %}</td>
+          <td>
+            {% if can_edit['costs'] %}
+            <input class="dev-why" name="why{{ '_luk' if variant == 'luk' }}_{{ d['cost_id'] }}"
+                   value="{{ d['note'] or '' }}"
+                   placeholder="причина отклонения">
+            {% else %}{{ d['note'] or '—' }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if can_edit['costs'] %}{{ save_btn('costs') }}{% endif %}
+    </form>
+  </details>
+  {% endif %}
+
+  {# Ручные статьи (вне модели: административные, прочие, добавленные) #}
+  {% set manual_costs = costs | rejectattr('item', 'in', model_articles) | list %}
+  <details {% if manual_costs %}open{% endif %} class="details-gap">
+    <summary><b>Ручные статьи</b>
+      <span class="muted">(вне модели: административные, прочие)</span></summary>
+    <form method="post" action="/bp/{{ bp['id'] }}/costs/update">
+      <div class="table-scroll table-gap">
+      <table>
+        <thead><tr><th>Секция</th><th>Статья</th>
+          {% if bp['has_luk'] %}
+          <th class="num {{ 'variant-col' if variant == 'bsp' }}" data-tip="Сумма статьи в варианте ДСП.">Сумма ДСП, руб</th>
+          <th class="num {{ 'variant-col' if variant == 'luk' }}" data-tip="Сумма статьи в варианте «Лукойл». Пустое поле — берётся сумма ДСП.">Сумма Лукойл, руб</th>
+          {% else %}<th class="num">Сумма, руб</th>{% endif %}
+          <th>Комментарий</th><th></th></tr></thead>
+        <tbody>
+        {% for c in manual_costs %}
+        <tr>
+          <td>{{ c['section'] }}</td>
+          <td>{{ c['item'] }}
+            {% if c['edge_id'] %}<span class="pill" title="Статья привязана к стрелке графа маршрута — распределяется на позиции этого перемещения">стрелка графа</span>{% endif %}
+            {% if c['base'] %}<span class="muted">({{ c['base'] }})</span>{% endif %}
+            {# Ориентир из матрицы затрат: сколько эта статья стоила в тонне
+               у сделок такого же типа и по факту 1С. Ничего не подставляет —
+               человек видит, насколько его сумма расходится с накопленным. #}
+            {% set mh = matrix_hints.get((c['section'], c['item'])) %}
+            {% if mh %}
+            <div class="matrix-hint" data-tip="Медиана по {{ mh['samples'] }}
+                 наблюдениям c {{ cost_matrix_from }}, коридор
+                 {{ money(mh['p_min']) }}–{{ money(mh['p_max']) }} руб/тн.
+                 Источник: {{ mh['source'] }}. Ориентир, не подстановка.">
+              накоплено <b>{{ money(mh['rub_per_t']) }}</b> руб/тн
+              <span class="muted">· {{ mh['source'] }} · {{ mh['samples'] }} набл.</span>
+              {% if sale_volume and c['amount'] %}
+                {% set fact = c['amount'] / sale_volume %}
+                {% set diff = (fact - mh['rub_per_t']) / mh['rub_per_t'] * 100 if mh['rub_per_t'] else 0 %}
+                {% if diff | abs >= 30 %}
+                <span class="warn-note">{{ icon('warn', 'icon-s') }}
+                  у нас {{ money(fact) }} руб/тн, это {{ '%+.0f' % diff }}%</span>
+                {% endif %}
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+          <td class="{{ 'variant-col' if bp['has_luk'] and variant == 'bsp' }}">
+            {% if can_edit['costs'] %}
+            <input name="amount_{{ c['id'] }}" value="{{ c['amount'] or 0 }}" class="w-md"
+                   data-pair-per-t="per_t_{{ c['id'] }}">
+            {# Норматив у экономиста в руб/тн, а вписывать приходилось итог.
+               Второе поле считает сумму от тоннажа реализации и наоборот. #}
+            <label class="per-t-field" title="Столько же, но на тонну реализации">
+              <input id="per_t_{{ c['id'] }}" class="w-xs"
+                     data-pair-total="amount_{{ c['id'] }}"
+                     data-volume="{{ sale_volume }}"
+                     value="{{ '%.2f' % (c['amount'] / sale_volume) if c['amount'] and sale_volume else '' }}"
+                     placeholder="руб/тн"><span class="muted">руб/тн</span></label>
+            {% else %}{{ money(c['amount'] or 0) }}{% endif %}
+          </td>
+          {% if bp['has_luk'] %}
+          <td class="{{ 'variant-col' if variant == 'luk' }}">
+            {% if can_edit['costs'] %}
+            <input name="amount_luk_{{ c['id'] }}"
+                   value="{{ c['amount_luk'] if c['amount_luk'] is not none else '' }}"
+                   class="w-md" placeholder="как ДСП">
+            {% else %}{{ money(c['amount_luk']) if c['amount_luk'] is not none else 'как ДСП' }}{% endif %}
+          </td>
+          {% endif %}
+          <td>
+            {% if can_edit['costs'] %}
+            <input name="comment_{{ c['id'] }}" value="{{ c['comment'] or '' }}">
+            {% else %}{{ c['comment'] or '' }}{% endif %}
+            {# Происхождение суммы: норматив, книга или ручной ввод. Пустая
+               метка означает, что сумма пришла до введения учёта источников. #}
+            {% set og = cost_origins.get(c['id']) %}
+            {% if og %}
+            <div class="origin-tag {{ 'origin-manual' if og['source'] == 'вручную' }}"
+                 data-tip="{{ og['source_ref'] or og['source'] }}{% if og['author'] %},
+                 поставил {{ og['author'] }}{% endif %}{% if og['set_at'] %},
+                 {{ og['set_at'][:16] }}{% endif %}">
+              {{ og['source'] }}{% if og['set_at'] %}<span class="muted">
+                · {{ og['set_at'][:10] }}</span>{% endif %}
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if can_edit['costs'] %}
+            <button class="danger btn-icon" formmethod="post" title="Удалить статью"
+                    formaction="/bp/{{ bp['id'] }}/costs/{{ c['id'] }}/delete">{{ icon('trash') }}</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ 6 if bp['has_luk'] else 5 }}" class="muted">Ручных статей нет.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if can_edit['costs'] %}<button type="submit">{{ icon('save') }} Сохранить ручные статьи</button>{% endif %}
+    </form>
+    {% if can_edit['costs'] %}
+    <form method="post" action="/bp/{{ bp['id'] }}/costs/add">
+      <div class="grid">
+        <div><label>Секция</label>
+          <select name="section">
+            {% for s in cost_sections %}<option>{{ s }}</option>{% endfor %}
+          </select></div>
+        <div><label>Статья *</label><input name="item" required></div>
+        <div><label>Сумма, руб</label><input name="amount" value="0"></div>
+        <div><label>База / узел</label><input name="base"></div>
+      </div>
+      <button type="submit">{{ icon('plus') }} Добавить статью</button>
+    </form>
+    {% endif %}
+  </details>
+
+  <div class="table-scroll table-gap">
+  <table>
+    <tr><td class="calc">авто</td><td class="calc" data-tip="Считается автоматически: статья «Зарплата» × ставка налогов с ФОТ (настройка payroll_tax_rate, в БП можно уточнить в блоке «Лот»). Отдельной строкой не вводится.">Налоги с ФОТ
+        ({{ '%.1f' % (pnl['payroll_tax'] / pnl['salary'] * 100 if pnl['salary'] else 0) }}%
+        от «Зарплата»)</td>
+        <td class="calc num">{{ money(pnl['payroll_tax']) }}</td></tr>
+    <tr><td class="calc">авто</td><td class="calc" data-tip="Возникает по позициям, у которых тип покупки не равен типу продажи (труба закуплена с НДС, продана ломом без НДС). На затраты относится доля vat_unrecovered_pct; при расчёте налога на прибыль сумма добавляется обратно к базе.">НДС, не возмещённый (смена типа
+        труба→лом)</td>
+        <td class="calc num">{{ money(pnl['vat_unrecovered']) }}</td></tr>
+    <tr><td class="calc">авто</td><td class="calc" data-tip="Остаток гасится по мере оплаты: база убывает вслед за отгрузкой, при отсрочке — на N месяцев позже. Проценты периода = остаток × ставка/12 × длительность. График по периодам — в xlsx-выгрузке (лист «Данные»).">Стоимость привлечённого капитала
+        ({{ '%.0f' % pnl['capital_rate'] }}% годовых, {{ '%g' % pnl['removal_months'] }} мес{% if pnl['payment_delay_months'] %} + отсрочка {{ '%g' % pnl['payment_delay_months'] }} мес{% endif %}, база {{ money(pnl['capital_base']) }} руб)</td>
+        <td class="calc num">{{ money(pnl['capital_cost']) }}</td></tr>
+  </table>
+  </div>
+</div>

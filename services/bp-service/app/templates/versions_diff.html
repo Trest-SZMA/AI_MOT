@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro money(v) -%}
+  {%- if v is none %}—{% else %}{{ '{:,.0f}'.format(v).replace(',', ' ') }}{% endif -%}
+{%- endmacro %}
+
+{% macro version_label(v) -%}
+  v{{ v['version'] }} · {{ v['created_at'][:16] }}{% if v['author'] %} · {{ v['author'] }}{% endif %}
+{%- endmacro %}
+
+{# Таблица «поле — было — стало». Одна разметка для сделки, позиций,
+   затрат и рисков: экономист читает разницу одинаково везде. #}
+{% macro field_table(fields) %}
+<table class="diff-table">
+  <thead><tr><th>Поле</th><th>Было (v{{ a['version'] }})</th>
+      <th>Стало (v{{ b['version'] }})</th></tr></thead>
+  <tbody>
+  {% for f in fields %}
+  <tr><td>{{ f.label }}</td>
+      <td class="was">{{ f.before }}</td>
+      <td class="now">{{ f.after }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% macro rows_block(title, block) %}
+{% if block.total %}
+<div class="card">
+  <div class="sec-head">
+    <h2>{{ title }}</h2>
+    <div class="sec-aside"><span class="role-tag">{{ block.total }} изм.</span></div>
+  </div>
+  {% for row in block.changed %}
+  <div class="diff-row">
+    {# id строки: одна и та же труба может стоять несколькими строками
+       (разбивка по покупателям) — без него заголовки не различить. #}
+    <div class="diff-row-title">{{ row.title }}
+      <span class="muted">строка {{ row.id }}</span></div>
+    {{ field_table(row.fields) }}
+  </div>
+  {% endfor %}
+  {% if block.added %}
+  <p class="info-line"><b>Добавлено:</b>
+    {{ block.added | map(attribute='title') | join('; ') }}</p>
+  {% endif %}
+  {% if block.removed %}
+  <p class="info-line"><b>Удалено:</b>
+    {{ block.removed | map(attribute='title') | join('; ') }}</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Сравнение версий · {{ bp['bp_number'] }}</h1>
+    <div class="muted">Что изменилось между двумя снимками расчёта.
+      Сравнение идёт по строкам, а не по их порядку.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/bp/{{ bp['id'] }}/decision">{{ icon('arrow-left') }} К карточке</a>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" action="/bp/{{ bp['id'] }}/versions/diff" class="row-form">
+    <div><label for="a">Версия «было»</label>
+      <select id="a" name="a">
+        {% for v in versions %}
+        <option value="{{ v['version'] }}" {% if v['version'] == a['version'] %}selected{% endif %}>
+          {{ version_label(v) }}</option>
+        {% endfor %}
+      </select></div>
+    <div><label for="b">Версия «стало»</label>
+      <select id="b" name="b">
+        {% for v in versions %}
+        <option value="{{ v['version'] }}" {% if v['version'] == b['version'] %}selected{% endif %}>
+          {{ version_label(v) }}</option>
+        {% endfor %}
+      </select></div>
+    <div><button type="submit">{{ icon('refresh') }} Сравнить</button></div>
+  </form>
+  <div class="muted">
+    v{{ a['version'] }}: {{ a['change_note'] or 'правка карточки' }}
+    &nbsp;→&nbsp;
+    v{{ b['version'] }}: {{ b['change_note'] or 'правка карточки' }}
+  </div>
+</div>
+
+{# Главное число: как правки сказались на чистой прибыли каждого варианта. #}
+<div class="kpi-bar">
+  {% for code, p in diff.profits.items() %}
+  <div class="kpi {% if p.delta and p.delta > 0 %}good{% elif p.delta and p.delta < 0 %}bad{% endif %}">
+    <div class="k-label">ЧП {{ variant_labels.get(code, code) }}</div>
+    <div class="k-value">
+      {% if p.delta is none %}{{ money(p.after) }}<span class="k-unit"> руб</span>
+      {% elif p.delta|round(0) == 0 %}<span class="k-unit">без изменений</span>
+      {% else %}{{ '+' if p.delta > 0 else '' }}{{ money(p.delta) }}<span class="k-unit"> руб</span>
+      {% endif %}
+    </div>
+    <div class="k-sub">{{ money(p.before) }} → {{ money(p.after) }} руб</div>
+  </div>
+  {% endfor %}
+  <div class="kpi">
+    <div class="k-label">Всего изменений</div>
+    <div class="k-value">{{ diff.total }}</div>
+    <div class="k-sub">полей и строк</div>
+  </div>
+</div>
+
+{% if not diff.total %}
+<div class="card">
+  <p class="info-line">Между версиями v{{ a['version'] }} и v{{ b['version'] }}
+    расчётных различий нет — правка коснулась данных, которые в снимок не
+    попадают (маршрут, план продажи, вложения) либо была отменена.</p>
+</div>
+{% endif %}
+
+{% if diff.deal %}
+<div class="card">
+  <div class="sec-head">
+    <h2>Параметры сделки</h2>
+    <div class="sec-aside"><span class="role-tag">{{ diff.deal | length }} изм.</span></div>
+  </div>
+  {{ field_table(diff.deal) }}
+</div>
+{% endif %}
+
+{{ rows_block('Позиции лота', diff['items']) }}
+{{ rows_block('Статьи затрат', diff['costs']) }}
+{{ rows_block('Риски', diff['risks']) }}
+
+<style>
+  .diff-table { margin: 0; }
+  .diff-table td.was { color: var(--text-muted); text-decoration: line-through;
+                       text-decoration-color: var(--brand-200); }
+  .diff-table td.now { font-weight: 700; color: var(--brand-900); }
+  .diff-table th:first-child, .diff-table td:first-child { width: 38%; }
+  .diff-row { margin: 0 0 14px; }
+  .diff-row:last-child { margin-bottom: 0; }
+  .diff-row-title { font-size: 13px; font-weight: 800; color: var(--brand-900);
+                    margin: 0 0 4px; }
+</style>
+{% endblock %}

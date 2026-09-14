@@ -1,0 +1,21 @@
+[Unit]
+Description=MetalLomPro 2.0 — аналитика и прогноз рынка лома (МетОптТорг)
+After=network-online.target postgresql@16-main.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Порт 8095 — свой. НЕ трогаем соседей: fines(:8077), портал(:8079),
+# logistmot(:8080), ostatki(:8090), kp(:8091), realizaciya(:8092), bp(:8093/8443), parser-bp(:8094)
+WorkingDirectory=/opt/metallompro
+EnvironmentFile=/etc/metallompro.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/metallompro/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8095 --workers 1
+Restart=always
+RestartSec=5
+# Страховка соседей: при утечке памяти сервис перезапустится, а не уронит LXC
+MemoryHigh=900M
+MemoryMax=1400M
+
+[Install]
+WantedBy=multi-user.target

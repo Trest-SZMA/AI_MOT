@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МЕТОПТОРГ · Фактические остатки металлолома</title>
+<style>
+:root{
+  --navy:#142248; --steel:#485E88; --accent:#2f6fed;
+  --bg:#f4f6fb; --panel:#ffffff; --panel2:#eef2f9; --text:#141c2e; --muted:#6b7690;
+  --line:#dfe5f0; --hover:#e9eef8;
+  --green:#2e9e5b; --yellow:#d9a406; --red:#d1435b;
+  --shadow:0 1px 3px rgba(20,34,72,.08),0 6px 24px rgba(20,34,72,.06);
+}
+[data-theme="dark"]{
+  --navy:#0e1730; --steel:#7f95c6; --accent:#5b8bff;
+  --bg:#0b1120; --panel:#131c31; --panel2:#0f1728; --text:#e6ebf5; --muted:#93a0bd;
+  --line:#233152; --hover:#1b2947;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Lato','Segoe UI',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{background:linear-gradient(100deg,var(--navy),var(--steel));color:#fff;
+  padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.logo{width:34px;height:34px;flex:none}
+.brand{font-weight:800;letter-spacing:.5px;font-size:18px}
+.brand small{font-weight:400;opacity:.85;font-size:12px;letter-spacing:0;display:block}
+.hmeta{margin-left:auto;text-align:right;font-size:12px;opacity:.92}
+.hmeta b{font-size:15px}
+.btn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;
+  border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+.btn:hover{background:rgba(255,255,255,.24)}
+nav.tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:0 12px;position:sticky;top:58px;z-index:40;overflow-x:auto}
+nav.tabs button{background:none;border:none;border-bottom:3px solid transparent;color:var(--muted);
+  padding:12px 16px;cursor:pointer;font-size:13.5px;font-weight:600;white-space:nowrap}
+nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--text)}
+main{padding:18px 20px;max-width:1500px;margin:0 auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.card .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.card .v{font-size:24px;font-weight:800;margin-top:4px}
+.card .v.small{font-size:18px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input[type=search],select,input[type=text]{background:var(--panel2);border:1px solid var(--line);
+  color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:160px}
+.tree{font-size:13.5px}
+.node{border-bottom:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:10px;padding:7px 4px;cursor:pointer}
+.row:hover{background:var(--hover)}
+.row .tw{width:16px;color:var(--muted);flex:none;text-align:center;transition:transform .12s}
+.row.open .tw{transform:rotate(90deg)}
+.row .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted);background:var(--panel2);
+  padding:1px 6px;border-radius:5px;flex:none}
+.row .val{font-variant-numeric:tabular-nums;font-weight:700;flex:none;text-align:right;min-width:96px}
+.row .unit{color:var(--muted);font-weight:400;font-size:11px}
+.children{margin-left:20px;display:none}
+.children.open{display:block}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;flex:none;
+  border:1px solid transparent}
+.b-1С{background:#e6f4ec;color:#1c7a41;border-color:#bfe3cd}
+.b-док{background:#e7effb;color:#2158b8;border-color:#c4d8f4}
+.b-переработка{background:#efeaf9;color:#6b3fb5;border-color:#d9cbf0}
+.b-ручная{background:#fdf1e3;color:#a5651b;border-color:#f2ddbf}
+.b-площадка{background:#fdeef0;color:#b83a52;border-color:#f4ccd4}
+.b-доля{background:#eaf6f8;color:#1c7f95;border-color:#c6e6ec}
+.b-вероятно{background:#fbf3d8;color:#8a6d0c;border-color:#efe1a6}
+.b-ввод{background:#eef0f4;color:#5a667e;border-color:#d6dbe6}
+.b-нет{background:#f6e9ea;color:#a23a45;border-color:#eccdd0}
+[data-theme=dark] .badge{filter:brightness(1.35) saturate(.85)}
+.stale{width:10px;height:10px;border-radius:50%;flex:none}
+.docs{margin:6px 0 10px 40px;border-left:2px solid var(--line);padding-left:12px}
+.doc{display:flex;gap:12px;padding:3px 0;font-size:12px;color:var(--muted)}
+.doc .rn{font-family:ui-monospace,monospace;color:var(--accent);min-width:110px}
+.doc .dt{min-width:150px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;position:sticky;top:0;background:var(--panel)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--hover)}
+.warn{color:var(--red);font-weight:700}
+.chip{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);font-size:11px;margin:2px}
+.muted{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin:6px 0}
+.chk{display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid var(--line)}
+.chk input{width:16px;height:16px}
+.right{margin-left:auto}
+.tag{font-size:11px;color:var(--muted)}
+a.link{color:var(--accent);cursor:pointer;text-decoration:none}
+.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+    <polygon points="50,6 94,88 6,88" fill="none" stroke="#fff" stroke-width="6"/>
+    <polygon points="50,34 74,80 26,80" fill="#fff" opacity=".85"/>
+  </svg>
+  <div class="brand">МЕТОПТОРГ<small>Фактические остатки металлолома · привязка к серии и документу 1С</small></div>
+  <div class="hmeta">
+    <div>Данные на <b id="mActual">—</b></div>
+    <div id="mTotals" class="muted"></div>
+  </div>
+  <button class="btn" id="themeBtn" title="Тема">🌓 Тема</button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-t="podr" class="active">Подразделения</button>
+  <button data-t="series">Серии</button>
+  <button data-t="groups">Группы номенклатуры</button>
+  <button data-t="check">Проверка данных</button>
+  <button data-t="newstock">Новые остатки</button>
+  <button data-t="export1c">Выгрузка в 1С</button>
+  <button data-t="update">Обновление данных</button>
+</nav>
+
+<main id="app"></main>
+
+<script>
+/* ============================ ДАННЫЕ ============================ */
+const DATA = /*__DATA__*/{"meta":{},"rows":[],"check":[],"series_ref":{}}/*__END__*/;
+window.DATA = DATA;
+</script>
+<script>
+/* ============================ УТИЛИТЫ ============================ */
+const $ = (s,r=document)=>r.querySelector(s);
+const el = (t,cls,html)=>{const e=document.createElement(t); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e;};
+const fmt = (n)=> (n==null||isNaN(n))?'':Number(n).toLocaleString('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:3});
+const esc = (s)=> (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ACTUAL = DATA.meta.actual_date||'';
+function actualDateObj(){ const m=/(\d{2})\.(\d{2})\.(\d{4})/.exec(ACTUAL); return m?new Date(+m[3],+m[2]-1,+m[1]):new Date(); }
+function daysLying(dtStr){ if(!dtStr) return null; const d=new Date(dtStr.replace(' ','T')); if(isNaN(d))return null;
+  return Math.max(0,Math.round((actualDateObj()-d)/864e5)); }
+function staleColor(days){ if(days==null) return 'var(--line)';
+  if(days<=90) return 'var(--green)'; if(days<=365) return 'var(--yellow)';
+  if(days<=730) return 'color-mix(in srgb,var(--yellow),var(--red) '+Math.min(100,(days-365)/365*100)+'%)'; return 'var(--red)'; }
+function staleCat(days){ if(days==null)return ''; if(days<90)return 'свежий'; if(days<365)return '3–12 мес'; return 'СТАРЫЙ'; }
+const BADGE_LABEL={'1С':'1С','док':'док','переработка':'переработка','ручная':'ручная','площадка':'площадка','доля':'доля','вероятно':'вероятно','ввод':'ввод','нет':'нет'};
+function badge(b){ b=b||'нет'; return '<span class="badge b-'+esc(b)+'" title="происхождение серии: '+esc(BADGE_LABEL[b]||b)+'">'+esc(BADGE_LABEL[b]||b)+'</span>'; }
+const BADGE_RANK={'1С':0,'док':1,'переработка':2,'ручная':2,'площадка':3,'доля':3,'вероятно':4,'ввод':4,'нет':5};
+const worstBadge=(a,b)=> a==null?b : b==null?a : (BADGE_RANK[a]>=BADGE_RANK[b]?a:b);
+
+/* группировка */
+function groupBy(arr,keyfn){ const m=new Map(); for(const x of arr){const k=keyfn(x); if(!m.has(k))m.set(k,[]); m.get(k).push(x);} return m; }
+function sum(arr,f){ let s=0; for(const x of arr)s+=f(x)||0; return s; }
+
+/* ============================ РОУТИНГ ============================ */
+const TABS={};
+function render(tab){
+  $('#app').innerHTML='';
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.t===tab));
+  (TABS[tab]||(()=>{}))($('#app'));
+  history.replaceState(null,'','#'+tab);
+}
+$('#tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b)render(b.dataset.t); });
+$('#themeBtn').addEventListener('click',()=>{ const r=document.documentElement;
+  r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; localStorage.mo_theme=r.dataset.theme; });
+if(localStorage.mo_theme) document.documentElement.dataset.theme=localStorage.mo_theme;
+
+/* header meta */
+$('#mActual').textContent=ACTUAL||'—';
+$('#mTotals').textContent = 'Всего: '+fmt(DATA.meta.total_tonnes)+' т · с реальной серией: '+fmt(DATA.meta.real_series_tonnes)+' т';
+</script>
+<!--__TABS_JS__-->
+<script>
+render((location.hash||'#podr').slice(1)||'podr');
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Архив месяцев — Отчет по штрафам{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Архив месяцев</h1></div>
+<div class="table-wrap">
+<table class="fines">
+  <thead>
+    <tr><th>Месяц</th><th>Статус</th><th class="num">Штрафов</th><th class="num">Сумма, руб.</th>
+        <th class="num">Оплачено</th><th class="num">Не оплачено, руб.</th><th class="num">С ИП</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for row in plist %}
+    <tr>
+      <td><a href="/period/{{ row.p.id }}"><b>{{ period_name(row.p) }}</b></a></td>
+      <td><span class="badge {{ 'ok' if row.p.status=='open' else 'gray' }}">{{ 'открыт' if row.p.status=='open' else 'закрыт ' + (row.p.closed_at or '') }}</span></td>
+      <td class="num">{{ row.stats.cnt }}</td>
+      <td class="num">{{ row.stats.total | money }}</td>
+      <td class="num">{{ row.stats.paid_cnt }}</td>
+      <td class="num">{{ row.stats.unpaid_sum | money }}</td>
+      <td class="num">{{ row.stats.ip_cnt }}</td>
+      <td class="nowrap">
+        <a class="mini btn" href="/export/{{ row.p.id }}/xlsx">Excel</a>
+        <a class="mini btn" href="/export/{{ row.p.id }}/docx">Word</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="empty">Периодов пока нет</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

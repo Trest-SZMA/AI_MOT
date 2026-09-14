@@ -1,0 +1,21 @@
+<div class="card" id="sec-workflow">
+  <div class="sec-head">
+    <h2><span class="sec-num">18</span> Статус и согласование</h2>
+    <div class="sec-aside"><span class="role-tag">Текущий статус: {{ bp['status'] }}</span></div>
+  </div>
+  {% if actions %}
+  <form method="post" action="/bp/{{ bp['id'] }}/status" class="decision-panel">
+    <div class="decision-actions">
+        {% for action, label in actions %}
+        <button type="submit" name="action" value="{{ action }}"
+          {% if action in ('reject', 'to_rework') %}class="danger"{% endif %}>
+          {{ label }}</button>
+        {% endfor %}
+    </div>
+    <div><label>Комментарий к решению</label>
+        <input name="comment" placeholder="необязательно"></div>
+  </form>
+  {% else %}
+  <span class="muted">Действий по статусу для вашей роли нет.</span>
+  {% endif %}
+</div>

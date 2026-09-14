@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ period_name(period) }} — Отчет по штрафам{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ period_name(period) }}
+    <span class="badge {{ 'ok' if period.status=='open' else 'gray' }}">{{ 'месяц открыт' if period.status=='open' else 'закрыт' }}</span>
+  </h1>
+  {% include "_monthnav.html" %}
+  <div class="actions">
+    <a class="btn" href="/export/{{ period.id }}/xlsx">⬇ Excel</a>
+    <a class="btn" href="/export/{{ period.id }}/docx">⬇ Word</a>
+    <form method="post" action="/period/{{ period.id }}/close" class="inline"
+          onsubmit="return confirm('Закрыть {{ period_name(period) }} и открыть следующий месяц?');">
+      <button class="btn danger">Закрыть месяц</button>
+    </form>
+  </div>
+</div>
+
+{% if unlinked %}
+<div class="alert warn">⚠ Есть документы ФССП без привязки к штрафу: <a href="/ip/unlinked">{{ unlinked }} шт. — привязать</a></div>
+{% endif %}
+
+{% if results %}
+<div class="upload-results">
+  {% for r in results %}
+    <div class="alert {{ 'ok' if r.status=='ok' else ('warn' if r.status in ('dup','warn') else 'err') }}">
+      <b>{{ r.file }}</b> — {{ r.msg }}
+      {% if r.fine_id %} <a href="/fine/{{ r.fine_id }}">открыть</a>{% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% set stats_open = false %}
+{% include "_stats.html" %}
+
+<form method="post" action="/upload" enctype="multipart/form-data" class="dropzone" id="dz">
+  <input type="file" name="files" id="fileInput" accept=".pdf" multiple hidden>
+  <div class="dz-inner">
+    <div class="dz-icon">📄</div>
+    <div><b>Перетащите PDF постановлений сюда</b> или <label for="fileInput" class="link">выберите файлы</label></div>
+    <div class="muted small">Штрафы ГИБДД/МУГАДН и постановления ФССП (возбуждение ИП, арест, снятие ареста) распознаются автоматически</div>
+    <div id="picked" class="muted small"></div>
+    <button type="submit" class="btn primary" id="uploadBtn" style="display:none">Загрузить</button>
+  </div>
+</form>
+
+{% include "_table.html" %}
+
+<script>
+const dz = document.getElementById('dz'), inp = document.getElementById('fileInput'),
+      btn = document.getElementById('uploadBtn'), picked = document.getElementById('picked');
+inp.addEventListener('change', () => {
+  if (inp.files.length) {
+    picked.textContent = 'Выбрано файлов: ' + inp.files.length;
+    btn.style.display = 'inline-block';
+  }
+});
+['dragover','dragenter'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('over'); }));
+['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', ev => {
+  inp.files = ev.dataTransfer.files;
+  inp.dispatchEvent(new Event('change'));
+});
+</script>
+{% endblock %}

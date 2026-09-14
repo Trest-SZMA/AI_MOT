@@ -1,0 +1,81 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card" id="sec-pnl">
+  <div class="sec-head">
+    <h2><span class="sec-num">9</span> Отчет о прибылях и убытках{% if bp['has_luk'] %}
+      <span class="pill variant-pill" data-tip="P&L рассчитан по активному варианту: цены реализации, суммы статей и параметры варианта «{{ variant_label }}».">вариант: {{ variant_label }}</span>{% endif %}</h2>
+    <div class="sec-aside"><span class="role-tag">Расчет по утвержденной методике</span></div>
+  </div>
+  <div class="metric-strip">
+    <span class="metric">Выручка без НДС <b>{{ money(pnl['revenue']) }}</b></span>
+    <span class="metric">Опер. прибыль <b>{{ money(pnl['operating_profit']) }}</b></span>
+    <span class="metric">Чистая прибыль <b class="{{ 'pos' if pnl['net_profit'] >= 0 else 'neg' }}">{{ money(pnl['net_profit']) }}</b></span>
+    <span class="metric">ROS <b class="{{ 'pos' if pnl['above_threshold'] else 'neg' }}">{{ '%.1f' % pnl['ros_pct'] }}%</b></span>
+    <span class="metric">Порог {{ '%.0f' % pnl['margin_threshold'] }}% <b>{{ 'выше' if pnl['above_threshold'] else 'ниже' }}</b></span>
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Показатель</th><th class="num">Тоннаж</th><th class="num">Суммарно, руб</th><th class="num">На 1 тн, руб</th></tr></thead>
+    <tbody>
+    <tr><td data-tip="Сумма по позициям: объём продажи × цена реализации варианта. Объём продажи чёрного лома = объём закупки × (1 − засор {{ '%.1f' % (bp['contamination_pct'] or 0) }}%) — засор применяется по типу ПРОДАЖИ (труба, проданная ломом, тоже теряет объём). Быстро заполнить цены: колонка «Цена реализ.» в составе лота, ориентиры — подсказки блока «Лот»."><b>1. Выручка от реализации без НДС</b></td>
+        <td class="calc num">{{ '%.1f' % pnl['sale_volume'] }}</td>
+        <td class="calc num"><b>{{ money(pnl['revenue']) }}</b></td>
+        <td class="calc num">{{ '%.0f' % pnl['revenue_per_t'] }}</td></tr>
+    {% for t, d in pnl['by_type'].items() if d['volume'] or d['revenue'] %}
+    <tr><td class="indent-1">{{ t }}</td>
+        <td class="calc num">{{ '%.1f' % d['volume'] }}</td>
+        <td class="calc num">{{ money(d['revenue']) }}</td>
+        <td class="calc num">{{ '%.0f' % (d['revenue'] / d['volume'] if d['volume'] else 0) }}</td></tr>
+    {% endfor %}
+    <tr><td data-tip="Закупка лотом: цена руб/тн = стоимость лота / суммарный тоннаж позиций; стоимость распределяется на позиции пропорционально объёму. Стоимость лота задаётся в блоке «Лот» (порог закупки/итог аукциона)."><b>2. Себестоимость закупки (лот)</b></td>
+        <td class="calc num">{{ '%.1f' % pnl['purchase_volume'] }}</td>
+        <td class="calc num">{{ money(pnl['lot_cost']) }}</td>
+        <td class="calc num">{{ '%.0f' % pnl['purchase_price_per_t'] }}</td></tr>
+    <tr><td class="indent-1">закупка с НДС (по типам)</td><td></td>
+        <td class="calc num">{{ money(pnl['purchase_cost_vat']) }}</td><td></td></tr>
+    <tr><td data-tip="Выручка − стоимость лота. Наценка % = валовый доход / стоимость лота."><b>3. Валовый доход от закупочной стоимости</b></td><td></td>
+        <td class="calc num">{{ money(pnl['gross_purchase']) }}</td>
+        <td class="calc num">наценка {{ '%.0f' % pnl['markup_pct'] }}%</td></tr>
+    <tr><td data-tip="Сумма статей секции «Переменные» (ПРР, газ и кислород, транспорт). Быстрый расчёт — нормативная модель в блоке «Затраты»: драйверы (объёмы, км, доли транспорта) × нормативы; суммы записываются в активный вариант."><b>4. Переменные расходы</b></td><td></td>
+        <td class="calc num">{{ money(pnl['variable_costs']) }}</td><td></td></tr>
+    <tr><td data-tip="Выручка − стоимость лота − переменные расходы."><b>5. Валовый доход от производственной себестоимости</b></td><td></td>
+        <td class="calc num">{{ money(pnl['gross_production']) }}</td><td></td></tr>
+    <tr><td data-tip="Персонал + налоги с ФОТ (считаются автоматически: статья «Зарплата» × ставка) + прочие постоянные. Невозмещённый НДС показан отдельной строкой ниже — как в книгах экономистов."><b>6. Постоянные расходы</b> (персонал {{ money(pnl['personnel_total']) }},
+        вкл. налоги с ФОТ {{ money(pnl['payroll_tax']) }}; НДС невозмещённый
+        {{ '%.0f' % pnl['vat_unrecovered_pct'] }}% = {{ money(pnl['vat_unrecovered']) }}
+        из {{ money(pnl['vat_unrecovered_full']) }})</td><td></td>
+        <td class="calc num">{{ money(pnl['fixed_costs_wo_vat']) }}</td><td></td></tr>
+    {# Невозмещённый НДС — отдельной строкой, как в книгах экономистов:
+       внутри «постоянных» он ломал построчную сверку с файлом. #}
+    <tr><td data-tip="Возникает, когда тип покупки не равен типу продажи
+        (труба куплена с НДС, продана ломом без НДС). На затраты относится
+        доля {{ '%.0f' % pnl['vat_unrecovered_pct'] }}% от
+        {{ money(pnl['vat_unrecovered_full']) }}; при налоге на прибыль сумма
+        добавляется обратно к базе."><b>6а. НДС, не возмещённый
+        {{ '%.0f' % pnl['vat_unrecovered_pct'] }}%</b></td><td></td>
+        <td class="calc num">{{ money(pnl['vat_unrecovered']) }}</td><td></td></tr>
+    <tr><td data-tip="Переменные + постоянные расходы + невозмещённый НДС. Распределяются на позиции: статья с базой — на позиции этой базы, привязанная к стрелке графа — на позиции её потока, без привязки — на все позиции по тоннажу продажи."><b>7. Итого прямые затраты</b></td><td></td>
+        <td class="calc num">{{ money(pnl['direct_costs']) }}</td>
+        <td class="calc num">{{ '%.0f' % (pnl['direct_costs'] / pnl['sale_volume']
+                            if pnl['sale_volume'] else 0) }}</td></tr>
+    <tr><td data-tip="Выручка − стоимость лота − прямые затраты. При импорте книги экономистов сверяется с контрольной суммой файла (плашка у переключателя вариантов)."><b>8. Операционная прибыль</b></td><td></td>
+        <td class="calc num"><b>{{ money(pnl['operating_profit']) }}</b></td>
+        <td class="calc num">{{ '%.0f' % pnl['operating_profit_per_t'] }}</td></tr>
+    <tr><td data-tip="Сумма статей секции «Административные» (ручные статьи в блоке «Затраты»).">9. Административные расходы</td><td></td>
+        <td class="calc num">{{ money(pnl['admin_costs']) }}</td><td></td></tr>
+    <tr><td data-tip="Стоимость привлечённого капитала: остаток гасится по мере ОПЛАТЫ. База (по умолчанию закупка с НДС) убывает по мере отгрузки, а при отсрочке оплаты — на N месяцев позже: проценты периода = остаток × ставка / 12. Без отсрочки итог = база × ставка/12 × (мес + 1)/2. База, ставка, срок и отсрочка — в блоке «Лот».">10. Финансовые расходы (капитал {{ '%.0f' % pnl['capital_rate'] }}%,
+        {{ '%g' % pnl['removal_months'] }} мес)</td><td></td>
+        <td class="calc num">{{ money(pnl['capital_cost']) }}</td><td></td></tr>
+    <tr><td data-tip="Сумма статей секции «Прочие» (ручные статьи).">11. Прочие доходы и расходы</td><td></td>
+        <td class="calc num">{{ money(pnl['other_costs']) }}</td><td></td></tr>
+    <tr><td data-tip="Операционная прибыль − административные − капитал − прочие. Равна сумме прибылей позиций в составе лота (построчная экономика)."><b>12. Прибыль до налогообложения</b></td><td></td>
+        <td class="calc num">{{ money(pnl['profit_before_tax']) }}</td><td></td></tr>
+    <tr><td data-tip="max((прибыль до налога + невозмещённый НДС, отнесённый на затраты) × ставка, 0) — невозмещённый НДС не уменьшает налоговую базу (формула C53 книги 1865). При убытке налог не начисляется.">13. Налог на прибыль ({{ '%.0f' % pnl['tax_rate'] }}% от базы:
+        прибыль + невозмещённый НДС, отнесённый на затраты)</td><td></td>
+        <td class="calc num">{{ money(pnl['income_tax']) }}</td><td></td></tr>
+    <tr><td data-tip="Прибыль до налогообложения − налог. ROS = чистая прибыль / выручка; сделка проходит при ROS не ниже порога {{ '%.0f' % pnl['margin_threshold'] }}%."><b>14. ЧИСТАЯ ПРИБЫЛЬ</b></td><td></td>
+        <td class="calc num"><b>{{ money(pnl['net_profit']) }}</b></td>
+        <td class="calc num"><b>{{ '%.0f' % pnl['net_profit_per_t'] }}</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>

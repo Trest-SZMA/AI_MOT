@@ -1,0 +1,6 @@
+[Unit]
+Description=МетОптТорг — утренняя сводка по сервисам в Telegram
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/metoptorg-healthcheck --summary

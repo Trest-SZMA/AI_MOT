@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МетОптТорг — оценка КП</title>
+<style>
+:root{--navy:#1B2A4A;--steel:#4A6FA5;--bg:#F4F6F9;--line:#D7DEE8;--ok:#2E7D32;--warn:#B26A00;--bad:#B3261E}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:#1c2430;font-size:14px}
+header{background:var(--navy);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:24px}
+header h1{font-size:16px;font-weight:600;letter-spacing:.3px}
+a.home{color:inherit;text-decoration:none;display:flex;align-items:center;gap:8px;
+  padding:4px 8px;margin:-4px -8px;border-radius:6px}
+a.home:hover{background:rgba(255,255,255,.10)}
+a.home .back{font-size:15px;opacity:.65}
+a.home:hover .back{opacity:1}
+nav button{background:none;border:none;color:#c8d4e8;padding:8px 12px;cursor:pointer;font-size:14px;border-bottom:2px solid transparent}
+nav button.active{color:#fff;border-color:var(--steel)}
+main{padding:16px 20px;max-width:1500px;margin:0 auto}
+.cards{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}
+.card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px 16px;min-width:170px}
+.card .lbl{font-size:11px;color:#5a6b82;text-transform:uppercase;letter-spacing:.5px}
+.card .val{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--navy)}
+.card.main .val{color:var(--steel)}
+table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--line)}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#EAEFF6;font-size:12px;color:#33415c;position:sticky;top:0}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:hover td{background:#F6F9FD}
+.chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:9px;border:1px solid;margin-top:2px}
+.chip.src{color:#33415c;border-color:#9fb2cc;background:#EDF2F9}
+.chip.low{color:var(--bad);border-color:#e2b4b1;background:#FBEFEE}
+.chip.med{color:var(--warn);border-color:#e0c290;background:#FBF4E6}
+.chip.high{color:var(--ok);border-color:#a8cfa9;background:#EDF6ED}
+.muted{color:#6b7a90;font-size:12px}
+input[type=number],input[type=text]{width:90px;padding:3px 6px;border:1px solid var(--line);border-radius:4px;font-size:13px}
+input.wide{width:100%}
+button.act{background:var(--steel);color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px}
+button.act:hover{background:#3d5d8c}
+.drop{border:2px dashed var(--steel);border-radius:8px;padding:24px;text-align:center;color:#4a6fa5;background:#fff;margin:10px 0;cursor:pointer}
+.section{display:none}.section.active{display:block}
+.doclist{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.doclist button{background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+.doclist button.sel{border-color:var(--steel);background:#EDF2F9}
+.msg{padding:8px 12px;border-radius:6px;margin:8px 0;display:none}
+.msg.err{background:#FBEFEE;color:var(--bad);display:block}
+.msg.ok{background:#EDF6ED;color:var(--ok);display:block}
+h2{font-size:15px;color:var(--navy);margin:14px 0 8px}
+.scen{font-weight:700}
+.scen.base{color:#7a4a1e}.scen.bp{color:#1e5e2a}
+td .sub{font-size:11px;color:#5a6b82;margin-top:2px}
+.searchbox{position:relative}
+.results{position:absolute;background:#fff;border:1px solid var(--line);z-index:10;max-height:220px;overflow:auto;width:340px}
+.results div{padding:5px 8px;cursor:pointer}
+.results div:hover{background:#EDF2F9}
+</style>
+</head>
+<body>
+<header>
+  <a class="home" id="homeLink" href="#" title="На главный экран портала">
+    <span class="back">←</span><h1>МетОптТорг · Оценка КП</h1>
+  </a>
+  <span id="who" class="muted" style="margin-left:auto;color:#c8d4e8"></span>
+  <nav>
+    <button data-s="kp" class="active">Оценка КП</button>
+    <button data-s="summary">Сводка</button>
+    <button data-s="items">Номенклатура</button>
+    <button data-s="clients">Клиенты</button>
+    <button data-s="monitor">Мониторинг</button>
+    <button data-s="yields">Выхода</button>
+    <button data-s="prices">Цены лома</button>
+    <button data-s="norms">Нормативы</button>
+    <button data-s="data">Данные</button>
+  </nav>
+</header>
+<main>
+<div id="msg" class="msg"></div>
+
+<section id="s-kp" class="section active">
+  <div class="drop" id="dropKp">Загрузить файл КП (Excel/CSV/PDF) — перетащите или кликните
+    <input type="file" id="fileKp" hidden></div>
+  <div class="doclist" id="docs"></div>
+  <div id="kpView"></div>
+</section>
+
+<section id="s-summary" class="section">
+  <h2>Воронка предложений</h2>
+  <div class="cards" id="funnel"></div>
+  <h2>Все коммерческие предложения</h2>
+  <table id="kpTable"><thead><tr>
+    <th>Перечень</th><th>Продавец</th><th>Место погрузки</th><th>Позиций</th>
+    <th>Вес, т</th><th>Расчёт база / БП, ₽</th><th>Предложено, ₽</th>
+    <th>Статус</th><th>Комментарий</th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-items" class="section">
+  <h2>Актуальные позиции номенклатуры</h2>
+  <div class="card" style="min-width:0">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Поиск<br><input type="text" id="iq" style="width:260px" placeholder="имя позиции"></label>
+      <label>Семейство<br><select id="ifam"><option value="">все</option></select></label>
+      <label>Отбор<br><select id="iflag">
+        <option value="">все торговые</option>
+        <option value="priced">с ценой продаж</option>
+        <option value="no_price">без цены</option>
+        <option value="merged">объединённые дубли</option>
+        <option value="outlier">ценовые выбросы</option>
+      </select></label>
+      <button class="act" id="iGo">Показать</button>
+      <button class="act" id="iAiBatch" style="background:#6b7a90">ИИ-цены для семейства</button>
+      <span class="muted" id="iCount"></span>
+    </div>
+    <div class="muted" style="margin-top:6px">Показаны только торговые позиции после дедупликации:
+      дубли слиты в одну карточку, guid из 1С сохранены. «Выброс» — цена отличается
+      от медианы семейства втрое и более, такую стоит проверить.</div>
+  </div>
+  <table id="itemTable"><thead><tr>
+    <th>Позиция</th><th>Ед.</th><th>Семейство</th><th>Размер</th>
+    <th>Дубли</th><th>Продажа ₽</th><th>Закупка ₽</th><th>Признаки</th>
+  </tr></thead><tbody></tbody></table>
+  <div id="itemCard"></div>
+
+  <h2>Кандидаты на объединение (нечёткие дубли)</h2>
+  <div class="muted">Одинаковый набор слов, разное написание. Объединение переносит
+    guid, цены и позиции КП в каноническую карточку (остаётся та, у которой больше истории).</div>
+  <div style="display:flex;gap:10px;margin:8px 0;flex-wrap:wrap;align-items:center">
+    <button class="act" id="mergeSafe">Слить очевидные (различие в пунктуации)</button>
+    <button class="act" id="mergeBu" style="background:#B26A00">Слить различающиеся только «б/у»</button>
+    <span class="muted" id="mergeInfo"></span>
+  </div>
+  <table id="candTable"><thead><tr><th>Позиция A (останется)</th><th>Позиция B (поглощается)</th><th></th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-clients" class="section">
+  <h2>Кому продать и по какой цене</h2>
+  <div class="card" style="min-width:0">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Позиция<br>
+        <span class="searchbox"><input type="text" id="clQ" class="wide" style="width:420px"
+          placeholder="начните вводить название — подставится карточка из справочника"
+          autocomplete="off"><span class="results" id="clRes" style="display:none"></span></span>
+      </label>
+      <label>Ед.<br><input type="text" id="clUnit" style="width:60px" placeholder="шт"></label>
+      <label>Кол-во<br><input type="number" id="clQty" step="0.01" placeholder="—"></label>
+      <button class="act" id="clGo">Подобрать клиентов</button>
+      <span class="muted" id="clState"></span>
+    </div>
+    <div class="muted" style="margin-top:6px">Сервис не звонит и не пишет клиентам.
+      Он отвечает на два вопроса, на которые у менеджера нет времени: кто уже покупал
+      похожее и сколько за это платили — и под каждый ответ кладёт доказательство из 1С
+      или ссылку. Решение и переговоры остаются за отделом продаж.</div>
+  </div>
+
+  <div id="clPrice"></div>
+  <div id="clLeads"></div>
+
+  <h2>Последние подборы</h2>
+  <table id="clCamps"><thead><tr><th>Позиция</th><th>Когда</th><th>Кто</th>
+    <th>Ориентир цены</th><th>Лидов</th><th>Статус</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-monitor" class="section">
+  <h2>Мониторинг торговых каналов</h2>
+  <div class="card" style="min-width:0">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Вид источника<br><select id="monKind">
+        <option value="telegram">Telegram-канал</option>
+        <option value="search">Поисковый запрос</option>
+        <option value="web">Страница сайта</option>
+      </select></label>
+      <label id="monHandleLbl">Публичный Telegram-канал<br>
+        <input type="text" id="monHandle" style="width:380px"
+               placeholder="@lom_ural или ссылка t.me/lom_ural"></label>
+      <button class="act" id="monAdd">Добавить</button>
+      <button class="act" id="monBulk" style="background:#6b7a90">Список пачкой</button>
+      <button class="act" id="monPoll" style="background:#6b7a90">Опросить сейчас</button>
+      <span class="muted" id="monState"></span>
+    </div>
+    <div id="monBulkBox" style="display:none;margin-top:8px">
+      <textarea id="monBulkText" rows="6" style="width:100%;padding:6px;
+        border:1px solid var(--line);border-radius:4px;font-size:13px"
+        placeholder="Вставьте список каналов — по одному в строке:&#10;@lom_ural&#10;https://t.me/truba_nkt&#10;pipe_market"></textarea>
+      <div style="margin-top:6px"><button class="act" id="monBulkGo">Проверить и добавить</button></div>
+      <div id="monBulkRes"></div>
+    </div>
+    <div class="muted" style="margin-top:6px" id="monHint"></div>
+  </div>
+  <table id="monSources"><thead><tr><th>Источник</th><th>Вид</th><th>Название</th>
+    <th>Последний опрос</th><th>Прочитано</th><th>Объявлений</th>
+    <th>Состояние</th><th></th></tr></thead><tbody></tbody></table>
+
+  <h2>Ключевые слова</h2>
+  <div class="card" style="min-width:0">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Слово или фраза<br>
+        <input type="text" id="kwPhrase" style="width:240px"
+               placeholder="например ЭДБ или гидрозащита"></label>
+      <label style="align-self:center"><input type="checkbox" id="kwWhole" checked>
+        целым словом</label>
+      <button class="act" id="kwAdd">Добавить</button>
+      <button class="act" id="kwRescan" style="background:#6b7a90"
+              title="Применить список к уже собранным объявлениям">Пересканировать ленту</button>
+    </div>
+    <div class="muted" style="margin-top:6px">Классификатор узнаёт только то, что
+      уже проходило через 1С. Ключевые слова ловят остальное: новую марку, редкую
+      позицию, чужую формулировку. «Целым словом» — для аббревиатур: «ПЭД» не
+      сработает внутри «ПЭДАЛЬ». Снимите галочку для обычных слов — тогда поиск
+      идёт по основе и ловит падежи: «гидрозащита» найдётся в «куплю
+      гидрозащиту».</div>
+  </div>
+  <table id="kwTable"><thead><tr><th>Слово</th><th>Как ищем</th>
+    <th>Срабатываний</th><th>Последнее</th><th>Примечание</th><th></th>
+  </tr></thead><tbody></tbody></table>
+
+  <h2>Лента объявлений</h2>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
+    <label>Показывать<br><select id="monDir">
+      <option value="">все</option>
+      <option value="buy">только «куплю» — это покупатели</option>
+      <option value="sell">только «продам» — это цены рынка</option>
+    </select></label>
+    <label>Ключевое слово<br><select id="monKw"><option value="">любое</option></select></label>
+    <label style="align-self:center"><input type="checkbox" id="monMatched" checked>
+      только интересное (позиция распознана или сработало слово)</label>
+    <span class="muted" id="monCount"></span>
+  </div>
+  <table id="monFeed"><thead><tr><th>Когда</th><th>Что</th><th>Позиция</th>
+    <th>Цена</th><th>Контакты</th><th>Канал</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-yields" class="section">
+  <h2>Утвердить деловой выход</h2>
+  <div class="card" style="min-width:0;max-width:900px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Блок<br><select id="yBlock">
+        <option value="expert">expert (БП)</option>
+        <option value="mot">mot (наш — влияет на Базу)</option>
+        <option value="ai">ai</option></select></label>
+      <label>Семейство/категория<br><select id="yFamily"><option value="">—</option></select></label>
+      <label>Типоразмер<br><input type="text" id="ySize" placeholder="нкт-73"></label>
+      <label>Точная позиция<br><input type="text" id="yItem" class="" style="width:220px" placeholder="имя из КП (необязательно)"></label>
+      <label>Выход, %<br><input type="number" id="yPct" min="0" max="100"></label>
+      <label>Кто утвердил<br><input type="text" id="yWho" placeholder="ФИО"></label>
+      <button class="act" id="yAdd">Утвердить</button>
+    </div>
+    <div class="muted" style="margin-top:6px">Привязка: точная позиция &gt; типоразмер &gt; категория.
+      База считает только блок mot; БП — expert → ai → mot. Пересчёт КП мгновенный.</div>
+  </div>
+  <h2>Действующие оценки</h2>
+  <table id="yieldTable"><thead><tr><th>Блок</th><th>Категория</th><th>Размер</th><th>Позиция</th><th>Выход %</th><th>Кто</th><th>Примечание</th><th></th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-prices" class="section">
+  <h2>Прайс лома (₽/т) — история сохраняется</h2>
+  <table id="priceTable"><thead><tr><th>Материал</th><th>Марки</th><th>Цена, ₽/т</th>
+    <th>Рекомендация</th><th>Источник</th><th>Действует с</th><th></th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-norms" class="section">
+  <h2>Нормативы</h2>
+  <table id="normTable"><thead><tr><th>Ключ</th><th>Значение</th><th>Ед.</th><th>Примечание</th><th></th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="s-data" class="section">
+  <h2>Загрузка данных</h2>
+  <div class="drop" id="dropY">Файлы «Выходы металлов» (Excel)<input type="file" id="fileY" hidden></div>
+  <div class="drop" id="dropN">Справочник номенклатуры 1С (Excel)<input type="file" id="fileN" hidden></div>
+  <div class="drop" id="dropMarket">Еженедельный обзор рынка лома (Excel)
+    <input type="file" id="fileMarket" hidden></div>
+  <div class="muted" id="marketMeta"></div>
+  <div class="muted">Обзор задаёт индекс чёрного лома по регионам. Рабочая цена
+    чермета = индекс нашего региона × наш исторический коэффициент; рекомендация
+    и кнопка «применить» живут на вкладке «Цены лома».</div>
+</section>
+</main>
+
+<script>
+const $=q=>document.querySelector(q);
+const fmt=n=>n==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n);
+const fmt1=n=>n==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(n);
+let currentDoc=null;
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');$('#s-'+b.dataset.s).classList.add('active');
+  if(b.dataset.s==='prices')loadPrices();
+  if(b.dataset.s==='norms')loadNorms();
+  if(b.dataset.s==='yields')loadYields();
+  if(b.dataset.s==='data')loadMarket();
+  if(b.dataset.s==='items')loadItems();
+  if(b.dataset.s==='summary')loadSummary();
+  if(b.dataset.s==='clients')loadCampaigns();
+  if(b.dataset.s==='monitor')loadMonitor();
+});
+
+function msg(text,cls){const m=$('#msg');m.textContent=text;m.className='msg '+cls;
+  setTimeout(()=>m.className='msg',6000)}
+
+function bindDrop(dropId,fileId,url,after){
+  const d=$(dropId),f=$(fileId);
+  d.onclick=()=>f.click();
+  d.ondragover=e=>{e.preventDefault()};
+  d.ondrop=e=>{e.preventDefault();if(e.dataTransfer.files[0])send(e.dataTransfer.files[0])};
+  f.onchange=()=>{if(f.files[0])send(f.files[0])};
+  async function send(file){
+    const fd=new FormData();fd.append('file',file);
+    const r=await fetch(url,{method:'POST',body:fd});
+    const j=await r.json();
+    if(!r.ok){msg(j.detail||'Ошибка','err');return}
+    after(j);
+  }
+}
+bindDrop('#dropKp','#fileKp','/api/kp/upload',j=>{
+  msg(`Импортировано позиций: ${j.positions} (лотов: ${j.lots}, лист «${j.sheet}», ${j.total_weight_t} т)`,'ok');
+  loadDocs().then(()=>openDoc(j.document_id));
+});
+bindDrop('#dropY','#fileY','/api/yields/upload',j=>{
+  msg(`Партий: ${j.batches}, выходов: ${j.yields}, перечни: ${j.lists.join(', ')}. Профили пересобраны (${j.profiles_rebuilt}).`,'ok');
+});
+bindDrop('#dropN','#fileN','/api/nomenclature/upload',j=>{
+  msg(`Строк: ${j.rows}, новых: ${j.created}, дублей слито: ${j.merged_duplicates}, торговых: ${j.trade}`,'ok');
+});
+
+async function loadDocs(){
+  const docs=await (await fetch('/api/kp')).json();
+  $('#docs').innerHTML=docs.map(d=>`<button data-id="${d.id}" class="${d.id===currentDoc?'sel':''}">${d.title} · ${d.positions} поз.</button>`).join('');
+  document.querySelectorAll('#docs button').forEach(b=>b.onclick=()=>openDoc(+b.dataset.id));
+}
+
+function chip(text,cls='src'){return text?`<span class="chip ${cls}">${text}</span>`:''}
+
+async function openDoc(id){
+  currentDoc=id;
+  const d=await (await fetch('/api/kp/'+id)).json();
+  loadDocs();
+  const t=d.totals;
+  let html=`
+  <div class="cards">
+    <div class="card main"><div class="lbl">Предложение · База</div><div class="val">${fmt(t.base_buyout)} ₽</div></div>
+    <div class="card main"><div class="lbl">Предложение · БП</div><div class="val">${fmt(t.bp_buyout)} ₽</div></div>
+    <div class="card"><div class="lbl">Реализация база / БП</div><div class="val">${fmt(t.base_resale)} / ${fmt(t.bp_resale)}</div></div>
+    <div class="card"><div class="lbl">Вес партии</div><div class="val">${fmt1(t.weight_t)} т</div></div>
+    <div class="card"><div class="lbl">ИИ-цены</div>
+      <div class="val" style="font-size:14px"><button class="act" id="aiBatch">Найти цены</button></div>
+      <div class="sub" id="aiProgress">для позиций без цены</div></div>
+    <div class="card"><div class="lbl">Экспорт</div>
+      <div class="val" style="font-size:15px"><a href="/api/kp/${id}/export">Excel ⬇</a></div>
+      <div class="sub"><a href="/api/kp/${id}/offer?scenario=base" target="_blank">Предложение (база)</a> ·
+        <a href="/api/kp/${id}/offer?scenario=bp" target="_blank">БП</a></div></div>
+  </div>
+  ${d.reconciliation?`<div class="msg ${d.reconciliation.ok?'ok':'err'}" style="display:block">
+     Сверка тоннажа: разобрано ${fmt1(d.reconciliation.imported_t)} т ·
+     ИТОГО файла ${fmt1(d.reconciliation.file_total_t)} т ·
+     ${d.reconciliation.ok?'совпадает ✓':`расхождение ${fmt1(d.reconciliation.diff_t)} т (${d.reconciliation.diff_percent}%) — проверьте, все ли строки распознаны`}
+   </div>`:''}
+  <div style="margin:4px 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <label class="muted">Место погрузки:
+      <select id="kpRegion" style="font-size:12px"></select></label>
+    <span class="muted">логистика ${fmt(d.logistics_rate.value)} ₽/т · ${d.logistics_rate.source}</span>
+  </div>
+  <div class="muted" style="margin:4px 0 10px">Оценка в ценах на ${d.priced_at?d.priced_at.slice(0,10):'—'} · вилка предложения ${fmt(t.base_buyout)} — ${fmt(t.bp_buyout)} ₽</div>
+  <table><thead><tr>
+    <th style="min-width:220px">Позиция / сопоставление</th><th>Кол-во</th><th>Вес, т</th>
+    <th>База: выход</th><th>База: ₽</th><th>БП: выход</th><th>БП: ₽</th>
+    <th style="min-width:200px">Корректировки</th>
+  </tr></thead><tbody>`;
+  for(const p of d.positions){
+    const w=(p.weight_kg||p.calc_weight_kg)?((p.weight_kg||p.calc_weight_kg)/1000):null;
+    html+=`<tr data-pos="${p.id}">
+    <td><b>${p.raw_name}</b>
+      <div class="sub">${p.item?('→ '+p.item.name):'<span style="color:var(--bad)">не сопоставлено</span>'}
+      ${chip(p.match_kind)} ${p.lots_merged>1?chip('лотов: '+p.lots_merged):''}</div>
+      <div class="searchbox"><input type="text" class="wide match" placeholder="сменить сопоставление…"><div class="results"></div></div>
+    </td>
+    <td class="num">${fmt1(p.quantity)} ${p.unit||''}
+      ${p.benchmarks&&p.benchmarks.purchase_fact?`<div class="sub">покупали: ${fmt(p.benchmarks.purchase_fact.price)} ₽/${p.benchmarks.purchase_fact.unit||'ед'}</div>`:''}
+      ${p.benchmarks&&p.benchmarks.sales_fact?`<div class="sub">продавали: ${fmt(p.benchmarks.sales_fact.price)} ₽/${p.benchmarks.sales_fact.unit||'ед'}</div>`:''}</td>
+    <td class="num">${fmt1(w)}<div class="sub">${p.base.mass_source}</div></td>
+    <td class="num scen base">${fmt1(p.base.good_percent)}%<div class="sub">${chip(p.base.good_source)}</div></td>
+    <td class="num">${fmt(p.base.resale_total)}<div class="sub">выкуп до ${fmt(p.base.buyout_total)} ₽${p.base.buyout_per_unit?` · ${fmt(p.base.buyout_per_unit)} ₽/ед`:''}</div>
+      <div class="sub">${chip(p.base.scrap_basis)}</div>
+      <div class="sub">${chip(p.base.good_price_source, p.base.good_floor?'med':'src')}
+        ${p.item?`<button class="act" style="padding:2px 8px;font-size:11px" data-ai="${p.id}">ИИ: цена</button>
+        <button class="act" style="padding:2px 8px;font-size:11px;background:#6b7a90" data-aiy="${p.id}">ИИ: выход</button>`:''}</div></td>
+    <td class="num scen bp">${fmt1(p.bp.good_percent)}%<div class="sub">${chip(p.bp.good_source)}</div></td>
+    <td class="num">${fmt(p.bp.resale_total)}<div class="sub">выкуп до ${fmt(p.bp.buyout_total)} ₽</div><div class="sub">${chip(p.bp.scrap_basis)}${p.bp.good_floor?chip('floor по лому','med'):''}</div></td>
+    <td>
+      выход % <input type="number" class="m" data-f="good_percent" value="${p.manual.good_percent??''}"><br>
+      цена ₽/ед <input type="number" class="m" data-f="resale_price" value="${p.manual.resale_price??''}"><br>
+      лом ₽/т <input type="number" class="m" data-f="scrap_price" value="${p.manual.scrap_price??''}"><br>
+      вес кг <input type="number" class="m" data-f="weight_kg" value="${p.manual.weight_kg??''}">
+    </td></tr>`;
+  }
+  html+='</tbody></table>';
+  $('#kpView').innerHTML=html;
+  document.querySelectorAll('#kpView input.m').forEach(inp=>{
+    inp.onchange=async()=>{
+      const pos=inp.closest('tr').dataset.pos;
+      const body={};body[inp.dataset.f]=inp.value===''?null:+inp.value;
+      const r=await fetch('/api/kp/position/'+pos,{method:'PATCH',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){openDoc(currentDoc)}else{msg('Ошибка сохранения','err')}
+    };
+  });
+  const reg=await (await fetch('/api/logistics-regions')).json();
+  $('#kpRegion').innerHTML='<option value="">— общая ставка</option>'+
+    reg.regions.map(r=>`<option value="${r.scope}" ${r.scope===d.seller_region?'selected':''}>${r.scope} · ${fmt(r.value)} ₽/т</option>`).join('');
+  $('#kpRegion').onchange=async()=>{
+    await fetch('/api/kp/'+currentDoc,{method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({seller_region:$('#kpRegion').value||null})});
+    msg('Место погрузки сохранено — расчёт пересчитан','ok');openDoc(currentDoc);
+  };
+  $('#aiBatch').onclick=()=>startBatch({document_id:currentDoc,limit:50});
+  document.querySelectorAll('#kpView button[data-aiy]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;b.textContent='оценка…';
+    const r=await fetch('/api/kp/position/'+b.dataset.aiy+'/ai-yield',{method:'POST'});
+    const j=await r.json();
+    if(!r.ok){msg(j.detail||'ИИ недоступен','err');b.disabled=false;b.textContent='ИИ: выход';return}
+    msg(j.result.saved?`ИИ-выход: ${j.result.good_percent}% · ${(j.result.comment||'').slice(0,90)}`
+                      :`ИИ не смог оценить: ${j.result.comment||''}`, j.result.saved?'ok':'err');
+    openDoc(currentDoc);
+  });
+  document.querySelectorAll('#kpView button[data-ai]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;b.textContent='поиск…';
+    const r=await fetch('/api/kp/position/'+b.dataset.ai+'/ai-price',{method:'POST'});
+    const j=await r.json();
+    if(!r.ok){msg(j.detail||'ИИ недоступен','err');b.disabled=false;b.textContent='ИИ: цена';return}
+    msg(j.result.saved?`ИИ-цена: ${fmt(j.result.price)} ₽ · ${j.result.comment||''}`:`ИИ не нашёл цену: ${j.result.comment||''}`, j.result.saved?'ok':'err');
+    openDoc(currentDoc);
+  });
+  document.querySelectorAll('#kpView input.match').forEach(inp=>{
+    let timer;
+    inp.oninput=()=>{clearTimeout(timer);timer=setTimeout(async()=>{
+      if(inp.value.length<2)return;
+      const items=await (await fetch('/api/items/search?q='+encodeURIComponent(inp.value))).json();
+      const res=inp.parentElement.querySelector('.results');
+      res.innerHTML=items.map(i=>`<div data-id="${i.id}">${i.name} <span class="muted">${i.unit||''}</span></div>`).join('');
+      res.querySelectorAll('div[data-id]').forEach(el=>el.onclick=async()=>{
+        const pos=inp.closest('tr').dataset.pos;
+        await fetch('/api/kp/position/'+pos,{method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({item_id:+el.dataset.id})});
+        openDoc(currentDoc);
+      });
+    },300)};
+  });
+}
+
+async function loadPrices(){
+  const [rows, rec] = await Promise.all([
+    (await fetch('/api/scrap-prices')).json(),
+    (await fetch('/api/scrap-prices/recommended')).json()]);
+  $('#priceTable tbody').innerHTML=rows.map(r=>{const k=rec[r.material];return `<tr>
+    <td>${r.material}</td><td>${r.grade||''}</td>
+    <td class="num"><input type="number" value="${r.price_per_tonne}" data-m="${r.material}"></td>
+    <td class="num">${k&&k.recommended?`${fmt(k.recommended)}
+      ${Math.abs(k.recommended-r.price_per_tonne)/r.price_per_tonne>0.01
+        ?`<button class="act" style="padding:2px 8px;font-size:11px" data-apply="${r.material}" data-val="${k.recommended}">применить</button>`:''}
+      <div class="sub">${k.explanation.slice(0,90)}</div>`:'<span class="muted">нет данных</span>'}</td>
+    <td class="muted">${r.source||''}</td>
+    <td class="muted">${r.valid_from?r.valid_from.slice(0,10):''}</td>
+    <td><button class="act" data-m="${r.material}">Сохранить</button></td></tr>`}).join('');
+  document.querySelectorAll('#priceTable button[data-apply]').forEach(b=>b.onclick=async()=>{
+    await fetch('/api/scrap-prices',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({material:b.dataset.apply,price_per_tonne:+b.dataset.val,
+        source:'рекомендация: рынок × наш коэффициент'})});
+    msg('Цена обновлена по рекомендации','ok');loadPrices();
+  });
+  document.querySelectorAll('#priceTable button[data-m]').forEach(b=>b.onclick=async()=>{
+    const inp=document.querySelector(`#priceTable input[data-m="${b.dataset.m}"]`);
+    await fetch('/api/scrap-prices',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({material:b.dataset.m,price_per_tonne:+inp.value})});
+    msg('Цена сохранена (история ведётся)','ok');loadPrices();
+  });
+}
+
+const STATUSES=['черновик','отправлено','выиграно','проиграно'];
+
+async function loadSummary(){
+  const [sum, docs] = await Promise.all([
+    (await fetch('/api/kp-summary')).json(),
+    (await fetch('/api/kp')).json()]);
+  $('#funnel').innerHTML = sum.stages.map(st=>`
+    <div class="card"><div class="lbl">${st.status}</div>
+      <div class="val">${st.count}</div>
+      <div class="sub">${fmt(st.offer_sum)} ₽ · ${fmt1(st.weight_t)} т</div></div>`).join('')
+    + (sum.win_rate!=null?`<div class="card main"><div class="lbl">Доля побед</div>
+        <div class="val">${sum.win_rate}%</div><div class="sub">из решённых</div></div>`:'');
+  $('#kpTable tbody').innerHTML = docs.map(d=>`<tr data-id="${d.id}">
+    <td><a href="#" data-open="${d.id}"><b>${d.title}</b></a>
+      <div class="sub">${d.created_at?d.created_at.slice(0,10):''}${d.sent_at?' · отправлено '+d.sent_at.slice(0,10):''}</div></td>
+    <td><input type="text" class="wide" data-f="seller" value="${d.seller||''}" placeholder="кому"></td>
+    <td class="muted">${d.seller_region||'—'}</td>
+    <td class="num">${d.positions}</td>
+    <td class="num">${fmt1(d.weight_t)}</td>
+    <td class="num">${fmt(d.base_buyout)} / ${fmt(d.bp_buyout)}
+      <div class="sub">${d.calc_at?'на '+d.calc_at.slice(0,10):'не рассчитано — откройте КП'}</div></td>
+    <td class="num"><input type="number" data-f="offer_amount" value="${d.offer_amount??''}" style="width:110px"></td>
+    <td><select data-f="status">${STATUSES.map(s2=>`<option ${s2===d.status?'selected':''}>${s2}</option>`).join('')}</select></td>
+    <td><input type="text" class="wide" data-f="comment" value="${d.comment||''}" placeholder="исход, условия"></td>
+  </tr>`).join('');
+  document.querySelectorAll('#kpTable a[data-open]').forEach(a=>a.onclick=e=>{
+    e.preventDefault();
+    document.querySelector('nav button[data-s="kp"]').click();
+    openDoc(+a.dataset.open);
+  });
+  document.querySelectorAll('#kpTable [data-f]').forEach(el=>el.onchange=async()=>{
+    const id=el.closest('tr').dataset.id, f=el.dataset.f;
+    const val = el.type==='number' ? (el.value===''?null:+el.value) : (el.value||null);
+    const r=await fetch('/api/kp/'+id,{method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({[f]:val})});
+    if(r.ok){msg('Сохранено','ok');loadSummary()}else{msg('Ошибка сохранения','err')}
+  });
+}
+
+async function loadItems(){
+  const fams=await (await fetch('/api/families')).json();
+  const sel=$('#ifam');
+  if(sel.options.length<=1)
+    sel.innerHTML='<option value="">все</option>'+fams.map(f=>`<option>${f}</option>`).join('');
+  const params=new URLSearchParams({q:$('#iq').value.trim(),family:$('#ifam').value,
+    flag:$('#iflag').value,per_page:200});
+  const d=await (await fetch('/api/items?'+params)).json();
+  $('#iCount').textContent=`найдено ${d.total}, показаны первые ${d.items.length}`;
+  $('#itemTable tbody').innerHTML=d.items.map(i=>`<tr data-id="${i.id}" style="cursor:pointer">
+    <td><b>${i.name}</b></td><td>${i.unit||''}</td><td>${i.family||''}</td>
+    <td>${i.size_key||''}</td>
+    <td class="num">${i.merged_duplicates?chip('слито: '+i.merged_duplicates):''}</td>
+    <td class="num">${fmt(i.sale_price)}</td>
+    <td class="num">${fmt(i.purchase_price)}</td>
+    <td>${i.outlier_ratio?chip('выброс ×'+i.outlier_ratio,'low'):''}
+        ${i.has_composition?chip('есть состав','high'):''}
+        ${i.ai_price?chip('ИИ-цена','med'):''}</td></tr>`).join('');
+  document.querySelectorAll('#itemTable tbody tr').forEach(tr=>tr.onclick=()=>openItem(tr.dataset.id));
+  loadCandidates();
+}
+$('#iGo').onclick=loadItems;
+$('#iAiBatch').onclick=()=>{
+  if(!$('#ifam').value){msg('Выберите семейство — иначе запрос слишком широкий','err');return}
+  startBatch({family:$('#ifam').value,limit:50});
+};
+
+async function startBatch(body){
+  const r=await fetch('/api/ai-price/batch',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok){msg(j.detail||'Ошибка','err');return}
+  if(!j.job){msg(j.message,'ok');return}
+  msg(`Поиск запущен: ${j.job.total} позиций из ${j.candidates_total} без цены`,'ok');
+  pollBatch(j.job.id);
+}
+async function pollBatch(id){
+  const el=$('#aiProgress');
+  const tick=async()=>{
+    const r=await fetch('/api/ai-price/batch/'+id);
+    if(!r.ok){el.textContent='задача потеряна';return}
+    const j=await r.json();
+    const txt=`${j.done}/${j.total} · найдено ${j.found} · нет данных ${j.no_data}`
+      +(j.skipped?` · пропущено ${j.skipped}`:'')+(j.errors?` · ошибок ${j.errors}`:'');
+    if(el)el.textContent=txt;
+    if(j.status==='работает'){setTimeout(tick,2000)}
+    else{
+      msg(`ИИ-поиск ${j.status}: найдено цен ${j.found} из ${j.total}`,j.errors?'err':'ok');
+      if(currentDoc)openDoc(currentDoc);
+      if($('#s-items').classList.contains('active'))loadItems();
+    }
+  };
+  tick();
+}
+
+async function openItem(id){
+  const c=await (await fetch('/api/items/'+id)).json();
+  $('#itemCard').innerHTML=`<div class="card" style="min-width:0;margin:10px 0">
+    <h2 style="margin-top:0">${c.name}</h2>
+    <div class="muted">${c.unit||''} · guid ${c.guid||'—'}</div>
+    <div style="margin:8px 0;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <label>Семейство<br><select id="cFam"></select></label>
+      <label>Типоразмер<br><input type="text" id="cSize" value="${c.size_key||''}" placeholder="нкт-73"></label>
+      <label>Масса единицы, кг<br><input type="number" id="cMass" value="${c.unit_mass_kg??''}" step="0.1"></label>
+      <button class="act" id="cSave">Сохранить</button>
+      <button class="act" id="cAiMass" style="background:#6b7a90">ИИ: вес</button>
+      <button class="act" style="background:#8a94a6" id="cHide">Убрать из торговых</button>
+      <span class="muted">правка вручную не перетирается импортом из 1С</span>
+    </div>
+    ${c.unit_mass_kg?`<div class="sub">Масса единицы: <b>${fmt1(c.unit_mass_kg)} кг</b> · ${c.unit_mass_source||''}
+      ${c.unit_mass_confidence?chip(c.unit_mass_confidence,c.unit_mass_confidence==='high'?'high':c.unit_mass_confidence==='low'?'low':'med'):''}
+      ${c.unit_mass_url?`<a href="${c.unit_mass_url}" target="_blank">источник</a>`:''}</div>`:''}
+    ${c.aliases.length?`<div class="sub">Объединённые дубли: ${c.aliases.map(a=>a.name).join(' · ')}</div>`:''}
+    <h2>Цены</h2>${c.prices.length?`<table><tr><th>Тип</th><th>Цена</th><th>Источник</th><th>Доверие</th></tr>
+      ${c.prices.map(p=>`<tr><td>${p.type}</td><td class="num">${fmt(p.price)} ₽/${p.unit||''}</td>
+      <td class="muted">${p.url?`<a href="${p.url}" target="_blank">${p.source||'ссылка'}</a>`:(p.source||'')} ${p.notes||''}</td>
+      <td>${chip(p.confidence,p.confidence==='high'?'high':p.confidence==='low'?'low':'med')}</td></tr>`).join('')}</table>`:'<div class="muted">цен нет</div>'}
+    <h2>Выхода</h2>${c.yields.length?`<table><tr><th>Блок</th><th>Выход</th><th>Привязка</th><th>Примечание</th></tr>
+      ${c.yields.map(y=>`<tr><td>${y.block}</td><td class="num">${y.good_percent}%</td><td>${y.scope}</td>
+      <td class="muted">${(y.notes||'').slice(0,90)}</td></tr>`).join('')}</table>`:'<div class="muted">выходов нет</div>'}
+    ${c.compositions.length?`<h2>Составы</h2><table><tr><th>Материал</th><th>Масса, кг</th><th>Партия</th><th>Блок</th></tr>
+      ${c.compositions.map(x=>`<tr><td>${x.material}</td><td class="num">${fmt(x.mass_kg)}</td>
+      <td class="num">${fmt1(x.quantity)} ${x.unit||''}</td><td>${x.block}</td></tr>`).join('')}</table>`:''}
+  </div>`;
+  const fams=await (await fetch('/api/families')).json();
+  $('#cFam').innerHTML='<option value="">— не определено</option>'+
+    fams.map(f=>`<option ${f===c.family?'selected':''}>${f}</option>`).join('');
+  $('#cSave').onclick=async()=>{
+    const r=await fetch('/api/items/'+id,{method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({family:$('#cFam').value||null,size_key:$('#cSize').value.trim()||null,
+        unit_mass_kg:$('#cMass').value===''?null:+$('#cMass').value})});
+    if(r.ok){msg('Карточка сохранена','ok');loadItems();openItem(id)}else{msg('Ошибка','err')}
+  };
+  $('#cAiMass').onclick=async()=>{
+    const b=$('#cAiMass');b.disabled=true;b.textContent='поиск…';
+    const r=await fetch('/api/items/'+id+'/ai-weight',{method:'POST'});
+    const j=await r.json();
+    if(!r.ok){msg(j.detail||'ИИ недоступен','err');b.disabled=false;b.textContent='ИИ: вес';return}
+    msg(j.saved?`Масса: ${fmt1(j.mass_kg)} кг · ${(j.comment||'').slice(0,90)}`
+               :`ИИ не нашёл массу: ${j.comment||''}`, j.saved?'ok':'err');
+    openItem(id);loadItems();
+  };
+  $('#cHide').onclick=async()=>{
+    const r=await fetch('/api/items/'+id,{method:'PATCH',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({is_trade:false})});
+    if(r.ok){msg('Позиция убрана из торговых','ok');$('#itemCard').innerHTML='';loadItems()}
+  };
+  $('#itemCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function loadCandidates(){
+  const rows=await (await fetch('/api/merge-candidates')).json();
+  $('#candTable tbody').innerHTML=rows.length?rows.map(r=>`<tr>
+    <td>${r.a.name} <span class="muted">${r.a.unit||''}</span></td>
+    <td>${r.b.name} <span class="muted">${r.b.unit||''}</span>
+      ${r.tier==='safe'?chip('только пунктуация','high'):r.tier==='bu'?chip('различие «б/у»','med'):chip('спорный','low')}</td>
+    <td><button class="act" data-m="${r.id}">Объединить</button>
+        <button class="act" style="background:#8a94a6" data-r="${r.id}">Не дубли</button></td></tr>`).join('')
+    : '<tr><td colspan="3" class="muted">кандидатов нет</td></tr>';
+  const tiers=rows.reduce((a,r)=>{a[r.tier||'спорный']=(a[r.tier||'спорный']||0)+1;return a},{});
+  $('#mergeInfo').textContent=`в очереди ${rows.length}: пунктуация ${tiers.safe||0}, «б/у» ${tiers.bu||0}, спорных ${tiers['спорный']||0}`;
+  document.querySelectorAll('#candTable button').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.m||b.dataset.r, decision=b.dataset.m?'merge':'reject';
+    const r=await fetch(`/api/merge-candidates/${id}/${decision}`,{method:'POST'});
+    if(r.ok){msg(decision==='merge'?'Позиции объединены':'Помечено «не дубли»','ok');loadCandidates();loadItems()}
+    else{msg((await r.json()).detail||'Ошибка','err')}
+  });
+}
+
+async function autoMerge(tier){
+  const preview=await (await fetch('/api/merge-candidates/auto',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({tier,apply:false})})).json();
+  if(!preview.found){msg('Таких пар не найдено','ok');return}
+  const sample=preview.preview.slice(0,5).map(p=>`«${p.keep}» ← «${p.drop}»`).join('\n');
+  if(!confirm(`Слить ${preview.found} пар?\n\nПримеры:\n${sample}\n\nОтменить слияние можно только вручную.`))return;
+  const r=await fetch('/api/merge-candidates/auto',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({tier,apply:true})});
+  const j=await r.json();
+  if(!r.ok){msg(j.detail||'Ошибка','err');return}
+  msg(`Слито пар: ${j.merged}${j.failed.length?`, отклонено ${j.failed.length}`:''}`,'ok');
+  loadCandidates();loadItems();
+}
+$('#mergeSafe').onclick=()=>autoMerge('safe');
+$('#mergeBu').onclick=()=>autoMerge('bu');
+
+async function loadYields(){
+  const fams=await (await fetch('/api/families')).json();
+  const sel=$('#yFamily');
+  if(sel.options.length<=1)
+    sel.innerHTML='<option value="">—</option>'+fams.map(f=>`<option>${f}</option>`).join('');
+  const rows=await (await fetch('/api/expert-yields')).json();
+  $('#yieldTable tbody').innerHTML=rows.map(r=>`<tr>
+    <td>${r.block}</td><td>${r.category||''}</td><td>${r.size_key||''}</td>
+    <td>${r.item_name||''}</td><td class="num">${r.good_percent}</td>
+    <td>${r.expert_name||''}</td><td class="muted">${r.notes||''}</td>
+    <td><button class="act" data-del="${r.id}">✕</button></td></tr>`).join('');
+  document.querySelectorAll('#yieldTable button[data-del]').forEach(b=>b.onclick=async()=>{
+    await fetch('/api/expert-yields/'+b.dataset.del,{method:'DELETE'});
+    msg('Оценка удалена','ok');loadYields();
+  });
+}
+$('#yAdd').onclick=async()=>{
+  const body={block:$('#yBlock').value,
+    category:$('#yFamily').value||null,
+    size_key:$('#ySize').value.trim()||null,
+    item_name:$('#yItem').value.trim()||null,
+    good_percent:+$('#yPct').value,
+    expert_name:$('#yWho').value.trim()};
+  if(!(body.good_percent>=0)||(!body.category&&!body.size_key&&!body.item_name)){
+    msg('Укажите % и хотя бы одну привязку (категория/размер/позиция)','err');return}
+  const r=await fetch('/api/expert-yields',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.ok){msg('Выход утверждён — расчёты пересчитаны','ok');loadYields()}
+  else{msg((await r.json()).detail||'Ошибка','err')}
+};
+
+async function loadMarket(){
+  // таблицы индекса убраны вместе с вкладкой «Рынок»; остаётся строка о том,
+  // какой выпуск обзора сейчас действует — от него считается цена чермета
+  const reg = await (await fetch('/api/market-prices?kind=region')).json();
+  const p = reg.prices[0];
+  $('#marketMeta').textContent = reg.issue
+    ? `Действует выпуск ${reg.issue}${p&&p.period[0]?` · неделя ${p.period[0].slice(0,10)} — ${p.period[1].slice(0,10)}`:''} · наш регион: ${reg.home_region}`
+    : 'обзор ещё не загружен';
+}
+bindDrop('#dropMarket','#fileMarket','/api/market-review/upload',j=>{
+  msg(`Обзор ${j.issue}: регионов ${j.regions}, потребителей ${j.consumers}`,'ok');
+  loadMarket();
+});
+
+async function loadNorms(){
+  const rows=await (await fetch('/api/norms')).json();
+  $('#normTable tbody').innerHTML=rows.map(r=>`<tr>
+    <td>${r.key}</td>
+    <td class="num"><input type="number" value="${r.value}" data-k="${r.key}"></td>
+    <td>${r.unit||''}</td><td class="muted">${r.notes||''}</td>
+    <td><button class="act" data-k="${r.key}">Утвердить</button></td></tr>`).join('');
+  document.querySelectorAll('#normTable button').forEach(b=>b.onclick=async()=>{
+    const inp=document.querySelector(`#normTable input[data-k="${b.dataset.k}"]`);
+    await fetch('/api/norms',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key:b.dataset.k,value:+inp.value})});
+    msg('Норматив утверждён','ok');loadNorms();
+  });
+}
+
+async function loadPortalLink(){
+  // логотип ведёт на портал: адрес из настройки службы, иначе тот же хост
+  let url = null;
+  try{ url = (await (await fetch('/api/config')).json()).portal_url }catch(e){}
+  const cfgPort = '8079';
+  $('#homeLink').href = url || `${location.protocol}//${location.hostname}:${cfgPort}/`;
+}
+loadPortalLink();
+
+
+// ------------------------------------------------------------ Клиенты
+let clItemId=null, clPoll=null;
+
+async function clSuggest(q){
+  const box=$('#clRes');
+  if(q.length<3){box.style.display='none';return}
+  const rows=await (await fetch('/api/items?q='+encodeURIComponent(q)+'&per_page=8')).json();
+  const list=rows.items||rows;
+  if(!list.length){box.style.display='none';return}
+  box.innerHTML=list.map(i=>`<div data-id="${i.id}" data-unit="${i.unit||''}"
+    data-name="${(i.name||'').replace(/"/g,'&quot;')}"
+    >${i.name}<span class="muted"> · ${i.unit||''} · ${i.family||'без семейства'}</span></div>`).join('');
+  box.style.display='block';
+  box.querySelectorAll('div[data-id]').forEach(d=>d.onmousedown=ev=>{
+    ev.preventDefault();
+    clItemId=+d.dataset.id;$('#clQ').value=d.dataset.name;
+    $('#clUnit').value=d.dataset.unit;box.style.display='none'});
+}
+$('#clQ').oninput=e=>{clItemId=null;clSuggest(e.target.value.trim())};
+
+$('#clGo').onclick=async()=>{
+  const name=$('#clQ').value.trim();
+  if(!name){msg('Укажите позицию','err');return}
+  $('#clState').textContent='ищу…';
+  const r=await fetch('/api/leads/search',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({item_id:clItemId,query_name:name,
+      unit:$('#clUnit').value.trim()||null,
+      quantity:parseFloat($('#clQty').value)||null})});
+  if(!r.ok){$('#clState').textContent='';msg((await r.json()).detail||'ошибка','err');return}
+  const {campaign_id}=await r.json();
+  clWatch(campaign_id);
+};
+
+function clWatch(id){
+  clearInterval(clPoll);
+  const tick=async()=>{
+    const d=await (await fetch('/api/leads/campaigns/'+id)).json();
+    $('#clState').textContent=d.status==='работает'?('идёт: '+(d.stage||'')):'';
+    renderCampaign(d);
+    if(d.status!=='работает'){clearInterval(clPoll);loadCampaigns()}
+  };
+  tick();clPoll=setInterval(tick,1500);
+}
+
+function money(v){return v==null?'—':fmt(v)+' ₽'}
+
+function renderCampaign(d){
+  const p=d.price||{};
+  const prof=d.profile;
+  $('#clPrice').innerHTML=`
+    <h2>Ценовой коридор · ${d.query_name}</h2>
+    <div class="cards">
+      <div class="card"><div class="lbl">Пол по металлу</div>
+        <div class="val">${money(p.floor)}</div>
+        <div class="muted">${p.floor==null?'—':'за '+(p.unit||'')}</div></div>
+      <div class="card main"><div class="lbl">Ориентир</div>
+        <div class="val">${money(p.target)}</div>
+        <div class="muted">за ${p.unit||''}</div></div>
+      <div class="card"><div class="lbl">Потолок рынка</div>
+        <div class="val">${money(p.ceiling)}</div>
+        <div class="muted">90-й процентиль наших продаж</div></div>
+      <div class="card"><div class="lbl">Новых покупателей</div>
+        <div class="val">${d.leads?d.leads.length:0}</div>
+        <div class="muted">${d.status}${d.existing_customers&&d.existing_customers.length
+          ?` · наших клиентов ${d.existing_customers.length}`:''}</div></div>
+    </div>
+    <div class="muted">Основание: ${p.basis||'—'}</div>
+    ${d.error?`<div class="muted" style="color:var(--warn)">${d.error}</div>`:''}
+    ${prof&&prof.what?`<div class="card" style="min-width:0;margin-top:8px">
+      <b>Что это:</b> ${prof.what}<br>
+      ${prof.application?`<b>Где применяется:</b> ${prof.application}<br>`:''}
+      ${(prof.industries||[]).length?`<b>Отрасли:</b> ${prof.industries.join(', ')}<br>`:''}
+      ${(prof.valuable_materials||[]).length?`<b>Ценные материалы:</b> ${prof.valuable_materials.join(', ')}<br>`:''}
+      ${prof.resale_notes?`<b>Чем интересна покупателю:</b> ${prof.resale_notes}`:''}
+    </div>`:''}
+    ${d.leads&&d.leads.length?`<a class="act" style="display:inline-block;margin-top:8px;
+       text-decoration:none" href="/api/leads/campaigns/${d.id}/export">Выгрузить в Excel</a>`:''}`;
+
+  if(!d.leads){$('#clLeads').innerHTML='';return}
+  const head=`<table><thead><tr><th>Компания</th><th>Канал</th><th>Почему подходит</th>
+      <th>Ожидаемая цена</th><th>Оценка</th><th>Статус</th><th></th></tr></thead><tbody>`;
+  const own=d.existing_customers||[];
+  let html='';
+  html+=`<h2>Новые покупатели</h2>`;
+  html+= d.leads.length
+    ? head+d.leads.map(l=>leadRow(d,l)).join('')+`</tbody></table>`
+    : `<div class="muted">Новых покупателей не найдено. Подключите ключ
+        ИИ-провайдера (закупки и отраслевой поиск) и добавьте торговые каналы
+        на вкладке «Мониторинг» — объявления «куплю» попадают сюда напрямую.</div>`;
+  if(own.length){
+    html+=`<h2>Уже покупали у нас <span class="muted">(${own.length}) —
+      не лиды, а ценовой ориентир</span></h2>
+      <div class="muted" style="margin-bottom:6px">Этих клиентов ведёт отдел
+        продаж. Здесь они показаны потому, что цена, которую они платили,
+        и есть самое достоверное основание для нашей цены.</div>
+      <details><summary class="muted" style="cursor:pointer;margin-bottom:6px">показать</summary>
+      ${head}${own.map(l=>leadRow(d,l)).join('')}</tbody></table></details>`;
+  }
+  $('#clLeads').innerHTML=html;
+  $('#clLeads').querySelectorAll('select[data-lead]').forEach(sel=>{
+    sel.onchange=async()=>{
+      await fetch('/api/leads/'+sel.dataset.lead,{method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({status:sel.value})});
+      msg('Статус лида сохранён','ok');
+    };
+  });
+  $('#clLeads').querySelectorAll('button[data-draft]').forEach(b=>{
+    b.onclick=async()=>{
+      const r=await (await fetch('/api/leads/'+b.dataset.draft+'/draft')).json();
+      const w=window.open('','_blank','width=640,height=560');
+      w.document.write('<pre style="font:14px/1.5 -apple-system,Arial;white-space:pre-wrap;'
+        +'padding:20px">'+r.subject+'\n\n'+r.body+'\n\n— '+r.warning+'</pre>');
+    };
+  });
+}
+
+function leadRow(d,l){
+  const ev=(l.evidence||[]).map(e=>{
+    const t=(e.title||'').replace(/</g,'&lt;');
+    const when=e.at?new Date(e.at).toLocaleDateString('ru-RU'):'';
+    return e.url?`<div class="sub">• <a href="${e.url}" target="_blank" rel="noopener">${t}</a> ${when}</div>`
+                :`<div class="sub">• ${t} ${when}</div>`}).join('');
+  const conf=l.confidence==='high'?'high':(l.confidence==='medium'?'med':'low');
+  return `<tr>
+    <td><b>${l.name}</b>${l.inn?`<div class="sub">ИНН ${l.inn}</div>`:''}
+        ${l.region?`<div class="sub">${l.region}</div>`:''}
+        ${l.site?`<div class="sub"><a href="${l.site}" target="_blank" rel="noopener">сайт</a></div>`:''}
+        ${l.manager?`<div class="sub">наш менеджер: ${l.manager}</div>`:''}</td>
+    <td>${chip(l.channel, l.channel==='объявление «куплю»'?'high':'src')}
+        <div class="sub">${l.tier||''}</div></td>
+    <td>${(l.why||'').replace(/</g,'&lt;')}${ev}</td>
+    <td class="num">${l.expected_price?fmt(l.expected_price)+' ₽/'+(l.price_unit||''):'—'}
+        ${l.price_basis?`<div class="sub">${l.price_basis}</div>`:''}</td>
+    <td class="num">${fmt1(l.score)}${chip(l.confidence,conf)}</td>
+    <td><select data-lead="${l.id}">
+      ${['новый','в работе','отказ','сделка'].map(s=>
+        `<option ${s===l.status?'selected':''}>${s}</option>`).join('')}</select></td>
+    <td><button class="act" data-draft="${l.id}" style="background:#6b7a90">Письмо</button></td>
+  </tr>`;
+}
+
+async function loadCampaigns(){
+  const rows=await (await fetch('/api/leads/campaigns')).json();
+  const tb=$('#clCamps tbody');
+  tb.innerHTML=rows.map(c=>`<tr data-id="${c.id}" style="cursor:pointer">
+    <td>${c.query_name}</td>
+    <td>${c.created_at?new Date(c.created_at).toLocaleString('ru-RU'):''}</td>
+    <td>${c.created_by||''}</td>
+    <td class="num">${c.price&&c.price.target?fmt(c.price.target)+' ₽/'+(c.price.unit||''):'—'}</td>
+    <td class="num">${c.leads_found||0}</td>
+    <td>${c.status}${c.status==='работает'?' · '+(c.stage||''):''}</td></tr>`).join('');
+  tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>clWatch(+tr.dataset.id));
+}
+
+
+// ---------------------------------------------------------- Мониторинг
+const MON_HINTS = {
+  telegram: {label:'Публичный Telegram-канал',
+    ph:'@lom_ural или ссылка t.me/lom_ural',
+    hint:`Читается веб-просмотр публичного канала — ключи и вход в аккаунт не
+      нужны. Закрытые каналы, группы и чаты так не видны: для них нужен
+      отдельный Telegram-аккаунт компании.`},
+  search: {label:'Поисковый запрос',
+    ph:'куплю ПЭД 117 б/у',
+    hint:`Запрос уходит в ScrapeGraphAI: он ищет по русским площадкам и
+      возвращает разобранные объявления. Нужен ключ SGAI_API_KEY в окружении
+      службы. Хорошо работают запросы вида «куплю &lt;позиция&gt; б/у».`},
+  web: {label:'Адрес страницы',
+    ph:'https://…',
+    hint:`Страница разбирается через ScrapeGraphAI по описанию, без ручных
+      правил. Учтите: сервис умеет обходить защиту от роботов, но правила
+      площадки и её robots.txt от этого не исчезают — какие адреса сюда
+      заводить, решаете вы.`},
+};
+
+function monKindChanged(){
+  const k = $('#monKind').value, h = MON_HINTS[k];
+  $('#monHandleLbl').childNodes[0].nodeValue = h.label;
+  $('#monHandle').placeholder = h.ph;
+  $('#monHint').innerHTML = h.hint;
+}
+$('#monKind').onchange = monKindChanged;
+
+async function loadMonitor(){
+  const d = await (await fetch('/api/monitor/sources')).json();
+  monKindChanged();
+  $('#monState').textContent = (d.interval_min>0
+    ? `автоопрос каждые ${d.interval_min} мин` : 'автоопрос выключен')
+    + (d.scrapegraph ? ' · ScrapeGraphAI подключён' : ' · ScrapeGraphAI не настроен');
+  const kindName = {telegram:'Telegram', search:'поиск', web:'страница'};
+  const href = s => s.kind==='telegram' ? 'https://t.me/'+s.handle : (s.target||'#');
+  $('#monSources tbody').innerHTML = d.sources.length
+    ? d.sources.map(s=>`<tr${s.is_active?'':' style="opacity:.5"'}>
+        <td><a href="${href(s)}" target="_blank" rel="noopener">${
+          s.kind==='telegram'?'@'+s.handle:s.handle}</a>
+          ${s.kind!=='telegram'&&s.target?`<div class="sub">${s.target.slice(0,70)}</div>`:''}</td>
+        <td>${chip(kindName[s.kind]||s.kind)}</td>
+        <td>${s.title||''}</td>
+        <td class="muted">${s.last_polled_at?new Date(s.last_polled_at).toLocaleString('ru-RU'):'—'}</td>
+        <td class="num">${s.messages_seen||0}</td>
+        <td class="num">${s.listings_found||0}</td>
+        <td>${s.last_error?`<span class="chip low">${s.last_error.slice(0,90)}</span>`
+                          :(s.is_active?chip('читается','high'):chip('отключён'))}</td>
+        <td>${s.is_active?`<button class="act" data-drop="${s.id}"
+            style="background:#B3261E;padding:3px 10px">Убрать</button>`:''}</td></tr>`).join('')
+    : `<tr><td colspan="8" class="muted">Источников пока нет. Добавьте каналы и
+        запросы, где реально торгуют вашей номенклатурой — по ним пойдут цены
+        и покупатели.</td></tr>`;
+  $('#monSources tbody').querySelectorAll('button[data-drop]').forEach(b=>b.onclick=async()=>{
+    await fetch('/api/monitor/sources/'+b.dataset.drop,{method:'DELETE'});
+    msg('Канал отключён','ok');loadMonitor();
+  });
+  await loadKeywords();
+  loadFeed();
+}
+
+async function loadKeywords(){
+  const rows = await (await fetch('/api/monitor/keywords')).json();
+  $('#kwTable tbody').innerHTML = rows.map(k=>`<tr${k.is_active?'':' style="opacity:.45"'}>
+    <td><b>${k.phrase}</b></td>
+    <td class="muted">${k.whole_word?'целым словом':'с окончаниями'}</td>
+    <td class="num">${k.hits}</td>
+    <td class="muted">${k.last_hit_at?new Date(k.last_hit_at).toLocaleDateString('ru-RU'):'—'}</td>
+    <td class="muted">${k.note||''}</td>
+    <td>${k.is_active?`<button class="act" data-kw="${k.id}"
+        style="background:#B3261E;padding:3px 10px">Убрать</button>`:''}</td></tr>`).join('');
+  $('#kwTable tbody').querySelectorAll('button[data-kw]').forEach(b=>b.onclick=async()=>{
+    await fetch('/api/monitor/keywords/'+b.dataset.kw,{method:'DELETE'});
+    msg('Слово убрано','ok');loadKeywords();loadFeed();
+  });
+  const sel=$('#monKw'), cur=sel.value;
+  sel.innerHTML='<option value="">любое</option>'+rows.filter(k=>k.is_active)
+    .map(k=>`<option${k.phrase===cur?' selected':''}>${k.phrase}</option>`).join('');
+}
+
+$('#kwAdd').onclick=async()=>{
+  const phrase=$('#kwPhrase').value.trim();
+  if(!phrase){msg('Укажите слово','err');return}
+  const r=await fetch('/api/monitor/keywords',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({phrase,whole_word:$('#kwWhole').checked})});
+  const j=await r.json();
+  if(!r.ok){msg(j.detail||'не удалось','err');return}
+  $('#kwPhrase').value='';msg(`Слово «${j.phrase}» добавлено`,'ok');
+  loadKeywords();
+};
+
+$('#kwRescan').onclick=async()=>{
+  const j=await (await fetch('/api/monitor/keywords/rescan',{method:'POST'})).json();
+  msg(`Лента пересканирована: изменено объявлений ${j.updated}`,'ok');
+  loadKeywords();loadFeed();
+};
+
+async function loadFeed(){
+  const dir = $('#monDir').value, matched = $('#monMatched').checked;
+  const kw = $('#monKw').value;
+  const rows = await (await fetch(
+    `/api/monitor/listings?limit=200${dir?'&direction='+dir:''}`
+    +`${matched?'&matched=true':''}${kw?'&keyword='+encodeURIComponent(kw):''}`)).json();
+  $('#monCount').textContent = `объявлений: ${rows.length}`;
+  $('#monFeed tbody').innerHTML = rows.length ? rows.map(l=>`<tr>
+    <td class="muted">${l.posted_at?new Date(l.posted_at).toLocaleDateString('ru-RU'):'—'}</td>
+    <td>${l.direction==='buy'?chip('куплю','high'):(l.direction==='sell'?chip('продам','med'):chip('—'))}
+        <div class="sub">${(l.text||'').slice(0,150).replace(/</g,'&lt;')}</div></td>
+    <td>${l.family||'<span class="muted">не распознана</span>'}
+        ${l.size_key?`<div class="sub">${l.size_key}</div>`:''}
+        ${l.item_id?`<div class="sub">карточка #${l.item_id}</div>`:''}
+        ${l.keywords?`<div class="sub">${l.keywords.split('; ').map(k=>chip(k)).join(' ')}</div>`:''}</td>
+    <td class="num">${l.price?fmt(l.price)+' ₽'+(l.price_unit?'/'+l.price_unit:''):'—'}</td>
+    <td>${l.contacts||''}${l.region?`<div class="sub">${l.region}</div>`:''}</td>
+    <td><a href="${l.url}" target="_blank" rel="noopener">${l.author?l.author.slice(0,28):'открыть'}</a></td>
+  </tr>`).join('') : `<tr><td colspan="6" class="muted">Пусто. Добавьте канал и
+    нажмите «Опросить сейчас».</td></tr>`;
+}
+$('#monDir').onchange=loadFeed;
+$('#monMatched').onchange=loadFeed;
+$('#monKw').onchange=loadFeed;
+
+$('#monAdd').onclick=async()=>{
+  const handle=$('#monHandle').value.trim(), kind=$('#monKind').value;
+  if(!handle){msg('Укажите источник','err');return}
+  $('#monState').textContent='проверяю…';
+  const r=await fetch('/api/monitor/sources',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({handle,kind})});
+  const j=await r.json();
+  if(!r.ok){$('#monState').textContent='';msg(j.detail||'не удалось','err');return}
+  msg(`Источник «${j.title||j.handle}» добавлен`,'ok');
+  $('#monHandle').value='';loadMonitor();
+};
+
+$('#monBulk').onclick=()=>{
+  const box=$('#monBulkBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+};
+
+$('#monBulkGo').onclick=async()=>{
+  const text=$('#monBulkText').value.trim();
+  if(!text){msg('Вставьте список','err');return}
+  $('#monState').textContent='проверяю список…';
+  const r=await fetch('/api/monitor/sources/bulk',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text,kind:$('#monKind').value})});
+  const j=await r.json();
+  $('#monState').textContent='';
+  if(!r.ok){msg(j.detail||'ошибка','err');return}
+  $('#monBulkRes').innerHTML=`<table style="margin-top:8px"><thead><tr>
+    <th>Источник</th><th>Результат</th></tr></thead><tbody>${
+    j.results.map(x=>`<tr><td>${x.value}</td><td>${x.ok
+      ? chip('добавлен: '+(x.title||''),'high')
+      : `<span class="chip low">${(x.error||'').slice(0,160)}</span>`}</td></tr>`).join('')
+  }</tbody></table>`;
+  msg(`Добавлено ${j.added} из ${j.total}`, j.added?'ok':'err');
+  loadMonitor();
+};
+
+$('#monPoll').onclick=async()=>{
+  $('#monState').textContent='опрашиваю…';
+  const r=await fetch('/api/monitor/poll',{method:'POST'});
+  const j=await r.json();
+  $('#monState').textContent='';
+  if(!r.ok){msg(j.detail||'ошибка опроса','err');return}
+  msg(`Каналов ${j.sources}, сообщений ${j.messages}, новых объявлений `
+      +`${j.new_listings} (из них «куплю» ${j.buy_leads}, по ключевым словам `
+      +`${j.by_keyword}), цен сохранено ${j.prices_saved}`
+      +(j.errors&&j.errors.length?`; ошибки: ${j.errors.join('; ').slice(0,160)}`:''),
+      j.errors&&j.errors.length?'err':'ok');
+  loadMonitor();
+};
+
+async function loadMe(){
+  try{
+    const me = await (await fetch('/api/me')).json();
+    $('#who').textContent = `${me.full_name||me.login} · ${me.role}`;
+    if(!me.can_approve){
+      // оценщику недоступно утверждение — прячем формы, чтобы не ловить 403
+      document.querySelectorAll('#yAdd, #priceTable button, #normTable button')
+        .forEach(b=>{b.disabled=true;b.title='Только для роли «директор»'});
+    }
+  }catch(e){}
+}
+loadMe();
+loadDocs();
+</script>
+</body>
+</html>

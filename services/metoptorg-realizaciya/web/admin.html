@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МЕТОПТОРГ · Обновление отчёта по реализации</title>
+<style>
+/* Та же система, что и в дашборде («Весовая»): одна нейтраль, глубина только
+   рамками, шесть кеглей, база 4px. Решения — в .interface-design/system.md.
+   Файл самостоятельный, поэтому токены продублированы, а не подключены. */
+:root{
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --fs-micro:10px; --fs-cap:11px; --fs-sm:12px; --fs-base:13px;
+  --fs-md:16px; --fs-lg:20px; --fs-xl:26px;
+  --font:system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-1:4px; --r-2:6px; --r-3:8px; --r-4:12px;
+  --s-0:#eef1f6; --s-1:#ffffff; --s-2:#f4f6fa; --hover:#eff3fa;
+  --line-1:#dde3ee; --line-2:#c3ccdd; --line-3:#2f6fed;
+  --t-1:#131a29; --t-2:#4a5670; --t-3:#77839c; --t-4:#a3adc2;
+  --brand:#142248; --accent:#2f6fed;
+  --ok:#1f8a4c; --warn:#a97706; --bad:#c0334c;
+  --ease:cubic-bezier(.23,1,.32,1);
+}
+[data-theme="dark"]{
+  --s-0:#10151f; --s-1:#161d2b; --s-2:#0d121b; --hover:#1e2637;
+  --line-1:#2a3345; --line-2:#3c4760; --line-3:#5b8bff;
+  --t-1:#e7ebf3; --t-2:#a9b4c9; --t-3:#7d879b; --t-4:#5b6478;
+  --brand:#c9d4ea; --accent:#6d97ff;
+  --ok:#3fb571; --warn:#d5a02c; --bad:#e2687e;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);background:var(--s-0);color:var(--t-1);
+  font-size:var(--fs-base);line-height:1.45;font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased}
+p,li{text-wrap:pretty}
+header{background:var(--s-1);color:var(--t-1);border-bottom:1px solid var(--line-1);
+  padding:var(--sp-2) var(--sp-4);display:flex;align-items:center;gap:var(--sp-3);
+  position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.logo{width:26px;height:26px;flex:none;color:var(--brand)}
+.logolink{display:flex;align-items:center;border-radius:var(--r-1);flex:none}
+.logolink[href]{cursor:pointer}
+.logolink[href]:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.logolink[href]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.brand{font-weight:700;letter-spacing:.6px;font-size:var(--fs-md);line-height:1.15;
+  white-space:nowrap}
+.brand small{font-weight:400;font-size:var(--fs-cap);letter-spacing:0;display:block;
+  color:var(--t-3)}
+.hmeta{margin-left:auto;text-align:right;font-size:var(--fs-cap);color:var(--t-2);
+  line-height:1.35}
+main{padding:var(--sp-4);max-width:1180px;margin:0 auto}
+.panel{background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-3);
+  padding:var(--sp-3);margin-bottom:var(--sp-4)}
+h3{margin:0 0 var(--sp-2);font-size:var(--fs-md);font-weight:600;letter-spacing:-.2px}
+.hint{font-size:var(--fs-sm);color:var(--t-3);margin:var(--sp-1) 0 var(--sp-3)}
+.btn,.btn2,.tbtn{font:inherit;border-radius:var(--r-2);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
+  transition:background .12s var(--ease),transform .12s var(--ease);white-space:nowrap}
+.btn{background:var(--accent);border:1px solid var(--accent);color:#fff;
+  min-height:36px;padding:0 var(--sp-4);font-size:var(--fs-base);font-weight:600}
+.btn:hover{background:color-mix(in srgb,var(--accent) 86%,#000)}
+.btn:active{transform:scale(.97)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+.btn2,.tbtn{background:var(--s-2);border:1px solid var(--line-1);color:var(--t-1);
+  min-height:32px;padding:0 var(--sp-3);font-size:var(--fs-sm);text-decoration:none}
+.btn2:hover,.tbtn:hover{background:var(--hover)}
+.tbtn{color:var(--t-2)}
+.btn:focus-visible,.btn2:focus-visible,.tbtn:focus-visible,
+button:focus-visible,label:focus-within{outline:2px solid var(--line-3);outline-offset:2px}
+.row{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
+.tw-scroll{overflow-x:auto;scrollbar-width:thin}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
+th,td{text-align:left;padding:var(--sp-2);border-bottom:1px solid var(--line-1);
+  vertical-align:top}
+th{color:var(--t-2);font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  font-weight:600;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--hover)}
+.ok{color:var(--ok);font-weight:600}
+.warn{color:var(--bad);font-weight:600}
+/* ссылка входа в шапке: просмотр открыт, а запись — нет */
+.loginlink{color:var(--accent);font-weight:600;text-decoration:underline}
+.attn{color:var(--warn);font-weight:700}
+.mut{color:var(--t-3)}
+.sqlf{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--t-3)}
+.sqlf input{font:inherit;padding:5px 7px;border-radius:var(--r-2);
+  border:1px solid var(--line-1);background:var(--s-1);color:var(--t-1)}
+#sqlTbl input[type=text]{width:100%;font:inherit;padding:4px 6px;
+  border-radius:var(--r-2);border:1px solid var(--line-1);
+  background:var(--s-1);color:var(--t-1)}
+#sqlTbl td{vertical-align:middle}
+.okmsg{color:var(--ok)} .badmsg{color:var(--bad)}
+code{font-family:var(--mono);font-size:var(--fs-cap);color:var(--t-2);
+  background:var(--s-2);border:1px solid var(--line-1);border-radius:var(--r-1);padding:1px 5px}
+/* зона загрузки — утоплена: сюда кладут, а не отсюда читают */
+.drop{border:1px dashed var(--line-2);border-radius:var(--r-3);padding:var(--sp-5);
+  text-align:center;color:var(--t-3);background:var(--s-2);
+  transition:border-color .12s var(--ease),color .12s var(--ease)}
+.drop.hot{border-color:var(--accent);color:var(--accent);background:var(--hover)}
+.drop label{color:var(--accent);cursor:pointer;text-decoration:underline;
+  display:inline-flex;align-items:center;min-height:32px}
+.bar{height:6px;background:var(--s-2);border:1px solid var(--line-1);border-radius:3px;
+  overflow:hidden;min-width:120px;flex:1}
+.bar i{display:block;height:100%;background:var(--accent);width:0;
+  transition:width .12s var(--ease)}
+.up{display:flex;gap:var(--sp-2);align-items:center;padding:var(--sp-1) 0;
+  font-size:var(--fs-sm)}
+.up .nm{min-width:280px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+pre.log{background:var(--s-2);border:1px solid var(--line-1);color:var(--t-2);
+  padding:var(--sp-3);border-radius:var(--r-2);overflow:auto;max-height:420px;
+  font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5;margin:0}
+/* состояние сборки — статусный цвет, своя палитра в каждой теме */
+.state{display:inline-block;padding:1px var(--sp-2);border-radius:20px;
+  font-size:var(--fs-cap);font-weight:600;border:1px solid;
+  background:color-mix(in srgb,var(--chip) 12%,var(--s-1));
+  color:color-mix(in srgb,var(--chip) 72%,var(--t-1));
+  border-color:color-mix(in srgb,var(--chip) 28%,var(--s-1));--chip:var(--t-3)}
+[data-theme=dark] .state{background:color-mix(in srgb,var(--chip) 18%,var(--s-1));
+  color:color-mix(in srgb,var(--chip) 68%,var(--t-1));
+  border-color:color-mix(in srgb,var(--chip) 34%,var(--s-1))}
+.s-идёт{--chip:var(--accent)}
+.s-готово{--chip:var(--ok)}
+.s-ошибка{--chip:var(--bad)}
+/* Сборка собралась, но наружу не пошла: данные слишком не похожи на прежние.
+   Отдельный цвет — это не «ошибка» (расчёт цел) и не «готово». */
+.s-не-опубликовано{--chip:var(--warn)}
+.holdbox{border:1px solid color-mix(in srgb,var(--warn) 45%,var(--s-1));
+  background:color-mix(in srgb,var(--warn) 10%,var(--s-1));
+  border-radius:var(--r-2);padding:var(--sp-2) var(--sp-3)}
+.holdbox b{color:var(--warn)}
+.holdbox ul{margin:var(--sp-1) 0 0;padding-left:1.1em}
+.holdbox li{font-size:var(--fs-sm);padding:2px 0}
+.chk{font-size:var(--fs-sm);padding:var(--sp-1) 0;border-bottom:1px solid var(--line-1)}
+@media (max-width:768px){
+  main{padding:var(--sp-3)}
+  header{padding:var(--sp-2) var(--sp-3)}
+  .brand small{display:none}
+  .hmeta{margin-left:0;order:3;flex:1 1 100%;text-align:left;
+    border-top:1px solid var(--line-1);padding-top:var(--sp-2)}
+  .up .nm{min-width:0;flex:1 1 100%}
+  .tw-scroll table{min-width:max-content}
+}
+@media (pointer:coarse){
+  .btn,.btn2,.tbtn{min-height:44px}
+  .drop label{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+@media print{
+  @page{size:A4;margin:12mm}
+  :root{--s-0:#fff;--s-1:#fff;--s-2:#fff;--hover:#fff;--t-1:#000;--t-2:#333;--t-3:#555;
+        --line-1:#bbb;--line-2:#666}
+  header{position:static}
+  .drop,.btn,.btn2,.tbtn,#ups{display:none!important}
+  .panel{border:1px solid #bbb;break-inside:avoid}
+  pre.log{max-height:none}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header>
+  <!-- href проставляет скрипт: адрес портала берётся из настройки сервера, а
+       если её нет — из хоста этой же страницы (см. ниже). В разметке его нет
+       нарочно: репозиторий на GitHub публичный, адрес внутреннего сервера туда
+       не едет. -->
+  <a class="logolink" id="portalLink">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <polygon points="50,6 94,88 6,88" fill="none" stroke="currentColor" stroke-width="7"/>
+      <polygon points="50,34 74,80 26,80" fill="currentColor"/>
+    </svg>
+  </a>
+  <div class="brand">МЕТОПТОРГ<small>Обновление отчёта по реализации · загрузка выгрузок 1С</small></div>
+  <div class="hmeta"><div id="hstate">—</div><div class="mut" id="hbuild"></div></div>
+  <button class="tbtn" id="themeBtn" title="Тема">🌓 Тема</button>
+</header>
+
+<main>
+  <!-- ⚠️ Ручная загрузка выгрузок убрана 12.08.2026 вместе с разделом входных
+       данных: данные приходят из SQL. Ручку /api/upload оставили на сервере —
+       она пригодится для файла Битрикса, который не из 1С. -->
+
+  <!-- ⚠️ Раздел «Что сейчас лежит во входных данных» убран 12.08.2026: все семь
+       входов берутся прямо из SQL, файлы в data/ — временные, их создаёт и
+       удаляет сама выгрузка. Показывать их как «входные данные» вводило в
+       заблуждение: человек видел файл с прошлой датой и думал, что отчёт
+       считается по нему. Что откуда взято, теперь видно в разделе источников и
+       в логе пересборки. -->
+  <div class="panel">
+    <h3>Источники данных: напрямую из SQL</h3>
+    <div class="hint">Вместо ручной выгрузки файлов сервис может забирать таблицы
+      из базы, куда 1С складывает данные экстрактором. Это снимает две болячки:
+      справочники перестают отставать от движений, а остатки и обороты приходят
+      на одну дату. У каждого входа — <b>своя таблица</b>, берётся только она.
+      Что не включено, по-прежнему читается из файла.</div>
+
+    <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <label class="sqlf" style="width:150px">сервер
+        <input id="sqlHost" placeholder="10.100.1.110"></label>
+      <label class="sqlf" style="width:80px">порт
+        <input id="sqlPort" placeholder="1433"></label>
+      <label class="sqlf" style="width:140px">база
+        <input id="sqlDb" placeholder="Extractor"></label>
+      <label class="sqlf" style="width:140px">пользователь
+        <input id="sqlUser" placeholder="pyatunin"></label>
+      <button class="btn2" id="sqlTest">Проверить подключение</button>
+      <button class="btn2" id="sqlList">Показать таблицы базы</button>
+      <label class="chip" style="cursor:pointer"><input type="checkbox" id="sqlOn">
+        брать данные из SQL при пересборке</label>
+    </div>
+    <div class="hint" id="sqlPwd" style="margin-top:6px"></div>
+    <div id="sqlMsg" style="margin-top:6px"></div>
+
+    <div class="tw-scroll" style="margin-top:10px"><table id="sqlTbl"><thead><tr>
+      <th style="width:32px" title="Брать этот вход из SQL">вкл</th>
+      <th>Что это</th><th>Таблица в базе</th><th>Файл, если из SQL не берём</th>
+      <th style="width:110px"></th><th>Проверка</th>
+    </tr></thead><tbody></tbody></table></div>
+    <datalist id="sqlTables"></datalist>
+
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="sqlSave">Сохранить источники</button>
+      <span class="mut" id="sqlSaved"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Пересобрать отчёт</h3>
+    <div class="hint">Данные забираются из SQL, затем полный прогон:
+      расчёт → дашборд → Excel → контрольные примеры → проверка выгрузки в 1С.
+      Выгрузка движений идёт около 20 минут, весь прогон — примерно полчаса.
+      <b>Каждую ночь в 4:00 это происходит само</b> (в час ночи обновляется
+      «Extractor», три часа запаса). Пока идёт пересборка, пользователи
+      видят предыдущую готовую версию — недособранный отчёт наружу не попадает.</div>
+    <div class="row">
+      <button class="btn" id="go">Пересобрать отчёт</button>
+      <span class="state" id="st">—</span>
+      <span class="mut" id="step"></span>
+      <span style="margin-left:auto"></span>
+      <a class="btn2" href="/dashboard" target="_blank" id="lnkDash">Открыть дашборд</a>
+      <a class="btn2" href="/excel" id="lnkXls">Скачать Excel</a>
+      <a class="btn2" href="/snapshot" id="lnkJson">Снимок JSON</a>
+    </div>
+    <div id="hold" style="margin-top:10px;display:none"></div>
+    <div id="checks" style="margin-top:10px"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Лог пересборки</h3>
+    <pre class="log" id="log">—</pre>
+  </div>
+
+  <div class="panel">
+    <h3>История сборок</h3>
+    <div class="hint">Каждая удачная сборка сохраняется целиком: дашборд, Excel, снимок
+      данных и лог. Можно вернуться к любой.</div>
+    <div class="tw-scroll"><table id="builds"><thead><tr>
+      <th>Когда</th><th>Итог</th><th class="num">Продано, т</th><th>Замечания автопроверок</th>
+      <th class="num">Размер</th><th>Файлы</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+/* Тема общая с дашбордом: экономист переключает её один раз, а страниц две. */
+if(localStorage.mo_theme) document.documentElement.dataset.theme = localStorage.mo_theme;
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.mo_theme = r.dataset.theme;
+});
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => (n==null||isNaN(n))?'':Number(n).toLocaleString('ru-RU',{maximumFractionDigits:3});
+
+/* ---------- загрузка файлов потоком (тело запроса = сам файл) ---------- */
+function upload(file){
+  const box = document.createElement('div');
+  box.className = 'up';
+  box.innerHTML = '<span class="nm">'+esc(file.name)+'</span>'
+    + '<span class="bar"><i></i></span><span class="mut" style="min-width:120px">0 %</span>';
+  if($('#ups')) $('#ups').appendChild(box); else return;
+  const bar = box.querySelector('i'), lbl = box.querySelector('.mut');
+  return new Promise(res=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload?name=' + encodeURIComponent(file.name));
+    xhr.upload.onprogress = e => {
+      if(!e.lengthComputable) return;
+      const p = Math.round(100*e.loaded/e.total);
+      bar.style.width = p+'%'; lbl.textContent = p+' %';
+    };
+    xhr.onload = () => {
+      if(xhr.status===401){ bar.style.background='var(--bad)'; bar.style.width='100%';
+             lbl.innerHTML='<span class="warn">нужен вход</span>'; confirmLogin(true); }
+      else if(xhr.status===200){ bar.style.width='100%'; lbl.innerHTML='<span class="ok">загружен</span>'; }
+      else { bar.style.background='var(--bad)'; bar.style.width='100%';
+             let m=xhr.responseText; try{ m=JSON.parse(m).detail||m; }catch(e){}
+             lbl.innerHTML='<span class="warn">'+esc(m).slice(0,160)+'</span>'; }
+      refresh(); res();
+    };
+    xhr.onerror = () => { lbl.innerHTML='<span class="warn">сеть недоступна</span>'; res(); };
+    xhr.send(file);
+  });
+}
+async function uploadAll(list){ for(const f of list) await upload(f); }
+
+/* Загрузка и пересборка подменяют отчёт для всех сразу, поэтому остаются под
+   паролем даже когда просмотр открыт. Пароль спрашивает сам браузер на /login;
+   после входа он подставляет его в /api/upload и /api/rebuild автоматически. */
+let NEED_LOGIN = false;
+function confirmLogin(after){
+  const msg = after
+    ? 'Для загрузки выгрузок и пересборки нужен вход. Открыть окно входа?'
+    : 'Смотреть отчёт можно без пароля, а менять данные — нет.\n'
+      + 'Сейчас будет открыто окно входа, после него вернётесь на эту страницу.';
+  if(!confirm(msg)) return false;
+  location.href = '/login';
+  return true;
+}
+
+/* ⚠️ РАЗМЕТКИ ЗАГРУЗКИ БОЛЬШЕ НЕТ (убрана вместе с разделом входных данных),
+   поэтому привязки — только если элементы на месте. Без этой проверки
+   `drop.addEventListener` падает на первой же строке и ВЕСЬ скрипт страницы не
+   исполняется: перестают работать и пересборка, и настройка источников SQL. */
+const drop = $('#drop');
+if(drop){
+  ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{
+    ev.preventDefault(); drop.classList.add('hot'); }));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{
+    ev.preventDefault(); drop.classList.remove('hot'); }));
+  drop.addEventListener('drop', ev => uploadAll(ev.dataTransfer.files));
+}
+if($('#pick')) $('#pick').addEventListener('change', ev => uploadAll(ev.target.files));
+
+/* ---------- пересборка и состояние ---------- */
+$('#go').addEventListener('click', async () => {
+  if(NEED_LOGIN && !confirmLogin()) return;
+  $('#go').disabled = true;
+  const r = await fetch('/api/rebuild', {method:'POST'});
+  if(r.status===401){ $('#go').disabled=false; return void confirmLogin(true); }
+  if(!r.ok){ let m=await r.text(); try{m=JSON.parse(m).detail||m;}catch(e){} alert(m); }
+  refresh();
+});
+
+function renderChecks(cur){
+  const a = (cur && cur.autochecks) || [];
+  if(!a.length){ $('#checks').innerHTML=''; return; }
+  const mark = s => s==='ok' ? '<span class="ok">✓</span>'
+    : s==='bad' ? '<span class="warn">✗</span>'
+    : '<span class="attn">!</span>';
+  $('#checks').innerHTML = '<div class="hint">Автопроверки последней сборки:</div>'
+    + a.map(x=>'<div class="chk">'+mark(x.status)+' <b>'+esc(x.name)+'</b> — '+esc(x.value)+'</div>').join('');
+}
+
+async function refresh(){
+  let st;
+  try { st = await (await fetch('/api/state')).json(); } catch(e){ return; }
+  $('#st').textContent = st.state || '—';
+  /* пробел в названии состояния разбил бы class на два — склеиваем дефисом */
+  $('#st').className = 'state s-' + (st.state||'').replace(/\s+/g,'-');
+  $('#step').textContent = st.step ? '· ' + st.step : (st.finished ? '· завершено ' + st.finished : '');
+  $('#go').disabled = (st.state === 'идёт');
+  /* Три разных состояния, а не два: смотреть можно без пароля, а заливать
+     выгрузку и пересобирать — нет. Если вход в запись ещё не выполнен, честно
+     говорим об этом и даём кнопку: браузер сам покажет окно пароля на /login.
+     Через fetch окно не вызвать — пользователь видел бы только ошибку. */
+  /* ---------- ЗНАЧОК В ШАПКЕ — ВЫХОД НА ОБЩИЙ ПОРТАЛ ----------
+     Цепочка задана заказчиком 13.08.2026: из отчёта значок ведёт сюда, отсюда —
+     на портал. Адрес берём из настройки сервера METOPTORG_PORTAL_URL, а если её
+     не задали — тот же хост, порт PORTAL_PORT: портал живёт на этой же машине.
+     ⚠️ Адрес в разметку не зашит: репозиторий публичный. */
+  const PORTAL_PORT = 8079;
+  const portal = st.portal
+    || (/^https?:$/.test(location.protocol) && location.hostname
+        ? location.protocol + '//' + location.hostname + ':' + PORTAL_PORT + '/' : '');
+  const pl = $('#portalLink');
+  if(pl && portal){ pl.href = portal; pl.title = 'На общий портал'; }
+
+  NEED_LOGIN = !!st.write_protected && !st.can_write;
+  $('#hstate').innerHTML =
+      st.protected ? 'вход по паролю'
+    : NEED_LOGIN   ? 'просмотр открыт · для загрузки и пересборки '
+                     + '<a href="/login" class="loginlink">нужен вход</a>'
+    : st.write_protected ? 'вход выполнен'
+    : '<span class="warn">вход без пароля — только для доверенной сети</span>';
+  const cur = st.current || {};
+  $('#hbuild').textContent = cur.finished ? ('последняя сборка ' + cur.finished
+     + (cur.total_tonnes!=null ? ' · продано ' + fmt(cur.total_tonnes) + ' т' : '')) : '';
+  ['#lnkDash','#lnkXls','#lnkJson'].forEach(s=>{
+    const el=$(s); el.style.pointerEvents = st.has_dashboard ? '' : 'none';
+    el.style.opacity = st.has_dashboard ? '' : .45; });
+  renderChecks(cur);
+
+  /* Сборка прошла, но её придержали: отчёт на сайте остался прежним. Молчать
+     тут нельзя — иначе человек уверен, что видит свежие цифры. */
+  const hold = st.hold || [];
+  const hb = $('#hold');
+  hb.style.display = hold.length ? '' : 'none';
+  if(hold.length) hb.innerHTML = '<div class="holdbox"><b>Последняя сборка НЕ опубликована</b>'
+    + ' — она слишком не похожа на предыдущую, и на сайте остался прежний отчёт.'
+    + '<ul>' + hold.map(h=>'<li>'+esc(h)+'</li>').join('') + '</ul>'
+    + '<div class="hint" style="margin:6px 0 0">Чаще всего это значит, что источник отдал'
+    + ' неполные данные, а не что сломался расчёт: проверьте таблицы в «Extractor».'
+    + ' Саму сборку видно ниже в истории — её можно открыть и сравнить.</div></div>';
+
+  /* блок «Что сейчас лежит во входных данных» убран — данные из SQL */
+
+  $('#builds tbody').innerHTML = (st.builds||[]).map(b=>'<tr>'
+    + '<td>'+esc(b.when)+'</td>'
+    + '<td>'+(!b.ok?'<span class="warn">не удалась</span>'
+             : b.published===false?'<span class="attn" title="'+esc((b.hold||[]).join('; '))
+                                   +'">не опубликована</span>'
+             : '<span class="ok">успешно</span>')+'</td>'
+    + '<td class="num">'+(b.total!=null?fmt(b.total):'')+'</td>'
+    + '<td class="mut">'+esc(b.checks||'')+'</td>'
+    + '<td class="num">'+esc(b.size)+'</td>'
+    + '<td><a class="btn2" href="/builds/'+esc(b.id)+'/dashboard.html" target="_blank">дашборд</a> '
+      + '<a class="btn2" href="/builds/'+esc(b.id)+'/build.log" target="_blank">лог</a></td></tr>').join('');
+
+  try { $('#log').textContent = await (await fetch('/api/log?tail=400')).text(); } catch(e){}
+  const lg = $('#log'); if(st.state==='идёт') lg.scrollTop = lg.scrollHeight;
+}
+refresh();
+setInterval(refresh, 3000);
+
+/* ================================================================
+   ИСТОЧНИКИ ИЗ MS SQL
+   Строка на каждый вход: подпись · таблица · «проверить». Инструмент берёт
+   ровно указанную таблицу — ничего не угадывает и по базе не шарит.
+   ⚠️ Пароль здесь не вводится и не показывается: он читается службой из
+   окружения. Страница знает только «задан / не задан».
+   ================================================================ */
+let SQLCFG = null;
+function sqlMsg(el, ok, text){
+  el.className = ok ? 'okmsg' : 'badmsg';
+  el.textContent = text || '';
+}
+async function sqlLoad(){
+  let d; try{ d = await (await fetch('/api/sql/config')).json(); }catch(e){ return; }
+  if(!d || !d.config) return;
+  SQLCFG = d;
+  const c = d.config;
+  $('#sqlHost').value = c.host || '';
+  $('#sqlPort').value = c.port || '';
+  $('#sqlDb').value   = c.database || '';
+  $('#sqlUser').value = c.user || '';
+  $('#sqlOn').checked = !!c.enabled;
+  $('#sqlPwd').innerHTML = (d.password_set
+      ? '<span class="ok">пароль задан</span> в окружении службы'
+      : '<span class="warn">пароль не задан</span>')
+    + ' — переменная <code>' + esc(d.password_env) + '</code> в '
+    + '<code>/etc/metoptorg-realizaciya.env</code> (права 600). '
+    + 'В этой странице, в настройках и в git пароля нет. Драйвер: '
+    + (d.driver_ok ? '<span class="ok">' : '<span class="warn">') + esc(d.driver) + '</span>';
+  $('#sqlTbl tbody').innerHTML = (d.sources||[]).map(s=>{
+    const cur = (c.sources||{})[s.key] || {};
+    return '<tr data-k="'+esc(s.key)+'">'
+      + '<td><input type="checkbox" class="sqlEn"'+(cur.enabled?' checked':'')+'></td>'
+      + '<td>'+esc(s.label)+'</td>'
+      + '<td><input type="text" class="sqlT" list="sqlTables" placeholder="имя таблицы или представления" '
+        + 'value="'+esc(cur.table||'')+'"></td>'
+      + '<td class="mut"><code>'+esc(s.file.replace('%s','<дата>'))+'</code></td>'
+      + '<td><button class="btn2 sqlP">проверить</button></td>'
+      + '<td class="mut sqlR"></td></tr>';
+  }).join('');
+  $$('#sqlTbl .sqlP').forEach(b=> b.addEventListener('click', sqlProbe));
+}
+async function sqlProbe(ev){
+  const tr = ev.target.closest('tr');
+  const out = tr.querySelector('.sqlR');
+  const t = tr.querySelector('.sqlT').value.trim();
+  if(!t){ sqlMsg(out, false, 'таблица не указана'); return; }
+  out.className='mut'; out.textContent='смотрю…';
+  try{
+    const r = await (await fetch('/api/sql/probe', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({table:t})})).json();
+    if(!r.ok){ sqlMsg(out, false, r.message||'не вышло'); return; }
+    sqlMsg(out, true, r.rows.toLocaleString('ru-RU')+' строк · '
+      + r.columns.length + ' колонок: ' + r.columns.slice(0,6).join(', ')
+      + (r.columns.length>6 ? ' …' : ''));
+  }catch(e){ sqlMsg(out, false, String(e)); }
+}
+$('#sqlTest').addEventListener('click', async ()=>{
+  const m=$('#sqlMsg'); m.className='mut'; m.textContent='проверяю…';
+  await sqlSave(true);
+  try{ const r = await (await fetch('/api/sql/test',{method:'POST'})).json();
+       sqlMsg(m, r.ok, r.message); }catch(e){ sqlMsg(m,false,String(e)); }
+});
+$('#sqlList').addEventListener('click', async ()=>{
+  const m=$('#sqlMsg'); m.className='mut'; m.textContent='читаю список таблиц…';
+  await sqlSave(true);
+  try{
+    const r = await (await fetch('/api/sql/tables')).json();
+    if(!r.ok){ sqlMsg(m,false,r.message); return; }
+    $('#sqlTables').innerHTML = r.tables.map(t=>
+      '<option value="'+esc(t.schema+'.'+t.name)+'">'+esc(t.name)+' · '
+      + t.rows.toLocaleString('ru-RU')+' строк</option>').join('');
+    sqlMsg(m, true, 'таблиц и представлений: '+r.tables.length
+      + ' — подсказка появится в поле «Таблица в базе»');
+  }catch(e){ sqlMsg(m,false,String(e)); }
+});
+async function sqlSave(quiet){
+  const body = {enabled: $('#sqlOn').checked, host: $('#sqlHost').value.trim(),
+                port: parseInt($('#sqlPort').value,10)||1433,
+                database: $('#sqlDb').value.trim(), user: $('#sqlUser').value.trim(),
+                sources:{}};
+  $$('#sqlTbl tbody tr').forEach(tr=>{
+    body.sources[tr.dataset.k] = {table: tr.querySelector('.sqlT').value.trim(),
+                                  enabled: tr.querySelector('.sqlEn').checked};
+  });
+  try{
+    const resp = await fetch('/api/sql/config',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const r = await resp.json();
+    /* ⚠️ Показываем ПРИЧИНУ. Голое «не сохранилось» ничего не говорит: форма
+       шлёт все строки разом, и одно плохое имя роняет весь запрос. */
+    if(!quiet){
+      const el = $('#sqlSaved');
+      if(r && r.ok){ el.className='okmsg'; el.textContent='сохранено'; }
+      else { el.className='badmsg';
+             el.textContent = 'не сохранилось — ' + (r && r.detail ? r.detail
+                              : ('ответ сервера ' + resp.status)); }
+    }
+    return !!(r && r.ok);
+  }catch(e){ if(!quiet){ $('#sqlSaved').className='badmsg';
+                         $('#sqlSaved').textContent = String(e); } return false; }
+}
+$('#sqlSave').addEventListener('click', ()=>sqlSave(false));
+sqlLoad();
+</script>
+</body>
+</html>

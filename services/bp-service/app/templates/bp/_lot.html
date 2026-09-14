@@ -1,0 +1,199 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['lot'] %}locked{% endif %}" id="sec-lot">
+  <div class="sec-head">
+    <h2><span class="sec-num">4</span> Параметры лота</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Менеджер / экономист</span>
+      {% if not can_edit['lot'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  {% if lot_hints['total'] %}
+  <div class="hint-panel">
+    <div class="hint-head">
+      <div>
+        <b>Подсказки по параметрам лота</b>
+        <p class="muted">Расчёт опирается на заполненные БП в системе и текущий
+          состав лота. Чем больше обработанных БП и КП, тем точнее стартовые значения.</p>
+      </div>
+      {% if can_edit['lot'] %}
+      <form method="post" action="/bp/{{ bp['id'] }}/lot/apply-hints">
+        <button type="submit">{{ icon('sparkles') }} Применить подсказки</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="hint-list">
+      {% for h in lot_hints['items'] %}
+      <div class="hint-row lot-hint-row">
+        <div><b>{{ h['label'] }}</b><br>
+          <span class="muted">{{ h['reason'] }}</span></div>
+        <div><span class="pill warn">{{ h['display'] }}</span></div>
+        <div class="muted">Источник: {{ h['source'] or (h['sample'] ~ ' БП в базе') }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if lot_hints.get('stats_1c') %}
+  <div class="hint-panel">
+    <div class="hint-head">
+      <div>
+        <b>Ориентиры цены из фактических данных 1С</b>
+        <p class="muted">Цена по группе аналитического учёта и каналу сбыта —
+          не среднее по типу груза: труба НКТ и трубы больших диаметров
+          отличаются в полтора раза. Свежие месяцы весят больше, сделки
+          старше двух лет не учитываются. Обновляются импортом import_1c_csv.py.</p>
+      </div>
+    </div>
+    <div class="hint-list">
+      {% for s in lot_hints['stats_1c'] %}
+      <div class="hint-row lot-hint-row">
+        <div><b data-tip="{{ s['hint'] }}">{{ s['label'] }}</b>
+          {% if s.get('scope') %}<br>
+          <span class="muted">разрез: {{ s['scope'] }}</span>{% endif %}</div>
+        <div><span class="pill warn"
+              data-tip="Средневзвешенная цена за период выборки: устойчивый
+              ориентир, свежие месяцы весят больше.">
+            {{ '{:,.0f}'.format(s['price']).replace(',', ' ') }} руб/тн</span>
+          {% if s.get('anchor') and s.get('forecast') %}<br>
+          <span class="pill" data-tip="Прогноз на ближайший период: свежая цена
+                последних месяцев ({{ '{:,.0f}'.format(s['anchor']).replace(',', ' ') }}
+                руб/тн), сдвинутая на тренд (не более ±15%).">прогноз
+            {{ '{:,.0f}'.format(s['forecast']).replace(',', ' ') }}</span>
+          <br><span class="muted">свежая: {{ '{:,.0f}'.format(s['anchor']).replace(',', ' ') }}</span>
+          {% endif %}</div>
+        <div class="muted">
+          {% if s.get('trend_pct') is not none %}
+          <span class="{{ 'neg' if s['trend_pct'] < 0 else 'pos' }}"
+                data-tip="Изменение средней цены за последние 3 месяца против
+                предыдущих трёх — на него сдвинут прогноз.">
+            тренд {{ '%+.1f' % s['trend_pct'] }}%</span> ·
+          {% endif %}
+          {% if s.get('qty') %}{{ '{:,.0f}'.format(s['qty']).replace(',', ' ') }} тн,
+          {% endif %}{{ s['sample'] }} строк{% if s.get('period') %};
+          {{ s['period'] }}{% endif %}
+        </div>
+      </div>
+      {% if s.get('buyers') and s['buyers'] | length > 1 %}
+      <details class="hint-buyers">
+        <summary class="muted">Цены по каналам сбыта ({{ s['buyers'] | length }})</summary>
+        <table class="mini-table">
+          <thead><tr><th>Покупатель</th><th class="num">руб/тн</th>
+            <th class="num">объём, тн</th><th class="num">тренд</th></tr></thead>
+          <tbody>
+          {% for b in s['buyers'] %}
+          <tr>
+            <td>{{ b['buyer'] or '—' }}</td>
+            <td class="num">{{ '{:,.0f}'.format(b['price']).replace(',', ' ') }}</td>
+            <td class="num">{{ '{:,.0f}'.format(b['qty']).replace(',', ' ') }}</td>
+            <td class="num {{ 'neg' if b['trend'] and b['trend']['pct'] < 0 else 'pos' if b['trend'] }}">
+              {% if b['trend'] %}{{ '%+.1f' % b['trend']['pct'] }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {# ── Матрица цен: какой канал сколько даёт ──
+     Лист «Сводная по направлениям» книг экономистов: под каждым покупателем
+     своя цена, и выбор канала — это и есть решение по сделке. Одной средней
+     цены по группе для такого выбора недостаточно. #}
+  {% if price_matrix and price_matrix['rows'] %}
+  <div class="hint-panel">
+    <div class="hint-head">
+      <div><b>Цены по каналам сбыта</b>
+        <p class="muted">Фактические цены из 1С по группам лота и покупателям.
+          Лучшая цена в строке выделена. Пусто — этот покупатель такую группу
+          не брал.</p></div>
+    </div>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>Группа</th>
+        {% for b in price_matrix['buyers'] %}
+        <th class="num">{{ b[:22] }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in price_matrix['rows'] %}
+      <tr>
+        <td>{{ row['group'][:34] }}</td>
+        {% for c in row['cells'] %}
+        <td class="num {{ 'row-accent' if c['is_best'] }}">
+          {% if c.get('price') %}
+          <b>{{ '{:,.0f}'.format(c['price']).replace(',', ' ') }}</b>
+          <span class="cell-sub">{{ '{:,.0f}'.format(c['qty']).replace(',', ' ') }} тн</span>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/bp/{{ bp['id'] }}/section/lot">
+    <div class="grid">
+      <div><label>Стоимость лота БЕЗ НДС (порог закупки), руб</label>
+        <input name="lot_cost" value="{{ bp['lot_cost'] or '' }}"
+               data-pair-per-t="lot_price_per_t"></div>
+      {# Экономист держит в голове цену за тонну, а вписывать должен был
+         итог: «16 800 × 535,985» на калькуляторе. Поля связаны в обе
+         стороны — считает сервис, вводить можно любое. #}
+      <div><label>…или цена закупки, руб/тн
+          <span class="muted">(тоннаж {{ '%.3f' % lot_volume }})</span></label>
+        <input id="lot_price_per_t" data-pair-total="lot_cost"
+               data-volume="{{ lot_volume }}"
+               value="{{ '%.2f' % (bp['lot_cost'] / lot_volume) if bp['lot_cost'] and lot_volume else '' }}"
+               placeholder="посчитается из стоимости лота"></div>
+      <div><label>Шаг аукциона, руб</label>
+        <input name="auction_step" value="{{ bp['auction_step'] or '' }}"></div>
+      <div><label>Засор чёрного лома, %</label>
+        <input name="contamination_pct" value="{{ bp['contamination_pct'] or '' }}"></div>
+      <div><label>Срок вывоза / расчёта капитала, мес</label>
+        <input name="removal_months" value="{{ bp['removal_months'] or '' }}"></div>
+      <div><label>Месяц начала вывоза</label>
+        <input name="start_month" value="{{ bp['start_month'] or '' }}"
+               list="dl_start_month" data-suggest="start_month" autocomplete="off">
+        <datalist id="dl_start_month"></datalist></div>
+      <div><label>Вид отгрузки</label>
+        <input name="shipment_type" value="{{ bp['shipment_type'] or '' }}"
+               placeholder="самовывоз / доставка / вагоны"
+               list="dl_shipment_type" data-suggest="shipment_type" autocomplete="off">
+        <datalist id="dl_shipment_type"></datalist></div>
+      <div><label>Перемещение</label>
+        <input name="relocation" value="{{ bp['relocation'] or '' }}" placeholder="нет / описание"
+               list="dl_relocation" data-suggest="relocation" autocomplete="off">
+        <datalist id="dl_relocation"></datalist></div>
+      <div><label>Условия оплаты</label>
+        <input name="payment_terms" value="{{ bp['payment_terms'] or '' }}"></div>
+      <div><label>Особые условия</label>
+        <input name="purchase_special" value="{{ bp['purchase_special'] or '' }}"></div>
+      <div><label>Ставка НДС, %</label>
+        <input name="vat_rate" value="{{ bp['vat_rate'] or '' }}"></div>
+      <div><label title="Доля невозмещённого НДС, относимая на затраты (труба → лом). Базовая методика 50%; в сценарии «минус 1000» БП 1674 экономисты брали 30%">Невозм. НДС на затраты, %</label>
+        <input name="vat_unrecovered_pct" value="{{ bp['vat_unrecovered_pct'] or '' }}"
+               placeholder="50"></div>
+      <div><label>Ставка капитала, % годовых</label>
+        <input name="capital_rate" value="{{ bp['capital_rate'] or '' }}"></div>
+      <div><label data-tip="База привлечённого капитала. Пусто = вся закупка с НДС. Задайте свою сумму, если часть лота кредитовать не нужно (БП 1785: закуп без меди — медь оплачивает покупатель). Срок может быть дробным: 0,25 = неделя.">База капитала, руб (пусто = закупка с НДС)</label>
+        <input name="capital_base" value="{{ bp['capital_base'] or '' }}"></div>
+      <div><label data-tip="Через сколько месяцев после отгрузки покупатель платит. Деньги возвращаются с задержкой, поэтому капитал держится дольше срока вывоза: 1 = «месяц на вывоз, месяц на дебиторку». Пусто или 0 — оплата по факту отгрузки.">Отсрочка оплаты покупателем, мес</label>
+        <input name="payment_delay_months" value="{{ bp['payment_delay_months'] or '' }}"
+               placeholder="0 = по факту отгрузки"></div>
+      <div><label>Налог на прибыль, %</label>
+        <input name="tax_rate" value="{{ bp['tax_rate'] or '' }}"></div>
+      <div><label>Налоги с ФОТ, %</label>
+        <input name="payroll_tax_rate" value="{{ bp['payroll_tax_rate'] or '' }}"></div>
+      <div><label>Потери при отгрузке, %</label>
+        <input name="shipment_loss_pct" value="{{ bp['shipment_loss_pct'] or '' }}"
+               placeholder="3 → реализация 97%"></div>
+      <div><label>Сценарии: сдвиг цены, руб/тн</label>
+        <input name="scen_price_delta" value="{{ bp['scen_price_delta'] or '' }}"
+               placeholder="1000 → сравнение ±1000"></div>
+    </div>
+    {{ save_btn('lot') }}
+  </form>
+</div>

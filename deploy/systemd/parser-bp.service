@@ -1,0 +1,27 @@
+[Unit]
+Description=МетОптТорг — парсер БП (проверка количества месяцев вывоза)
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/parser-bp
+EnvironmentFile=/etc/parser-bp.env
+Environment=HOME=/var/lib/parser-bp
+Environment=XDG_CONFIG_HOME=/var/lib/parser-bp
+Environment=STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+Environment=STREAMLIT_SERVER_HEADLESS=true
+Environment=STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+Environment=STREAMLIT_SERVER_MAX_UPLOAD_SIZE=500
+ExecStart=/opt/parser-bp/.venv/bin/python -m streamlit run app.py --server.address 0.0.0.0 --server.port 8094
+StateDirectory=parser-bp
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/opt/parser-bp
+PrivateTmp=yes
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

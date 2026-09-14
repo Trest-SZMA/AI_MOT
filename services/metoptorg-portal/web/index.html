@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#142248">
+<title>МетОптТорг · рабочие сервисы</title>
+<style>
+/* ==========================================================================
+   ПОРТАЛ МЕТОПТТОРГ — главная.
+
+   ЛОГОТИП НАСТОЯЩИЙ: инлайн-копия фирменного знака с metoptorg.ru
+   (logo_white.svg) — 12 полигонов символа и 3 пути словесного знака
+   МЕТ · ОПТ · ТОРГ. Файл не подключается ссылкой, весь код внутри страницы:
+   портал работает в сети без интернета.
+
+   ЦВЕТА ИЗ ЛОГОТИПА: #485E88 · #8390B1 · #BCC3D7 — взяты из самого файла,
+   а не подобраны на глаз.
+
+   ЭФФЕКТЫ — по частоте показа (правило: чем чаще видишь, тем короче и тише).
+   Портал открывают несколько раз в день и сразу уходят, поэтому:
+     · сборка логотипа на загрузке — редкий момент, здесь можно радовать;
+     · отклик плитки на курсор — живёт ровно столько, сколько на неё смотрят;
+     · переключений состояния нет вовсе, значит нечему надоедать.
+   Всё движение — только transform и opacity (GPU), при
+   prefers-reduced-motion выключается целиком.
+   ========================================================================== */
+:root{
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+
+  --f-xs:11px; --f-sm:12px; --f-md:14px; --f-lg:16px;
+  --f-xl:21px; --f-2xl:30px;
+  --font:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         "Helvetica Neue",Arial,sans-serif;
+
+  --r1:6px; --r2:10px; --r3:16px;
+
+  --bg:#EDF0F5; --surface:#FFFFFF; --surface-2:#F5F7FB;
+  --line:#D6DEEA; --edge:#7A88A6;
+
+  /* --- фирменные: значения взяты прямо из logo_colored.svg --- */
+  --navy:#142248;
+  --steel:#485E88;          /* основной тон знака */
+  --steel-2:#8390B1;        /* средний тон */
+  --steel-3:#BCC3D7;        /* светлый тон */
+  --steel-tint:#EDF1F8;
+  --on-navy:#C6D2EA;
+
+  --t1:#141D33; --t2:#4C5871; --t3:#5F6B85; --t4:#8894AC;
+
+  --ok:#177A50; --ok-tint:#E6F4EC;
+  --warn:#9A6A0B; --warn-tint:#FEF9F0;
+  --crit:#B23A2F; --crit-tint:#FBEAE7;
+
+  --ease-out:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--t1);font-family:var(--font);font-size:var(--f-md);
+  line-height:1.45;-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;min-height:100vh;
+  background:
+    radial-gradient(980px 520px at 12% -12%, rgba(72,94,136,.14), transparent 62%),
+    radial-gradient(760px 420px at 96% 2%, rgba(20,34,72,.07), transparent 58%),
+    var(--bg);
+  background-attachment:fixed}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--steel);outline-offset:3px;border-radius:var(--r2)}
+
+/* Полный выключатель движения. Не «поменьше», а именно выключить:
+   вестибулярный аппарат у всех разный. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .lg *{opacity:1!important;transform:none!important}
+  .tile{opacity:1!important;transform:none!important}
+}
+
+/* ============================ ШАПКА ============================ */
+.top{background:linear-gradient(160deg,#16264F 0%,#142248 58%,#101C3C 100%);
+  color:#fff;position:relative;overflow:hidden}
+.top::before{content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent)}
+.top::after{content:"";position:absolute;inset:auto 0 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+.top-in{max-width:1120px;margin:0 auto;padding:var(--s6) var(--s5);
+  display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+
+/* ---- НАСТОЯЩИЙ ЛОГОТИП ----
+   Он же заголовок страницы: словесный знак уже нарисован в фирменном
+   начертании, набирать название текстом поверх логотипа незачем. */
+.lg{display:block;width:186px;height:auto;flex:none;overflow:visible;margin:0}
+.lg svg{display:block;width:100%;height:auto;overflow:visible}
+/* каждая фигура выезжает из своего центра, а не из угла холста */
+.lg .p,.lg .w{transform-box:fill-box;transform-origin:center;
+  opacity:0;animation:pc .52s var(--ease-out) forwards;
+  animation-delay:calc(var(--i,0) * 26ms)}
+@keyframes pc{
+  from{opacity:0;transform:scale(.72) rotate(-8deg)}
+  to{opacity:1;transform:none}
+}
+/* словесный знак приходит после символа и без вращения — буквы не крутятся */
+.lg .w{animation-name:wc;animation-duration:.46s;
+  animation-delay:calc(320ms + var(--i,0) * 60ms)}
+@keyframes wc{
+  from{opacity:0;transform:translateY(7px)}
+  to{opacity:1;transform:none}
+}
+
+.hd-text{min-width:0}
+.hd-text .sub{margin:0;font-size:var(--f-md);color:var(--on-navy);
+  letter-spacing:.005em}
+.top-grow{flex:1 1 20px}
+.who{display:inline-flex;align-items:center;gap:var(--s2);font-size:var(--f-sm);
+  color:var(--on-navy);border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.09);padding:7px var(--s3);border-radius:999px;
+  min-height:34px;white-space:nowrap}
+.who b{color:#fff;font-weight:700}
+.who .av{width:20px;height:20px;border-radius:999px;background:rgba(255,255,255,.16);
+  display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff}
+
+/* сводка состояния: норма живёт одной строкой здесь, а не на пяти плитках */
+.pulse{display:inline-flex;align-items:center;gap:var(--s2);margin-top:var(--s3);
+  font-size:var(--f-sm);color:var(--on-navy)}
+.pulse .dot{width:8px;height:8px;border-radius:999px;background:#4BB985;flex:none;
+  position:relative}
+/* Живой пульс: кольцо расходится раз в 2.6 с. Медленно — чтобы читалось
+   как «дышит», а не как тревога. */
+.pulse .dot::after{content:"";position:absolute;inset:0;border-radius:999px;
+  background:inherit;animation:ring 2.6s var(--ease-out) infinite}
+@keyframes ring{
+  0%{transform:scale(1);opacity:.55}
+  70%,100%{transform:scale(2.6);opacity:0}
+}
+.pulse.bad .dot{background:#F0757C}
+.pulse b{color:#fff;font-weight:700}
+
+/* ============================ ЛИСТ ============================ */
+.sheet{max-width:1120px;margin:0 auto;padding:var(--s6) var(--s5) var(--s7)}
+.grp{margin-top:var(--s6)}
+.grp:first-child{margin-top:0}
+.grp-h{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3);
+  padding-left:2px}
+.grp-h b{font-size:var(--f-xs);font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--t3)}
+.grp-h i{font-style:normal;font-size:var(--f-xs);font-weight:800;color:var(--t3);
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:1px 8px}
+.grp-h .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));
+  gap:var(--s3)}
+
+/* ---- ПЛИТКА ----
+   Внешний <a> держит появление, внутренняя пластина — наклон и подъём.
+   Два уровня нужны, чтобы анимация входа и отклик на курсор не дрались
+   за один и тот же transform. */
+.tile{display:block;perspective:900px;
+  opacity:0;animation:tin .42s var(--ease-out) forwards;
+  animation-delay:calc(var(--d,0ms) + 120ms)}
+@keyframes tin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+.plate{position:relative;display:flex;flex-direction:column;gap:var(--s3);
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--s5) var(--s5) var(--s4);overflow:hidden;height:100%;
+  transform-style:preserve-3d;will-change:transform;
+  transition:box-shadow .25s var(--ease-out),border-color .25s var(--ease-out),
+    transform .38s var(--ease-out)}
+/* пока курсор ведёт плитку, доводка выключена — иначе наклон запаздывает */
+.plate.live{transition:box-shadow .25s var(--ease-out),
+  border-color .25s var(--ease-out)}
+.plate::before{content:"";position:absolute;inset:0 0 auto;height:1px;z-index:3;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9) 22%,
+    rgba(255,255,255,.9) 78%,transparent)}
+
+/* ПЯТНО СВЕТА идёт за курсором. Отдельный слой, двигается только
+   transform — никаких CSS-переменных на родителе, чтобы не пересчитывать
+   стили всем детям на каждом кадре. */
+.glow{position:absolute;left:0;top:0;width:340px;height:340px;margin:-170px;
+  border-radius:999px;pointer-events:none;z-index:0;opacity:0;
+  background:radial-gradient(circle,
+    rgba(72,94,136,.16) 0%, rgba(72,94,136,.07) 38%, transparent 68%);
+  transition:opacity .3s var(--ease-out);will-change:transform}
+
+/* Знак сервиса в фоне. Уезжает ПРОТИВ наклона — так между рисунком и
+   пластиной появляется реальная глубина, а не имитация. */
+.ghost{position:absolute;right:-30px;bottom:-34px;width:118px;height:118px;
+  opacity:.05;z-index:0;pointer-events:none;
+  transition:opacity .3s var(--ease-out),transform .38s var(--ease-out)}
+.plate.live .ghost{transition:opacity .3s var(--ease-out)}
+.plate > *:not(.glow):not(.ghost){position:relative;z-index:1}
+
+@media (hover:hover) and (pointer:fine){
+  .tile:hover .plate{border-color:#B4C1D8;
+    box-shadow:0 1px 2px rgba(20,34,72,.05),0 22px 40px -22px rgba(20,34,72,.38)}
+  .tile:hover .glow{opacity:1}
+  .tile:hover .ghost{opacity:.085}
+  .tile:hover .sign{transform:rotate(-7deg) scale(1.06)}
+}
+.tile:active .plate{transform:scale(.985)!important}
+
+.tile-top{display:flex;align-items:center;gap:var(--s3)}
+.sign{width:44px;height:44px;border-radius:var(--r2);flex:none;display:grid;
+  place-items:center;background:var(--steel-tint);border:1px solid #DCE5F5;
+  transition:transform .3s var(--ease-out)}
+.tile-nm{font-size:var(--f-xl);font-weight:800;letter-spacing:-.022em;
+  line-height:1.1;min-width:0}
+.tile-sm{color:var(--t2);font-size:var(--f-md);line-height:1.45;flex:1}
+.tile-ft{display:flex;align-items:center;justify-content:space-between;
+  gap:var(--s3);padding-top:var(--s3);border-top:1px solid var(--line);
+  margin-top:auto}
+.lock{display:inline-flex;align-items:center;gap:5px;font-size:var(--f-xs);
+  color:var(--t3);letter-spacing:.02em}
+.lock svg{flex:none;color:var(--t4)}
+.open{display:inline-flex;align-items:center;gap:6px;font-size:var(--f-sm);
+  font-weight:800;color:var(--steel);letter-spacing:.01em}
+/* стрелка тянется к курсору — маленький магнит, подтверждающий «сюда» */
+.arw{display:inline-block;will-change:transform;
+  transition:transform .32s var(--ease-out)}
+
+/* ---- сервис не отвечает: единственный случай, когда плитка повышает голос ---- */
+.tile.down .plate{border-color:#E6BDB6;background:linear-gradient(0deg,
+  rgba(178,58,47,.035),rgba(178,58,47,.035)),var(--surface)}
+.tile.down .sign{background:var(--crit-tint);border-color:#E6BDB6}
+.tile.down .open{color:var(--crit)}
+.tile.down .glow{background:radial-gradient(circle,
+  rgba(178,58,47,.14) 0%, rgba(178,58,47,.06) 38%, transparent 68%)}
+.alert{display:inline-flex;align-items:center;gap:5px;font-size:var(--f-xs);
+  font-weight:800;color:var(--crit);background:var(--crit-tint);
+  border:1px solid #E0B0A9;border-radius:999px;padding:2px var(--s2);
+  letter-spacing:.03em;white-space:nowrap}
+.alert::before{content:"■";font-size:8px}
+
+.foot{max-width:1120px;margin:0 auto;padding:0 var(--s5) var(--s7);
+  color:var(--t3);font-size:var(--f-sm);text-align:center}
+.foot b{color:var(--t2);font-weight:700}
+
+@media (max-width:760px){
+  .top-in{padding:var(--s5) var(--s4);gap:var(--s4)}
+  .lg{width:150px}
+  .sheet{padding:var(--s5) var(--s4) var(--s6)}
+  .foot{padding-left:var(--s4);padding-right:var(--s4)}
+  .grid{grid-template-columns:1fr;gap:var(--s3)}
+  .plate{padding:var(--s4)}
+  .tile-nm{font-size:19px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <!-- Настоящий знак МетОптТорг, инлайн-копия logo_white.svg -->
+    <h1 class="lg" aria-label="МетОптТорг">
+      <svg viewBox="0 0 233.588 116.047" role="img" aria-hidden="true">
+        <polygon class="p" style="--i:6" fill="#fff" points="199.151,94.794 214.97,78.977 199.086,63.094"/>
+        <polygon class="p" style="--i:4" fill="#fff" points="199.17,25.913 183.353,41.731 199.235,57.613"/>
+        <polygon class="p" style="--i:7" fill="#fff" points="233.588,60.855 217.771,45.038 201.888,60.92"/>
+        <polygon class="p" style="--i:5" fill="#fff" points="164.61,60.855 180.427,45.038 196.31,60.92"/>
+        <polygon class="p" style="--i:3" fill="#fff" points="164.61,22.483 180.427,38.3 196.31,22.418"/>
+        <polygon class="p" style="--i:2" fill="#fff" points="161.375,25.913 177.194,41.731 161.312,57.613"/>
+        <polygon class="p" style="--i:1" fill="#fff" points="133.979,22.46 156.351,22.46 156.351,0"/>
+        <polygon class="p" style="--i:0" fill="#fff" points="131.093,22.46 108.723,22.46 108.723,0"/>
+        <polygon class="p" style="--i:1" fill="#fff" points="117.143,27.131 132.96,42.949 148.843,27.068"/>
+        <polygon class="p" style="--i:0" fill="#fff" points="108.995,25.913 124.813,41.731 108.932,57.613"/>
+        <polygon class="p" style="--i:2" fill="#fff" points="156.209,25.913 140.392,41.731 156.272,57.613"/>
+        <polygon class="p" style="--i:8" fill="#fff" points="214.905,84.35 199.086,100.166 214.968,116.047"/>
+        <path class="w" style="--i:0" fill="#fff" d="M27.249,99.189h-6.968V76.533H20.23l-6.605,12.281L7.018,76.533H6.967v22.654H0V61.877h6.451l7.173,14.759
+          l7.174-14.759h6.451V99.189L27.249,99.189z M44.022,99.189H30.655V70.082h13.367v5.109h-7.277v6.604h6.038v4.646h-6.038v7.639
+          h7.277V99.189z M56.769,99.189h-6.142V75.191h-4.645v-5.108h15.379v5.108h-4.593L56.769,99.189L56.769,99.189z"/>
+        <path class="w" style="--i:1" fill="#fff" d="M69.826,92.635h6.244V68.328h-6.244V92.635z M69.396,99.189l-6.795-6.555V68.328l6.743-6.451h7.208
+          l6.744,6.451v24.307l-6.795,6.555H69.396L69.396,99.189z M92.688,99.189h-6.09V70.082h16.98v29.105h-6.09V74.727h-4.8V99.189
+          L92.688,99.189z M116.739,99.189h-6.141V75.191h-4.645v-5.108h15.378v5.108h-4.593L116.739,99.189L116.739,99.189z"/>
+        <path class="w" style="--i:2" fill="#fff" d="M135.574,99.189h-7.226V68.43h-5.572v-6.553h18.32v6.553h-5.521L135.574,99.189L135.574,99.189z
+          M147.187,94.08h5.213V75.141h-5.213V94.08z M146.825,99.189l-5.729-5.108v-18.94l5.676-5.059h6.039l5.676,5.059V94.08
+          l-5.676,5.107h-5.986V99.189z M167.571,84.326h4.336v-9.135h-4.336V84.326z M167.571,99.189h-6.09V70.082h11.561l4.902,3.975
+          v11.198l-4.902,3.974h-5.471V99.189L167.571,99.189z M186.925,99.189h-6.09V70.082h13.057v5.109h-6.967V99.189L186.925,99.189z"/>
+      </svg>
+    </h1>
+
+    <div class="hd-text">
+      <p class="sub" id="hello">Рабочие сервисы компании</p>
+      <span class="pulse" id="pulse">
+        <span class="dot"></span><span id="pulse-txt">проверяю сервисы…</span>
+      </span>
+    </div>
+    <span class="top-grow"></span>
+    <span class="who"><span class="av" id="av">?</span>вы вошли как <b id="me">—</b></span>
+  </div>
+</header>
+
+<main class="sheet" id="sheet"></main>
+<p class="foot">Каждый сервис спросит <b>свой</b> логин и пароль ·
+  открывается в новой вкладке</p>
+
+<script>
+/* ============================ РЕЕСТР ============================
+   Запасная копия на случай, если /api/services недоступен. Боевой список
+   живёт в services.json и читается порталом на каждый запрос. */
+const HOST = location.hostname || "192.168.6.157";
+const SERVICES = [
+  {id:"realizaciya",name:"Реализация",group:"МетОптТорг",port:8092,auth:"basic",
+   summary:"Сверять отгрузки по сериям и бизнес-планам с 1С"},
+  {id:"ostatki",name:"Остатки",group:"МетОптТорг",port:8090,auth:"basic",
+   summary:"Смотреть фактические остатки лома по складам"},
+  {id:"kp",name:"Оценка КП",group:"МетОптТорг",port:8091,auth:"roles",
+   summary:"Оценивать коммерческие предложения и выходы металлов"},
+  {id:"logistmot",name:"ЛогистМОТ",group:"Логистика",port:8080,auth:"basic",
+   summary:"Принимать отклики перевозчиков и вести заявки на рейсы"},
+  {id:"fines",name:"Штрафы",group:"Юридический отдел",port:8077,auth:"form",
+   summary:"Разбирать штрафы ГИБДД по машинам и водителям"},
+];
+
+/* ============ ЗНАКИ СЕРВИСОВ ============
+   Треугольный язык фирменного символа, два тона из логотипа. Силуэты
+   обязаны различаться при 26px: на мелком кегле остаётся только форма. */
+const A = "#485E88", B = "#142248";
+const SIGNS = {
+  realizaciya:`<path d="M10 20 L48 50 L10 80 Z" fill="${A}"/>`
+             +`<path d="M48 20 L86 50 L48 80 Z" fill="${B}"/>`,
+  ostatki:`<rect x="10" y="64" width="80" height="17" rx="3" fill="${A}"/>`
+         +`<rect x="21" y="41" width="58" height="17" rx="3" fill="${B}"/>`
+         +`<rect x="32" y="18" width="36" height="17" rx="3" fill="${A}"/>`,
+  kp:`<rect x="6" y="20" width="88" height="12" rx="5" fill="${A}"/>`
+    +`<path d="M50 36 L78 86 L22 86 Z" fill="${B}"/>`,
+  logistmot:`<path d="M2 82 L26 42 L50 82 Z" fill="${A}"/>`
+           +`<path d="M46 82 L74 14 L102 82 Z" fill="${B}"/>`,
+  fines:`<path d="M50 8 L94 84 L6 84 Z" fill="${A}"/>`
+       +`<path d="M50 38 L71 76 L29 76 Z" fill="${B}"/>`,
+};
+const sign = (id,size) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">${SIGNS[id]||""}</svg>`;
+
+const LOCK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"'
+  + ' stroke="currentColor" stroke-width="2.4"><rect x="4" y="10" width="16" height="11" rx="2"/>'
+  + '<path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const AUTH_TXT = {basic:"логин и пароль", form:"форма входа", roles:"логин, пароль и роль"};
+const urlOf = s => `http://${HOST}:${s.port}/`;
+const plural = (n,one,few,many) => {
+  const a = Math.abs(n)%100, b = a%10;
+  return a>10&&a<20 ? many : b>1&&b<5 ? few : b===1 ? one : many;
+};
+
+let LIST = SERVICES.slice();
+const state = Object.fromEntries(LIST.map(s => [s.id, true]));
+
+function render(){
+  const groups = [...new Set(LIST.map(s => s.group))];
+  let n = 0;
+  document.getElementById("sheet").innerHTML = groups.map(g => {
+    const list = LIST.filter(s => s.group === g);
+    return `<section class="grp">
+      <div class="grp-h"><b>${esc(g)}</b><i>${list.length}</i><span class="rule"></span></div>
+      <div class="grid">
+        ${list.map(s => {
+          const up = state[s.id] !== false;
+          return `<a class="tile${up ? "" : " down"}" href="${urlOf(s)}"
+             target="_blank" rel="noopener" style="--d:${(n++)*55}ms"
+             title="${esc(s.name)} — откроется в новой вкладке и спросит ${esc(AUTH_TXT[s.auth]||"")}">
+            <span class="plate">
+              <span class="glow" aria-hidden="true"></span>
+              <span class="ghost" aria-hidden="true">${sign(s.id,118)}</span>
+              <span class="tile-top">
+                <span class="sign">${sign(s.id,26)}</span>
+                <span class="tile-nm">${esc(s.name)}</span>
+                ${up ? "" : '<span class="alert">не отвечает</span>'}
+              </span>
+              <span class="tile-sm">${esc(s.summary)}</span>
+              <span class="tile-ft">
+                <span class="lock">${LOCK} ${esc(AUTH_TXT[s.auth]||"")}</span>
+                <span class="open">открыть <span class="arw">→</span></span>
+              </span>
+            </span>
+          </a>`;
+        }).join("")}
+      </div></section>`;
+  }).join("");
+  wire();
+}
+
+/* ============ ОТКЛИК ПЛИТКИ НА КУРСОР ============
+   Наклон, пятно света, параллакс знака и магнитная стрелка. Всё считается
+   в одном обработчике и применяется в кадре через requestAnimationFrame:
+   на pointermove браузер шлёт события чаще, чем рисует, и без этого мы бы
+   делали лишнюю работу впустую. Меняются только transform и opacity. */
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FINE = matchMedia("(hover: hover) and (pointer: fine)").matches;
+const TILT = 4.2;      // градусов по краю; больше — уже аттракцион
+
+function wire(){
+  if (REDUCED || !FINE) return;
+  document.querySelectorAll(".tile").forEach(tile => {
+    const plate = tile.querySelector(".plate");
+    const glow  = tile.querySelector(".glow");
+    const ghost = tile.querySelector(".ghost");
+    const arw   = tile.querySelector(".arw");
+    let frame = 0, px = 0, py = 0;
+
+    const draw = () => {
+      frame = 0;
+      const r = plate.getBoundingClientRect();
+      if (!r.width) return;
+      const nx = (px - r.width / 2) / (r.width / 2);    // −1 … 1
+      const ny = (py - r.height / 2) / (r.height / 2);
+      plate.style.transform =
+        `rotateX(${(-ny*TILT).toFixed(2)}deg) rotateY(${(nx*TILT).toFixed(2)}deg) translateZ(0)`;
+      glow.style.transform  = `translate3d(${px}px,${py}px,0)`;
+      ghost.style.transform = `translate3d(${(-nx*10).toFixed(1)}px,${(-ny*10).toFixed(1)}px,0)`;
+      arw.style.transform   = `translate3d(${(nx*4).toFixed(1)}px,0,0)`;
+    };
+
+    tile.addEventListener("pointerenter", () => plate.classList.add("live"));
+    tile.addEventListener("pointermove", e => {
+      const r = plate.getBoundingClientRect();
+      px = e.clientX - r.left; py = e.clientY - r.top;
+      if (!frame) frame = requestAnimationFrame(draw);
+    });
+    tile.addEventListener("pointerleave", () => {
+      if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      /* доводку возвращаем ДО сброса, иначе плитка щёлкнет обратно рывком */
+      plate.classList.remove("live");
+      plate.style.transform = "";
+      ghost.style.transform = "";
+      arw.style.transform = "";
+    });
+  });
+}
+
+function hello(){
+  const h = new Date().getHours();
+  const part = h < 5 ? "Доброй ночи" : h < 12 ? "Доброе утро"
+             : h < 18 ? "Добрый день" : "Добрый вечер";
+  document.getElementById("hello").textContent = part + " · рабочие сервисы компании";
+}
+function setUser(name){
+  document.getElementById("me").textContent = name;
+  document.getElementById("av").textContent = (String(name)[0] || "?").toUpperCase();
+}
+function setPulse(){
+  const down = LIST.filter(s => state[s.id] === false);
+  const p = document.getElementById("pulse");
+  const t = document.getElementById("pulse-txt");
+  p.classList.toggle("bad", down.length > 0);
+  const N = LIST.length;
+  t.innerHTML = down.length
+    ? `${plural(down.length,"не отвечает","не отвечают","не отвечают")} `
+      + `<b>${down.map(s => esc(s.name)).join(", ")}</b>`
+    : `все <b>${N}</b> ${plural(N,"сервис","сервиса","сервисов")} `
+      + `${plural(N,"работает","работают","работают")}`;
+}
+
+/* Перерисовываем ТОЛЬКО когда что-то изменилось: опрос идёт раз в 30 секунд,
+   и без этой проверки плитки заново проигрывали бы появление у человека
+   на глазах каждые полминуты. */
+let lastKey = "";
+async function poll(){
+  try{
+    const r = await fetch("/api/status", {cache:"no-store"});
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.user) setUser(d.user);
+    (d.services || []).forEach(s => { state[s.id] = !!s.up; });
+    const key = LIST.map(s => s.id + (state[s.id] !== false ? "1" : "0")).join("");
+    if(key !== lastKey){ lastKey = key; render(); setPulse(); }
+  }catch(e){ /* открыли файлом с диска — остаёмся на значениях по умолчанию */ }
+}
+
+/* Реестр тоже подтягиваем с портала: добавленный в services.json сервис
+   появится сам, без правки этой страницы. */
+async function loadRegistry(){
+  try{
+    const r = await fetch("/api/services", {cache:"no-store"});
+    if(!r.ok) return;
+    const d = await r.json();
+    if(Array.isArray(d.services) && d.services.length){
+      LIST = d.services;
+      LIST.forEach(s => { if(!(s.id in state)) state[s.id] = true; });
+      lastKey = ""; render(); setPulse();
+    }
+  }catch(e){}
+}
+
+hello(); setUser("—"); render(); setPulse();
+loadRegistry().then(poll);
+setInterval(poll, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# Окружение и кэш
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Секреты
+.env
+.env.*
+!.env.example
+
+# Данные компании: базы, выгрузки 1С, результаты сборок, бэкапы
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/
+out/
+output/
+builds/
+logs/
+backups/
+backup/
+attachments/
+1c/
+archive/
+exports/
+uploads/
+*.xlsx
+*.xls
+*.csv
+*.part
+*.log
+*.tar.gz
+
+# Мусор
+*.bak
+*.bak-*
+*.bak.*
+*.favbak
+._*
+.DS_Store
+
+# генерируется make_dash.py в out/, содержит данные
+web/dashboard.html

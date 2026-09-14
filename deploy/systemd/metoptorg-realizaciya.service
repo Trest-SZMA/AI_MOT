@@ -1,0 +1,37 @@
+[Unit]
+Description=МЕТОПТОРГ — реализация по сериям и бизнес-планам (загрузка выгрузок 1С и пересборка отчёта)
+After=network.target
+
+[Service]
+Type=simple
+User=metoptorg
+Group=metoptorg
+WorkingDirectory=/opt/metoptorg-realizaciya
+EnvironmentFile=/etc/metoptorg-realizaciya.env
+# Расчёт обязан быть ВОСПРОИЗВОДИМЫМ: на одних и тех же выгрузках две сборки
+# давали разный результат. Разница мелкая, но реальная — 64,5 т «переезжали»
+# между тремя бизнес-планами (1316, 1681, 1759) по правилу наследования серии
+# при переработке: у документов, где сырьё делится между сериями почти ровно
+# пополам, порядок суммирования решает, кто перевалит порог доминирования 50 %,
+# а порядок зависит от хеширования строк. Фиксированный seed делает сборку
+# повторяемой; сам порог всё ещё надо сделать устойчивым (см. СОСТОЯНИЕ §5).
+Environment=PYTHONHASHSEED=0
+# Порт 8092 — свой; НЕ трогаем соседей: fines-service(:8077), logistmot-panel(:8080),
+# metoptorg-ostatki(:8090), metoptorg-kp(:8091).
+# ОДИН воркер: пересборка идёт фоновым потоком этого процесса.
+ExecStart=/opt/metoptorg-realizaciya/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8092 --workers 1 --timeout-keep-alive 120
+Restart=on-failure
+RestartSec=5
+# Замерено: расчёт 1.1 ГБ, Excel 1.35 ГБ. Потолок с запасом, но так, чтобы
+# сервис не съел память у соседей на этой 4-гигабайтной машине.
+MemoryHigh=2G
+MemoryMax=3G
+# Пишет только в свой каталог (data/, out/, builds/, logs/)
+ProtectSystem=strict
+ReadWritePaths=/opt/metoptorg-realizaciya
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

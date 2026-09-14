@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% macro num(v) %}{{ '%.1f' % v if v else '-' }}{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>График вывоза {{ bp['bp_number'] }}
+      <span class="status {{ bp['status'] }}">{{ bp['status'] }}</span></h1>
+    <div class="muted">Остаток, отгрузка, реализация с потерями и остаток на конец периода.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/logistics">
+      <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+      Карточка БП
+    </a>
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/route">
+      <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+      Маршрут
+    </a>
+    {% if can_edit %}
+    <form method="post" action="/bp/{{ bp['id'] }}/schedule/auto" class="inline-form"
+          data-no-dirty>
+      <button type="submit"
+              data-tip="Разложить объём каждой базы по месяцам срока вывоза. Месяцы, когда база недоступна (зимник открыт только зимой), пропускаются — объём кладётся в доступные. Ранее введённые цифры будут заменены.">
+        <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+        Распределить автоматически</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-tile">
+    <div class="label">Объём лота, тн</div>
+    <div class="value">{{ '%.1f' % schedule['total_volume'] }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Запланировано к отгрузке</div>
+    <div class="value">{{ '%.1f' % schedule['total_shipped'] }}</div>
+  </div>
+  <div class="summary-tile {{ 'bad' if schedule['total_left'] | abs > 0.5 else 'good' }}">
+    <div class="label">Не распределено</div>
+    <div class="value" title="Минус: запланировано больше объёма лота">
+      {{ '%.1f' % schedule['total_left'] }}</div>
+  </div>
+  <div class="summary-tile">
+    <div class="label">Период</div>
+    <div class="value">{{ schedule['months'] }} мес</div>
+    <div class="muted">{{ bp['start_month'] or 'месяц старта не указан' }}</div>
+  </div>
+</div>
+
+<form method="post" action="/bp/{{ bp['id'] }}/schedule">
+{% for b in schedule['bases'] %}
+<div class="card">
+  <div class="sec-head">
+    <h2>{{ b['base'] }}</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ '%.1f' % b['volume'] }} тн</span>
+      <span class="role-tag">отгрузка {{ '%.1f' % b['shipped'] }}</span>
+      <span class="role-tag">реализация {{ '%.1f' % b['sold'] }}</span>
+      <span class="pill {{ 'bad' if b['left'] > 0.5 else 'ok' }}">остаток {{ '%.1f' % b['left'] }}</span>
+      {% if b['seasonal'] %}
+      <span class="pill warn" data-tip="{{ b['seasonal_comment'] or '' }} Доступных месяцев в сроке вывоза: {{ schedule['months'] - b['blocked'] }} из {{ schedule['months'] }}.">сезонное место: {{ b['seasonal'] }}</span>
+      {% endif %}
+    </div>
+  </div>
+  <input type="hidden" name="base_{{ loop.index0 }}" value="{{ b['base'] }}">
+  {% set bi = loop.index0 %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Показатель, тн</th>
+      {% for m in range(1, schedule['months'] + 1) %}
+      {% set cal = schedule['calendar'][m - 1] %}
+      {% set blocked = not b['rows'][m - 1]['available'] %}
+      <th class="num {{ 'month-blocked' if blocked }}"
+          {% if blocked %}data-tip="{{ b['seasonal_comment'] or 'Место сезонное' }}: в этом месяце вывоз невозможен, автораспределение его пропускает."{% endif %}>
+        Мес {{ m }}{% if cal %}<br><span class="muted">{{ month_names[cal] }}</span>{% endif %}
+      </th>{% endfor %}
+    </tr></thead>
+    <tbody>
+    <tr><td data-tip="Остаток базы на начало месяца = объём позиций базы минус отгруженное в предыдущие месяцы.">Остаток на начало</td>
+      {% for r in b['rows'] %}<td class="calc num">{{ num(r['balance_start']) }}</td>{% endfor %}
+    </tr>
+    <tr><td><b>Отгрузка (план)</b></td>
+      {% for r in b['rows'] %}
+      <td class="{{ 'month-blocked' if not r['available'] }}">
+        {% if can_edit %}
+        <input name="ship_{{ bi }}_{{ r['month'] }}" value="{{ r['shipment'] or '' }}"
+               class="w-sm">
+        {% else %}{{ num(r['shipment']) }}{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr><td data-tip="Реализация = отгрузка × (1 − потери {{ '%.0f' % schedule['loss_pct'] }}%). Процент потерь — настройка shipment_loss_pct, можно уточнить в блоке «Лот» карточки.">Реализация (потери {{ '%.0f' % schedule['loss_pct'] }}%)</td>
+      {% for r in b['rows'] %}<td class="calc num">{{ num(r['sale']) }}</td>{% endfor %}
+    </tr>
+    <tr><td>Перемещение (справочно)</td>
+      {% for r in b['rows'] %}
+      <td>
+        {% if can_edit %}
+        <input name="reloc_{{ bi }}_{{ r['month'] }}" value="{{ r['relocation'] or '' }}"
+               class="w-sm">
+        {% else %}{{ num(r['relocation']) }}{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% set cap = capacity.get(b['base'], {}) %}
+    <tr class="stage-row"><td colspan="{{ schedule['months'] + 1 }}">
+      <b>Переработка на базе</b>
+      <span class="muted">мощность по нормативам: {{ '%.0f' % (cap.get('total_t_month') or 0) }} тн/мес
+        (ручная резка {{ '%.0f' % (cap.get('manual_t_month') or 0) }} + пресс {{ '%.0f' % (cap.get('press_t_month') or 0) }},
+        {{ '%.0f' % (cap.get('shifts') or 0) }} смен)</span>
+    </td></tr>
+    <tr><td data-tip="Тонны, приходящие на базу в этом месяце: отгрузка с места вывоза попадает в приход базы зеркально. Дальше их нужно успеть переработать.">Приход на базу, тн</td>
+      {% for r in b['rows'] %}<td class="calc num">{{ num(r['shipment']) }}</td>{% endfor %}
+    </tr>
+    <tr><td data-tip="Мощность базы минус приход месяца. Отрицательное значение — база не успевает переработать объём: нужен второй пресс, смены или перенос части объёма на другой месяц.">Запас мощности, тн</td>
+      {% for r in b['rows'] %}
+      {% set slack = (cap.get('total_t_month') or 0) - r['shipment'] %}
+      <td class="calc num {{ 'neg' if slack < -0.01 else '' }}"
+          {% if slack < -0.01 %}data-tip="Не хватает {{ '%.1f' % (-slack) }} тн мощности в этом месяце."{% endif %}>
+        {{ '%.1f' % slack }}</td>
+      {% endfor %}
+    </tr>
+    <tr><td data-tip="Остаток на начало минус отгрузка месяца. К концу срока вывоза должен стремиться к нулю.">Остаток на конец</td>
+      {% for r in b['rows'] %}
+      <td class="calc num {{ 'neg' if r['balance_end'] < -0.01 else '' }}">
+        {{ '%.1f' % r['balance_end'] }}</td>
+      {% endfor %}
+    </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="card"><span class="muted">Добавьте позиции лота. Базы графика берутся
+  из поля «Поставщик».</span></div>
+{% endfor %}
+
+{% if schedule['bases'] %}
+<div class="card">
+  <h2>ИТОГО по месяцам</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th></th>
+      {% for m in range(1, schedule['months'] + 1) %}
+      {% set cal = schedule['calendar'][m - 1] %}
+      <th class="num">
+        Мес {{ m }}{% if cal %}<br><span class="muted">{{ month_names[cal] }}</span>{% endif %}
+      </th>{% endfor %}
+      <th class="num">Итого</th></tr></thead>
+    <tbody>
+    <tr><td>Отгрузка, тн</td>
+      {% for t in schedule['month_totals'] %}<td class="calc num">{{ num(t['shipment']) }}</td>{% endfor %}
+      <td class="calc num"><b>{{ '%.1f' % schedule['total_shipped'] }}</b></td></tr>
+    <tr><td>Реализация, тн</td>
+      {% for t in schedule['month_totals'] %}<td class="calc num">{{ num(t['sale']) }}</td>{% endfor %}
+      <td class="calc num"><b>{{ '%.1f' % (schedule['total_shipped'] * (1 - schedule['loss_pct'] / 100)) }}</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+  {% if can_edit %}<button type="submit"><svg class="icon" aria-hidden="true"><use href="#i-save"></use></svg> Сохранить график</button>{% endif %}
+</div>
+{% endif %}
+</form>
+{% endblock %}

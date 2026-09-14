@@ -1,0 +1,32 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['items'] %}locked{% endif %}" id="sec-upload">
+  <div class="sec-head">
+    <h2><span class="sec-num">1</span> Загрузка КП / спецификации</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Старт обработки БП</span>
+      {% if not can_edit['items'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  {% if can_edit['items'] %}
+  <form method="post" action="/bp/{{ bp['id'] }}/items/upload"
+        enctype="multipart/form-data"
+        class="upload-panel">
+    <div><label>КП / спецификация (xlsx)</label>
+      <input type="file" name="file" accept=".xlsx,.xlsm" required
+             class="file-input"></div>
+    <div><label>Поставщик для строк (необязательно)</label>
+      <input name="supplier_default"
+             placeholder="оставьте пустым, возьмем продавца из файла"></div>
+    <div><label class="check-line">
+      <input type="checkbox" name="replace" value="1">
+      заменить текущие позиции</label></div>
+    <button type="submit">{{ icon('upload') }} Загрузить и распознать</button>
+    <span class="muted upload-hint">Данные из файла переносятся в карточку:
+      позиции, цены реализации, продавец, подразделение и стоимость лота — там,
+      где они есть в файле. Файл не хранится как отдельный документ. Незаполненные
+      поля можно уточнить вручную.</span>
+  </form>
+  {% else %}
+  <p class="muted">Загрузка КП / спецификации недоступна для текущей роли или статуса.</p>
+  {% endif %}
+</div>

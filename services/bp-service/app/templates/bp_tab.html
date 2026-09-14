@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+
+{# Общий макет вкладки БП: шапка сделки, переключатель вариантов, KPI и
+   полоса вкладок. Содержимое вкладки — в блоке tab_content.
+
+   Разделение на страницы вместо одной длинной карточки: страница считает
+   только то, что показывает, а на вкладку можно дать ссылку коллеге. #}
+
+{% block content %}
+{% include "bp/_head.html" %}
+
+<nav class="tab-bar" aria-label="Разделы бизнес-плана">
+  {% for t in tabs %}
+  <a class="tab {{ 'active' if t.code == tab }}"
+     href="/bp/{{ bp['id'] }}/{{ t.code }}{% if variant != 'bsp' %}?variant={{ variant }}{% endif %}"
+     {% if t.hint %}data-tip="{{ t.hint }}"{% endif %}
+     {% if t.code == tab %}aria-current="page"{% endif %}>
+    <span class="tab-name">{{ t.title }}</span>
+    {# Метка готовности: сколько незаполненного и мешает ли это расчёту. #}
+    {% if t.gaps %}
+    <span class="tab-mark {{ 'stop' if t.blocking else 'warn' }}"
+          data-tip="{{ t.gaps | join('; ') }}">{{ t.gaps | length }}</span>
+    {% elif t.done %}
+    <span class="tab-mark ok" aria-label="заполнено">{{ icon('check', 'icon-s') }}</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</nav>
+
+{% if tab_gaps %}
+{# Чего не хватает именно здесь и что из-за этого не посчитается. #}
+<div class="gap-note {{ 'stop' if tab_blocking else '' }}">
+  {{ icon('warn') }}
+  <div>
+    <b>Не заполнено на этой вкладке:</b>
+    <ul>{% for g in tab_gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+  </div>
+</div>
+{% endif %}
+
+{% block tab_content %}{% endblock %}
+
+{% include "bp/_scripts.html" %}
+
+<style>
+  /* ── Полоса вкладок БП ── */
+  .tab-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px;
+             padding: 4px; background: var(--surface);
+             border: 1px solid var(--brand-200); border-radius: var(--radius);
+             box-shadow: var(--shadow); }
+  .tab-bar .tab { display: flex; align-items: center; gap: 6px;
+                  padding: 8px 14px; border-radius: var(--radius-s);
+                  font-size: 13px; font-weight: 700; text-decoration: none;
+                  color: var(--brand-600); transition: background .15s, color .15s; }
+  .tab-bar .tab:hover { background: var(--brand-50); color: var(--brand-900); }
+  .tab-bar .tab.active { background: var(--brand-900); color: #fff; }
+  .tab-bar .tab.active .tab-mark.ok { color: #fff; }
+  .tab-mark { font-size: 11px; font-weight: 800; line-height: 1;
+              padding: 3px 6px; border-radius: 999px; }
+  .tab-mark.warn { background: var(--warn-bg); color: var(--warn);
+                   border: 1px solid var(--warn-border); }
+  .tab-mark.stop { background: var(--danger-bg); color: var(--danger);
+                   border: 1px solid var(--danger-border); }
+  .tab-mark.ok { color: var(--ok); padding: 0; }
+
+  /* ── Список пробелов на вкладке ── */
+  .gap-note { display: flex; gap: 10px; align-items: flex-start;
+              background: var(--warn-bg); border: 1px solid var(--warn-border);
+              color: var(--warn); border-radius: var(--radius);
+              padding: 10px 14px; margin: 0 0 14px; font-size: 13px; }
+  .gap-note.stop { background: var(--danger-bg); border-color: var(--danger-border);
+                   color: var(--danger); }
+  .gap-note ul { margin: 4px 0 0; padding-left: 18px; }
+  .gap-note li { margin: 2px 0; }
+  .gap-note .icon { flex: none; margin-top: 2px; }
+</style>
+{% endblock %}

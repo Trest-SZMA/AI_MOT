@@ -1,0 +1,180 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+{% if base_pnl['bases'] %}
+<div class="card" id="sec-bases">
+  <div class="sec-head">
+    <h2><span class="sec-num">10</span> Экономика по базам</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ base_pnl['bases'] | length }} баз</span>
+      <span class="role-tag">руб/тн и рубли</span>
+    </div>
+  </div>
+  {# Свод по направлениям: логистика и переработка на направление целиком.
+     В одно направление стягивают лом с нескольких площадок, и планировать
+     ресурсы надо по нему, а не по отдельной базе. #}
+  {% if base_pnl['directions'] and base_pnl['directions'] | length > 0 %}
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Направление / база</th><th class="num">Объём, тн</th>
+      <th class="num" data-tip="Вывоз с цеха на базу и отгрузка покупателю:
+          транспорт, погрузка, ФОТ водителей, амортизация машин.">Логистика,
+        руб (руб/тн)</th>
+      <th class="num" data-tip="Переработка на базе: резка (кислород, бензин,
+          резчики), пресс, перегружатель, амортизация оборудования.">Переработка,
+        руб (руб/тн)</th>
+      <th class="num">Прочие + капитал, руб</th>
+      <th class="num">Прибыль, руб</th></tr></thead>
+    <tbody>
+    {% for d in base_pnl['directions'] %}
+    <tr class="row-accent">
+      <td><b>{{ d['direction'] }}</b>
+        <span class="muted">{{ d['bases'] | length }}
+          {{ 'база' if d['bases'] | length == 1 else 'баз' }}</span></td>
+      <td class="num"><b>{{ '%.2f' % d['volume'] }}</b></td>
+      <td class="calc num"><b>{{ money(d['logistics']) }}</b><br>
+        <span class="muted">{{ '%.0f' % d['logistics_per_t'] }}/тн</span></td>
+      <td class="calc num"><b>{{ money(d['processing']) }}</b><br>
+        <span class="muted">{{ '%.0f' % d['processing_per_t'] }}/тн</span></td>
+      <td class="calc num">{{ money(d['other'] + d['capital']) }}</td>
+      <td class="calc num {{ 'pos' if d['profit'] >= 0 else 'neg' }}">
+        <b>{{ money(d['profit']) }}</b></td>
+    </tr>
+    {% for b in d['bases'] %}
+    <tr>
+      <td class="sub-row">{{ b['base'][:52] }}
+        {% if b['corrected'] %}<br>
+        <span class="pill warn" data-tip="Разрез задан вручную{% if b['split_comment'] %}:
+              {{ b['split_comment'] }}{% endif %}. Итог по базе не изменился —
+              разница ушла в «прочие».">скорректировано</span>{% endif %}</td>
+      <td class="num">{{ '%.2f' % b['volume'] }}</td>
+      {# Корректировка разреза: экономист правит деление затрат базы между
+         путями и площадкой. Сумма по базе фиксирована фактическими статьями,
+         поэтому итог P&L не меняется. #}
+      <td class="calc num">
+        {% if can_edit['costs'] %}
+        <input form="split-{{ loop.index0 }}-{{ b['base'] | replace(' ', '') | replace(',', '') | truncate(18, true, '') }}"
+               name="logistics" class="w-sm" value="{{ '%.0f' % b['logistics'] }}">
+        {% else %}{{ money(b['logistics']) }}{% endif %}
+        <br><span class="muted">{{ '%.0f' % b['logistics_per_t'] }}/тн</span></td>
+      <td class="calc num">
+        {% if can_edit['costs'] %}
+        <input form="split-{{ loop.index0 }}-{{ b['base'] | replace(' ', '') | replace(',', '') | truncate(18, true, '') }}"
+               name="processing" class="w-sm" value="{{ '%.0f' % b['processing'] }}">
+        {% else %}{{ money(b['processing']) }}{% endif %}
+        <br><span class="muted">{{ '%.0f' % b['processing_per_t'] }}/тн</span></td>
+      <td class="calc num">{{ money(b['other'] + b['capital']) }}
+        <br><span class="muted" data-tip="Фактические затраты базы из статей БП —
+              сумма логистики, переработки и прочих. Корректировка её не меняет.">факт
+          {{ money(b['fact_costs']) }}</span>
+        {% if b['other'] < -0.5 %}<br>
+        <span class="warn-note" data-tip="Логистика и переработка в сумме больше
+              фактических затрат базы — разница ушла в минус по прочим. Либо
+              уменьшите корректировку, либо добавьте недостающие статьи затрат
+              в разделе «Затраты».">{{ icon('warn', 'icon-s') }} превышен факт
+          на {{ money(-b['other']) }}</span>{% endif %}</td>
+      <td class="calc num {{ 'pos' if b['profit'] >= 0 else 'neg' }}">{{ money(b['profit']) }}
+        {% if can_edit['costs'] %}
+        <form method="post" id="split-{{ loop.index0 }}-{{ b['base'] | replace(' ', '') | replace(',', '') | truncate(18, true, '') }}"
+              action="/bp/{{ bp['id'] }}/bases/split?variant={{ variant }}"
+              class="inline-form">
+          <input type="hidden" name="base" value="{{ b['base'] }}">
+          <input name="comment" class="w-sm" placeholder="чем обосновано"
+                 value="{{ b['split_comment'] or '' }}">
+          <button class="btn-icon secondary" title="Сохранить разрез затрат базы">{{ icon('save') }}</button>
+        </form>
+        {% endif %}</td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  <p class="muted">Показатели по каждой базе — как в книге экономистов: цена,
+    себестоимость закупки, логистика, переработка, капитал и прибыль на тонну.
+    Суммы фактические (статьи БП), разрез логистика/переработка — по
+    нормативной модели. Сумма прибыли баз равна прибыли до налогообложения.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Показатель</th>
+      {% for b in base_pnl['bases'] %}
+      <th class="num">{{ b['base'][:34] }}</th>
+      {% endfor %}
+      <th class="num row-accent">ИТОГО</th></tr></thead>
+    <tbody>
+    {% macro line(label, key, tip, per_t=True, accent=False) %}
+    <tr {% if accent %}class="row-accent"{% endif %}>
+      <td data-tip="{{ tip }}">{% if accent %}<b>{{ label }}</b>{% else %}{{ label }}{% endif %}</td>
+      {% for b in base_pnl['bases'] %}
+      <td class="calc num">
+        {% if per_t %}<b>{{ '{:,.0f}'.format(b[key ~ '_per_t']).replace(',', ' ') }}</b><br>
+        <span class="muted">{{ money(b[key]) }}</span>
+        {% else %}<b>{{ '%.1f' % b[key] }}</b>{% endif %}
+      </td>
+      {% endfor %}
+      <td class="calc num row-accent">
+        {% if per_t %}<b>{{ '{:,.0f}'.format(base_pnl['totals'][key ~ '_per_t']).replace(',', ' ') }}</b><br>
+        <span class="muted">{{ money(base_pnl['totals'][key]) }}</span>
+        {% else %}<b>{{ '%.1f' % base_pnl['totals'][key] }}</b>{% endif %}
+      </td>
+    </tr>
+    {% endmacro %}
+    <tr><td data-tip="Объём закупки по позициям этой базы.">Объём закупки, тн</td>
+      {% for b in base_pnl['bases'] %}<td class="calc num">{{ '%.1f' % b['volume'] }}</td>{% endfor %}
+      <td class="calc num row-accent"><b>{{ '%.1f' % base_pnl['totals']['volume'] }}</b></td></tr>
+    <tr><td data-tip="Объём продажи с учётом засора — на него делятся все показатели руб/тн.">Объём продажи, тн</td>
+      {% for b in base_pnl['bases'] %}<td class="calc num">{{ '%.1f' % b['sale_volume'] }}</td>{% endfor %}
+      <td class="calc num row-accent"><b>{{ '%.1f' % base_pnl['totals']['sale_volume'] }}</b></td></tr>
+    <tr><td data-tip="Выручка базы и средняя цена реализации на тонну.">Цена реализации, руб/тн</td>
+      {% for b in base_pnl['bases'] %}
+      <td class="calc num"><b>{{ '{:,.0f}'.format(b['price_per_t']).replace(',', ' ') }}</b><br>
+        <span class="muted">{{ money(b['revenue']) }}</span></td>
+      {% endfor %}
+      <td class="calc num row-accent"><b>{{ '{:,.0f}'.format(base_pnl['totals']['revenue_per_t']).replace(',', ' ') }}</b><br>
+        <span class="muted">{{ money(base_pnl['totals']['revenue']) }}</span></td></tr>
+    {{ line('Себестоимость закупки', 'purchase_cost', 'Доля стоимости лота, приходящаяся на позиции базы (лот делится по тоннажу).') }}
+    {{ line('Валовый доход', 'gross', 'Выручка минус себестоимость закупки — до затрат.') }}
+    {{ line('Логистика (вывоз и отгрузка)', 'logistics', 'Затраты на путях: транспорт, погрузка, отгрузка покупателю. Доля фактических затрат по структуре нормативной модели.') }}
+    {{ line('Переработка на базе', 'processing', 'Затраты площадки: резка, пресс, перегружатель, распределяемые расходы базы.') }}
+    {% if base_pnl['totals']['other'] > 0.5 %}
+    {{ line('Прочие затраты', 'other', 'Затраты, которые модель не разложила по этапам (ручные статьи, невозмещённый НДС).') }}
+    {% endif %}
+    {{ line('Привлечённый капитал', 'capital', 'Проценты за капитал, распределённые на позиции базы пропорционально закупке с НДС.') }}
+    {{ line('Прибыль до налога', 'profit', 'Выручка − закупка − затраты − капитал. Сумма по базам равна прибыли до налогообложения в P&L.', True, True) }}
+    </tbody>
+  </table>
+  </div>
+
+  {% if type_summary | length > 1 %}
+  <h3 class="sub-head" data-tip="Свод «бизнес-план для МСК»: руководство сравнивает сделки по прибыли на тонну в разрезе типов металла.">Свод по типам металла</h3>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Тип</th><th class="num">Объём продажи, тн</th>
+      <th class="num">Цена, руб/тн</th><th class="num">Себестоимость, руб/тн</th>
+      <th class="num">Затраты, руб/тн</th><th class="num">Прибыль, руб/тн</th>
+      <th class="num">Прибыль, руб</th></tr></thead>
+    <tbody>
+    {% for d in type_summary %}
+    <tr>
+      <td><b>{{ d['type'] }}</b></td>
+      <td class="num">{{ '%.1f' % d['sale_volume'] }}</td>
+      <td class="calc num">{{ '{:,.0f}'.format(d['price_per_t']).replace(',', ' ') }}</td>
+      <td class="calc num">{{ '{:,.0f}'.format(d['cost_per_t']).replace(',', ' ') }}</td>
+      <td class="calc num">{{ '{:,.0f}'.format(d['costs_per_t']).replace(',', ' ') }}</td>
+      <td class="calc num {{ 'pos' if d['profit_per_t'] >= 0 else 'neg' }}">
+        <b>{{ '{:,.0f}'.format(d['profit_per_t']).replace(',', ' ') }}</b></td>
+      <td class="calc num {{ 'pos' if d['profit'] >= 0 else 'neg' }}">{{ money(d['profit']) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Стоимость лота делится между позициями по тоннажу, поэтому
+    дешёвый чёрный лом в одном лоте с цветметом может показывать убыток —
+    смотрите итог по сделке, а не по одному типу.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{# Раздел показываем всегда: пустая лестница означает не «инструмента нет»,
+   а «не задан шаг аукциона» — и об этом надо сказать прямо. #}

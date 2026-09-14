@@ -1,0 +1,90 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['items'] %}locked{% endif %}" id="sec-match">
+  <div class="sec-head">
+    <h2><span class="sec-num">6</span> Сопоставление с номенклатурой 1С</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Подготовка отчета 1С</span>
+      {% if not can_edit['items'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  {% if can_edit['items'] %}
+  <form method="post" action="/bp/{{ bp['id'] }}/match/auto" class="inline-form">
+    <button type="submit">{{ icon('sparkles') }} Подобрать автоматически</button>
+  </form>
+  <form method="post" action="/bp/{{ bp['id'] }}/autofill" class="inline-form">
+    <button type="submit" class="secondary"
+            data-tip="Заполнить пустые поля позиций из связанных таблиц:
+            единицу и группу — из номенклатуры 1С, расстояние — из пунктов
+            отгрузки и маршрутов, покупателя — из плана продажи. Введённое
+            вручную не перетирается.">{{ icon('download') }} Подтянуть данные</button>
+  </form>
+  <span class="muted">Затем мастер с места выкупа подтверждает или правит вручную.
+    Подтверждённые пары учитываются в ИИ-предложениях для следующих БП.</span>
+  {% endif %}
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Номенклатура продавца</th>
+        <th data-tip="Код позиции у продавца из спецификации (номер КССС,
+            номенклатурный номер). По нему сопоставление переиспользуется в
+            следующих лотах точнее, чем по названию: имена пишут по-разному,
+            код у позиции один.">Код продавца</th>
+        <th>Позиций / тн</th>
+        <th>Наша номенклатура 1С</th><th>Статус</th>
+        {% if can_edit['items'] %}<th>Корректировка / подтверждение</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for m in matching %}
+    <tr>
+      <td>{{ m['seller_name'] }}</td>
+      <td>{% if m['seller_code'] %}<code>{{ m['seller_code'] }}</code>
+        {% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="num">{{ m['count'] }} / {{ '%.1f' % m['volume'] }}</td>
+      <td>
+        {{ m['nomen_1c'] or '-' }}
+        {% if m['suggestion'] %}
+        <div class="suggestion">
+          {{ icon('sparkles', 'icon-s') }} <b>{{ m['suggestion']['name'] }}</b>
+          <span class="muted">предложено на основе ИИ
+            ({{ m['suggestion']['source'] }}, {{ '%.0f' % (m['suggestion']['score'] * 100) }}%)</span>
+          {% if can_edit['items'] %}
+          <form class="inline-form" method="post" action="/bp/{{ bp['id'] }}/match/set">
+            <input type="hidden" name="seller_name" value="{{ m['seller_name'] }}">
+            <input type="hidden" name="nomen_1c" value="{{ m['suggestion']['name'] }}">
+            <button type="submit" class="btn-sm">Применить</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </td>
+      <td>
+        {% if m['confirmed'] and m['nomen_1c'] %}
+        <span class="status Согласован">подтверждено</span>
+        {% elif m['nomen_1c'] %}
+        <span class="status">{{ m['match_source'] or 'заполнено' }}</span>
+        {% else %}
+        <span class="status Доработка">не сопоставлено</span>
+        {% endif %}
+      </td>
+      {% if can_edit['items'] %}
+      <td>
+        <form method="post" action="/bp/{{ bp['id'] }}/match/set"
+              class="inline-edit">
+          <input type="hidden" name="seller_name" value="{{ m['seller_name'] }}">
+          <input name="nomen_1c" class="n1c-input" list="n1c_{{ loop.index }}"
+                 value="{{ m['nomen_1c'] or '' }}" placeholder="поиск по 1С (28 тыс.)"
+                 autocomplete="off">
+          <datalist id="n1c_{{ loop.index }}"></datalist>
+          <button type="submit" name="confirm" value=""
+                  class="btn-icon" title="Сохранить">{{ icon('save') }}</button>
+          <button type="submit" name="confirm" value="1" title="Подтвердить (мастер)"
+                  class="btn-icon success">{{ icon('check') }}</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">Добавьте позиции. Здесь появится сопоставление.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

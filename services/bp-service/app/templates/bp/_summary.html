@@ -1,0 +1,28 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['summary'] %}locked{% endif %}" id="sec-summary">
+  <div class="sec-head">
+    <h2><span class="sec-num">16</span> Итог и рекомендация</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Экономист</span>
+      {% if not can_edit['summary'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <form method="post" action="/bp/{{ bp['id'] }}/section/summary">
+    <div class="grid2">
+      <div><label>Экспертная оценка риска</label>
+        <input name="risk_expert" value="{{ bp['risk_expert'] or '' }}"></div>
+      <div><label>Рекомендация</label>
+        <select name="recommendation">
+          {% for v in ['', 'Одобрить', 'Доработать', 'Отказать'] %}
+          <option value="{{ v }}" {% if bp['recommendation'] == v %}selected{% endif %}>
+            {{ v or '-' }}</option>
+          {% endfor %}
+        </select></div>
+      <div><label>Комментарий экономиста</label>
+        <textarea name="economist_comment" rows="2">{{ bp['economist_comment'] or '' }}</textarea></div>
+      <div><label>Что требует уточнения (при «Доработать»)</label>
+        <textarea name="clarify_notes" rows="2">{{ bp['clarify_notes'] or '' }}</textarea></div>
+    </div>
+    {{ save_btn('summary') }}
+  </form>
+</div>

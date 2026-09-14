@@ -1,0 +1,8 @@
+streamlit>=1.30
+openpyxl>=3.1
+pandas>=2.0
+
+# starlette 1.4.0 добавил обязательный аргумент thread_minimum_size в GZipResponder,
+# а streamlit его не передаёт — каждый HTTP-запрос падает с TypeError и отдаёт 500
+# ("Connection failed with status 500" в браузере). Держим последнюю рабочую ветку.
+starlette<1.4

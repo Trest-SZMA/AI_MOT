@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ period_name(period) }} — Отчет по штрафам{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ period_name(period) }}
+    <span class="badge {{ 'ok' if period.status=='open' else 'gray' }}">{{ 'открыт' if period.status=='open' else 'закрыт' }}</span>
+  </h1>
+  {% include "_monthnav.html" %}
+  <div class="actions">
+    <a class="btn" href="/export/{{ period.id }}/xlsx">⬇ Excel</a>
+    <a class="btn" href="/export/{{ period.id }}/docx">⬇ Word</a>
+    {% if period.status == 'closed' %}
+    <form method="post" action="/period/{{ period.id }}/reopen" class="inline">
+      <button class="btn">Переоткрыть месяц</button>
+    </form>
+    {% else %}
+    <form method="post" action="/period/{{ period.id }}/close" class="inline"
+          onsubmit="return confirm('Закрыть {{ period_name(period) }}? Месяц уйдет в архив, правки будут недоступны до переоткрытия.');">
+      <input type="hidden" name="back" value="period">
+      <button class="btn danger">Закрыть месяц</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% set stats_open = true %}
+{% include "_stats.html" %}
+
+{% set readonly = (period.status == 'closed') %}
+{% include "_table.html" %}
+{% endblock %}

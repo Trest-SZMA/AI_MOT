@@ -1,0 +1,13 @@
+[Unit]
+Description=МетОптТорг — еженедельная выгрузка «Проверка_БП» из Битрикса для сервиса реализации
+# Вызывает соседний /opt/parser-bp (scan_bitrix_link + build_workbook) и кладёт
+# свод в data/ сервиса реализации; ночная сборка 04:03 подхватывает его сама.
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/parser-bp
+ExecStart=/opt/parser-bp/.venv/bin/python3 /opt/parser-bp/bp_auto_export.py
+TimeoutStartSec=3600
+MemoryHigh=1G
+MemoryMax=1536M

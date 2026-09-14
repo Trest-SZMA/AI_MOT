@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Документы по {{ bp['bp_number'] }}</h1>
+{# Пустые выгрузки — частая и незаметная ошибка: файл формируется, но строк
+   в нём нет. Предупреждаем до того, как файл уйдёт в 1С. #}
+{% if export_warnings %}
+<div class="hint-panel">
+  <div class="hint-head"><div>
+    <b>Проверьте перед отправкой в 1С</b>
+    <ul class="warn-list">
+      {% for w in export_warnings %}<li class="warn-note">{{ w }}</li>{% endfor %}
+    </ul>
+  </div></div>
+</div>
+{% endif %}
+    <div class="muted">Готовые файлы бизнес-плана и таблицы для загрузки.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/bp/{{ bp['id'] }}/decision">
+      <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+      Карточка БП
+    </a>
+  </div>
+</div>
+<div class="card">
+  <div class="summary-grid">
+    <div class="summary-tile">
+      <div class="label">Сформировано файлов</div>
+      <div class="value">{{ files | length }}</div>
+    </div>
+    <div class="summary-tile">
+      <div class="label">Состав пакета</div>
+      <div class="muted">Бизнес-план xlsx и Word, таблицы для 1С и Битрикс24.</div>
+    </div>
+  </div>
+  <ul class="list-clean details-gap">
+    {% for f in files %}
+    <li><a href="/bp/{{ bp['id'] }}/download/{{ f }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+      {{ f }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

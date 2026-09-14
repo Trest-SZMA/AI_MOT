@@ -1,0 +1,530 @@
+<script>
+// ── Номер версии карточки в каждой форме ────────────────────────────
+// Двое экономистов, открывших одну карточку, затирали правки друг друга
+// молча — побеждал тот, кто сохранил последним. Форма уносит с собой номер
+// версии, с которым страницу отрисовали; сервер сравнивает его с текущим и
+// отказывается писать поверх чужой правки (app/main.py, edit_conflict).
+(function () {
+  const version = '{{ bp["version"] or 0 }}';
+  document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(form => {
+    const action = form.getAttribute('action') || '';
+    if (!action.startsWith('/bp/{{ bp["id"] }}/')) return;
+    const field = document.createElement('input');
+    field.type = 'hidden';
+    field.name = '_v';
+    field.value = version;
+    form.appendChild(field);
+  });
+})();
+</script>
+
+<script>
+// ── Массовая правка позиций ─────────────────────────────────────────
+// В книге экономист выделяет строки и протягивает значение; здесь то же
+// самое: флажки слева задают, к чему применить цену, план продажи или
+// покупателя, а Ctrl+D протягивает значение поля вниз по колонке.
+(function () {
+  const bulkForm = document.getElementById('bulk-form');
+  const idsField = document.getElementById('bulk-ids');
+  const counter = document.getElementById('bulk-count');
+  const apply = document.getElementById('bulk-apply');
+  const all = document.getElementById('pick-all');
+  const picks = () => Array.from(document.querySelectorAll('.row-pick'));
+  const chosen = () => picks().filter(p => p.checked);
+
+  function refresh() {
+    const n = chosen().length;
+    if (counter) counter.textContent = n
+      ? `выделено ${n} из ${picks().length} на странице`
+      : 'строки не выделены';
+    if (apply) apply.disabled = !n;
+    picks().forEach(p => p.closest('tr').classList.toggle('picked', p.checked));
+  }
+
+  if (all) all.addEventListener('change', () => {
+    picks().forEach(p => { p.checked = all.checked; });
+    refresh();
+  });
+
+  // Диапазон строк с Shift — иначе выделить сотню позиций подряд можно
+  // только сотней щелчков.
+  let anchor = null;
+  document.addEventListener('click', e => {
+    const box = e.target.closest('.row-pick');
+    if (!box) return;
+    const list = picks();
+    const index = list.indexOf(box);
+    if (e.shiftKey && anchor !== null) {
+      const [from, to] = [Math.min(anchor, index), Math.max(anchor, index)];
+      for (let i = from; i <= to; i++) list[i].checked = box.checked;
+    }
+    anchor = index;
+    refresh();
+  });
+
+  if (bulkForm) bulkForm.addEventListener('submit', () => {
+    idsField.value = chosen().map(p => p.value).join(',');
+  });
+
+  // ── Протянуть значение вниз ──
+  // Поля строк называются «поле_идентификатор»: колонка — это общая часть
+  // имени. Если строки выделены, протяжка идёт только по ним.
+  let lastField = null;
+  document.addEventListener('focusin', e => {
+    if (e.target.matches('[data-row] input[name]')) lastField = e.target;
+  });
+  // Поле, в котором курсор стоит ПРЯМО СЕЙЧАС, вернее запомненного: перед
+  // нажатием кнопки человек мог щёлкнуть мимо, и протянулось бы не то поле.
+  const source = () => {
+    const active = document.activeElement;
+    return (active && active.matches && active.matches('[data-row] input[name]'))
+           ? active : lastField;
+  };
+
+  function copyDown(source) {
+    if (!source || !source.name) return 0;
+    const column = source.name.replace(/_\d+$/, '');
+    const rows = Array.from(document.querySelectorAll('[data-row]'));
+    const start = rows.indexOf(source.closest('[data-row]'));
+    if (start < 0) return 0;
+    const picked = new Set(chosen().map(p => p.value));
+    let filled = 0;
+    rows.slice(start + 1).forEach(tr => {
+      const input = tr.querySelector(`input[name^="${column}_"]`);
+      if (!input || input === source) return;
+      const id = (input.name.match(/_(\d+)$/) || [])[1];
+      if (picked.size && !picked.has(id)) return;
+      input.value = source.value;
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+      filled++;
+    });
+    return filled;
+  }
+
+  const button = document.getElementById('copy-down');
+  const label = document.getElementById('copy-down-label');
+  if (button) button.addEventListener('click', () => {
+    const say = text => {
+      label.textContent = text;
+      setTimeout(() => { label.textContent = 'Протянуть вниз'; }, 2500);
+    };
+    const field = source();
+    if (!field) {
+      say('Сначала встаньте в поле');
+      return;
+    }
+    const filled = copyDown(field);
+    say(filled ? `Протянуто строк: ${filled}` : 'Ниже подходящих строк нет');
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'd') return;
+    if (!e.target.matches('[data-row] input[name]')) return;
+    e.preventDefault();
+    copyDown(e.target);
+  });
+
+  refresh();
+})();
+</script>
+
+<style>
+  /* Колонка выделения и подсветка выбранных строк. */
+  .col-pick { width: 28px; text-align: center; }
+  tr.picked > td { background: var(--brand-50); }
+  .bulk-form { border: 1px solid var(--brand-200); border-radius: var(--radius);
+               background: var(--surface); padding: 10px 14px; margin: 0 0 10px; }
+  .bulk-head { display: flex; align-items: baseline; gap: 10px; }
+  .bulk-fields { display: flex; flex-wrap: wrap; align-items: flex-end;
+                 gap: 10px; margin-top: 6px; }
+  .bulk-fields label { display: flex; flex-direction: column; gap: 3px;
+                       font-size: 12px; font-weight: 700; }
+  .bulk-fields button { margin: 0; }
+  .bulk-hint { margin: 6px 0 0; font-size: 12px; }
+  .bulk-undo { margin: 0 0 10px; }
+  /* Постраничный вывод. */
+  .pager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+           margin: 8px 0; font-size: 13px; }
+  .pager-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .pager-links a { text-decoration: none; padding: 3px 8px;
+                   border-radius: var(--radius-s); color: var(--brand-700);
+                   font-weight: 700; }
+  .pager-links a:hover { background: var(--brand-50); }
+  .pager-num.current { background: var(--brand-900); color: #fff; }
+  .pager-gap { color: var(--text-muted); }
+  .pager-all { margin-left: 6px; border: 1px solid var(--brand-200); }
+</style>
+
+<script>
+// Автокомплит по номенклатуре 1С: подгружает варианты с сервера при вводе.
+document.querySelectorAll('.n1c-input').forEach(inp => {
+  let timer = null;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (inp.value.length < 2) return;
+      const items = await (await fetch('/api/nomen1c?q=' +
+                                       encodeURIComponent(inp.value))).json();
+      const dl = document.getElementById(inp.getAttribute('list'));
+      dl.innerHTML = items.map(i =>
+        `<option value="${i.name.replace(/"/g, '&quot;')}">`).join('');
+    }, 250);
+  });
+});
+
+// Универсальные подсказки (дивизион, склад, поставщик, ед. изм., отгрузка…):
+// список подгружается при фокусе — сразу видно, что уже использовали, — и
+// уточняется по мере ввода. Значения берутся из справочников 1С и из ранее
+// загруженных файлов, поэтому ввод не нужен там, где значение уже встречалось.
+document.querySelectorAll('input[data-suggest]').forEach(inp => {
+  const dl = document.getElementById(inp.getAttribute('list'));
+  let timer = null;
+  const load = async () => {
+    const items = await (await fetch('/api/suggest/' + inp.dataset.suggest +
+                                     '?q=' + encodeURIComponent(inp.value))).json();
+    dl.innerHTML = '';
+    items.forEach(i => {
+      const o = document.createElement('option');
+      o.value = i.name;
+      if (i.hint) o.label = i.hint;
+      dl.appendChild(o);
+    });
+  };
+  // Без {once}: сорванный запрос (сеть моргнула) иначе оставил бы поле
+  // навсегда без подсказок. Запрос лёгкий — top-20 по индексу.
+  inp.addEventListener('focus', load);
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(load, 250);
+  });
+});
+
+// Покупатель по позиции: сначала ранее заполненные покупатели, затем 1С.
+document.querySelectorAll('.cp-input').forEach(inp => {
+  let timer = null;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (inp.value.length < 2) return;
+      const items = await (await fetch('/api/buyers?q=' +
+                                       encodeURIComponent(inp.value))).json();
+      const dl = document.getElementById(inp.getAttribute('list'));
+      dl.innerHTML = items.map(i =>
+        `<option value="${i.name.replace(/"/g, '&quot;')}">`).join('');
+    }, 250);
+  });
+});
+
+// Живой поиск по контрагентам 1С (продавец/покупатель): id заполняется по имени.
+document.querySelectorAll('input[data-api]').forEach(inp => {
+  const dl = document.getElementById(inp.getAttribute('list'));
+  const hidden = document.getElementById(inp.dataset.hidden);
+  let map = {}, timer = null;
+  const sync = () => { if (map[inp.value]) hidden.value = map[inp.value]; };
+  inp.addEventListener('input', () => {
+    hidden.value = map[inp.value] || '';
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (inp.value.length < 2) return;
+      const items = await (await fetch(inp.dataset.api + '?q=' +
+                                       encodeURIComponent(inp.value))).json();
+      map = {};
+      dl.innerHTML = '';
+      items.forEach(i => {
+        map[i.name] = i.id;
+        const o = document.createElement('option');
+        o.value = i.name;
+        if (i.hint) o.label = i.hint;
+        dl.appendChild(o);
+      });
+      sync();
+    }, 250);
+  });
+  inp.addEventListener('change', sync);
+});
+</script>
+
+
+
+
+
+
+
+<style>
+  .cm-input.ovr { background: var(--warn-bg); border-color: var(--warn-border); }
+  /* Запись сумм по модели — отдельное осознанное действие. */
+  .model-write { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; }
+  .model-write button { margin: 0; }
+  .model-write-note { font-size: 12px; }
+</style>
+<script>
+// Живой пересчёт затрат: изменение параметра → сервер пересчитывает модель
+// (единственный источник формул) → обновляем суммы строк, статей и секций.
+(function () {
+  const fmt = v => Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  function applyModel(m) {
+    m.components.forEach(c => {
+      const el = document.querySelector(`[data-comp="${c.idx}"]`);
+      if (el) el.textContent = fmt(c.amount);
+      c.params.forEach(p => {
+        document.querySelectorAll(`.cm-input[data-key="${p.key}"]`).forEach(i => {
+          if (i !== document.activeElement) i.value = p.value;
+          i.classList.toggle('ovr', p.overridden);
+        });
+      });
+    });
+    for (const [a, v] of Object.entries(m.articles)) {
+      const el = document.querySelector(`[data-article="${encodeURIComponent(a)}"]`);
+      if (el) el.textContent = fmt(v);
+    }
+    for (const [s, v] of Object.entries(m.sections)) {
+      const el = document.querySelector(`[data-section="${encodeURIComponent(s)}"]`);
+      if (el) el.textContent = fmt(v);
+    }
+    const t = document.querySelector('[data-model-total]');
+    if (t) t.textContent = fmt(m.total);
+  }
+  const status = document.getElementById('cm_status');
+  const setStatus = (text, color) => {
+    if (!status) return;
+    status.textContent = text;
+    status.style.color = color;
+    if (text.startsWith('Готово')) setTimeout(() => { status.textContent = ''; }, 2500);
+  };
+  document.querySelectorAll('.cm-input').forEach(inp => {
+    let timer = null;
+    inp.addEventListener('input', () => {
+      clearTimeout(timer);
+      setStatus('Пересчет...', 'var(--text-muted)');
+      timer = setTimeout(async () => {
+        try {
+          const r = await fetch('/bp/{{ bp["id"] }}/costs/param', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: inp.dataset.key, value: inp.value,
+                                  variant: '{{ variant }}'}),
+          });
+          if (!r.ok) {
+            // Сервер объясняет отказ (не число, вне диапазона, нет прав) —
+            // показываем его словами, а не общей фразой: иначе человек
+            // считает, что значение принято, и уходит со страницы.
+            const body = await r.json().catch(() => null);
+            setStatus(body && body.error ? 'Не сохранено. ' + body.error
+                      : 'Не сохранено: нет прав или статус закрыт', 'var(--danger)');
+            return;
+          }
+          const model = await r.json();
+          applyModel(model);
+          // Текст даёт сервер: статьи затрат живой пересчёт больше не пишет,
+          // и человек должен видеть это, а не «сохранено».
+          setStatus(model.status || 'Параметр сохранён', 'var(--ok)');
+        } catch (e) {
+          setStatus('Ошибка сети. Значение не сохранено', 'var(--danger)');
+        }
+      }, 500);
+    });
+  });
+})();
+</script>
+
+<script>
+// ── Живой пересчёт при вводе ────────────────────────────────────────
+// Экономист вводит исходные величины (цену, объём, засор, ставки), а итог
+// считает сервис — тем же calc.pnl, что и при сохранении. Раньше человек
+// считал сам и вписывал результат, а увидеть цифру сервиса мог только
+// после сохранения формы.
+//
+// Формулы намеренно НЕ продублированы в браузере: две реализации одного
+// расчёта неизбежно разойдутся, и разбираться, какая права, будет некому.
+(function () {
+  const BP = {{ bp['id'] }};
+  const VARIANT = '{{ variant }}';
+  const money = v => Math.round(v || 0).toString()
+                       .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const fixed = (v, n) => (v || 0).toFixed(n);
+
+  // Поля формы → что подставить в предварительный расчёт.
+  const ITEM_FIELDS = {
+    sale_price: 'sale_price', sale_price_luk: 'sale_price_luk',
+    contamination: 'contamination_pct', contamination_luk: 'contamination_pct_luk',
+    own: 'own_transport_pct', cut: 'workshop_cut_pct', batch: 'batch_size_t',
+    volume: 'volume_t',
+  };
+  const BP_FIELDS = ['lot_cost', 'auction_step', 'contamination_pct',
+                     'removal_months', 'vat_rate', 'vat_unrecovered_pct',
+                     'capital_rate', 'capital_base', 'payment_delay_months',
+                     'tax_rate', 'payroll_tax_rate', 'shipment_loss_pct'];
+
+  function collect() {
+    const items = {};
+    document.querySelectorAll('[data-row] input').forEach(inp => {
+      const m = (inp.name || '').match(/^([a-z_]+)_(\d+)$/);
+      if (!m) return;
+      const field = ITEM_FIELDS[m[1]];
+      if (!field) return;
+      (items[m[2]] = items[m[2]] || {})[field] = inp.value;
+    });
+    const bp = {};
+    BP_FIELDS.forEach(name => {
+      const inp = document.querySelector(`#sec-lot [name="${name}"]`);
+      if (inp) bp[name] = inp.value;
+    });
+    return {variant: VARIANT, items, bp};
+  }
+
+  function apply(data) {
+    data.rows.forEach(r => {
+      const tr = document.querySelector(
+        `[data-row="${r.id}:${r.sale_id === null || r.sale_id === undefined ? '' : r.sale_id}"]`);
+      if (!tr) return;
+      const put = (key, text) => {
+        const el = tr.querySelector(`[data-calc="${key}"]`);
+        if (el) el.textContent = text;
+      };
+      put('revenue', money(r.revenue));
+      put('alloc_costs', money(r.alloc_costs));
+      put('cost_per_t', fixed(r.cost_per_t, 0));
+      put('profit', money(r.profit));
+      put('profit_per_t', fixed(r.profit_per_t, 0));
+      const cell = tr.querySelector('[data-calc-cell="profit"]');
+      if (cell) cell.classList.toggle('neg', r.profit < 0),
+                cell.classList.toggle('pos', r.profit >= 0);
+    });
+    // Сводка группы — сумма её строк. Это сложение, а не бизнес-формула:
+    // дублирования расчёта здесь нет, зато цифра в заголовке не отстаёт от
+    // строк, из которых она сложена.
+    const byRow = new Map(data.rows.map(r => [
+      `${r.id}:${r.sale_id === null || r.sale_id === undefined ? '' : r.sale_id}`, r]));
+    document.querySelectorAll('[data-group]').forEach(box => {
+      const id = box.dataset.group;
+      const sum = {volume: 0, sale_volume: 0, costs: 0, profit: 0};
+      document.querySelectorAll(`[data-group-row="${id}"]`).forEach(tr => {
+        const r = byRow.get(tr.dataset.row);
+        if (!r) return;
+        sum.sale_volume += r.sale_volume_t || 0;
+        sum.costs += r.alloc_costs || 0;
+        sum.profit += r.profit || 0;
+      });
+      const put = (key, text) => {
+        const el = box.querySelector(`[data-group-calc="${key}"]`);
+        if (el) el.textContent = text;
+      };
+      put('sale_volume', fixed(sum.sale_volume, 3));
+      put('costs', money(sum.costs));
+      put('profit', money(sum.profit));
+    });
+
+    const t = data.totals;
+    const setTotal = (key, text) => document.querySelectorAll(`[data-total="${key}"]`)
+      .forEach(el => { el.textContent = text; });
+    setTotal('purchase_volume', fixed(t.purchase_volume, 3));
+    setTotal('sale_volume', fixed(t.sale_volume, 3));
+    setTotal('revenue', money(t.revenue));
+    setTotal('direct_costs', money(t.direct_costs));
+    setTotal('profit_before_tax', money(t.profit_before_tax));
+    document.querySelectorAll('[data-kpi]').forEach(el => {
+      const key = el.dataset.kpi;
+      if (!(key in t)) return;
+      const digits = el.dataset.fmt;
+      el.textContent = digits === undefined ? money(t[key]) : fixed(t[key], +digits);
+    });
+  }
+
+  // Предупреждение: цифры пересчитаны, но в базу ещё не записаны.
+  let bar = null;
+  function setDirty(on, text) {
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'preview-bar';
+      document.body.appendChild(bar);
+    }
+    bar.textContent = text || '';
+    bar.classList.toggle('show', !!on);
+  }
+
+  let timer = null, busy = false;
+  async function recalc() {
+    if (busy) return;
+    busy = true;
+    try {
+      const r = await fetch(`/bp/${BP}/preview`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(collect()),
+      });
+      if (!r.ok) { setDirty(true, 'Предварительный расчёт недоступен — сохраните раздел'); return; }
+      const data = await r.json();
+      apply(data);
+      // Негодное значение в расчёт не подставлено — говорим об этом сразу,
+      // а не показываем цифры, посчитанные по старому значению, как новые.
+      setDirty(true, data.errors && data.errors.length
+               ? 'Не учтено: ' + data.errors.join('; ')
+               : 'Пересчитано предварительно — нажмите «Сохранить», чтобы записать');
+    } catch (e) {
+      setDirty(true, 'Нет связи с сервисом — цифры не пересчитаны');
+    } finally {
+      busy = false;
+    }
+  }
+
+  const watched = '#sec-items input, #sec-lot input, #sec-lot select';
+  document.querySelectorAll(watched).forEach(inp => {
+    inp.addEventListener('input', () => {
+      clearTimeout(timer);
+      setDirty(true, 'Пересчёт…');
+      timer = setTimeout(recalc, 400);
+    });
+  });
+})();
+</script>
+
+<style>
+  /* Полоса «пересчитано, но не сохранено» — внизу, чтобы не перекрывала
+     таблицу, по которой человек ведёт глазами. */
+  .preview-bar { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 120%);
+                 background: var(--brand-900); color: #fff; font-size: 13px;
+                 font-weight: 700; padding: 9px 16px; border-radius: 999px;
+                 box-shadow: var(--shadow); z-index: 60; opacity: 0;
+                 transition: transform .18s ease-out, opacity .18s ease-out; }
+  .preview-bar.show { transform: translate(-50%, 0); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .preview-bar { transition: none; } }
+</style>
+
+<script>
+// ── Пары «итог ↔ на тонну» ──────────────────────────────────────────
+// Экономист держит норматив в руб/тн, а в карточку раньше вписывал итог,
+// посчитанный на калькуляторе. Теперь любое из двух полей заполняет второе.
+(function () {
+  const num = v => {
+    const t = String(v || '').replace(/\s| /g, '').replace(',', '.');
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+  const show = (el, value) => {
+    if (el === document.activeElement) return;      // не мешаем набору
+    el.value = value === null ? '' : (Math.round(value * 100) / 100)
+      .toString().replace('.', ',');
+  };
+  document.querySelectorAll('[data-pair-per-t]').forEach(total => {
+    const perT = document.getElementById(total.dataset.pairPerT);
+    if (!perT) return;
+    const volume = num(perT.dataset.volume);
+    if (!volume) return;                            // тоннажа нет — пары нет
+    total.addEventListener('input', () => {
+      const v = num(total.value);
+      show(perT, v === null ? null : v / volume);
+    });
+    perT.addEventListener('input', () => {
+      const v = num(perT.value);
+      show(total, v === null ? null : v * volume);
+      // Итог участвует в предварительном расчёте — сообщаем ему об изменении.
+      total.dispatchEvent(new Event('input', {bubbles: true}));
+    });
+  });
+})();
+</script>
+
+<style>
+  .per-t-field { display: inline-flex; align-items: center; gap: 4px;
+                 margin-left: 6px; font-size: 11px; color: var(--text-muted); }
+  .per-t-field input { margin: 0; }
+</style>

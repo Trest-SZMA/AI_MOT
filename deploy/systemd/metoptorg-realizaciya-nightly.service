@@ -1,0 +1,31 @@
+[Unit]
+Description=Запуск ночной пересборки отчёта по реализации
+After=network-online.target metoptorg-realizaciya.service
+# Без работающей службы дёргать нечего: пересборку запускает она сама.
+Requires=metoptorg-realizaciya.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/metoptorg-realizaciya.env
+
+# ⚠️ ПЕРЕСБОРКУ ЗАПУСКАЕМ ЧЕРЕЗ API СЛУЖБЫ, А НЕ КОНВЕЙЕР НАПРЯМУЮ.
+# Иначе получаются две независимые сборки: у службы свой файловый замок, своё
+# состояние и свой снимок в builds/. Запусти конвейер мимо неё — и ночная сборка
+# перезапишет out/ прямо под носом у пользователя, который в это время смотрит
+# отчёт, а история сборок про неё не узнает.
+# Через API работают и замок («уже идёт» -> 409, второй раз не полезем), и
+# снимок, и лог, и отображение на странице обновления.
+#
+# ⚠️ Пароль берётся из окружения и в командную строку НЕ попадает (--netrc-file
+# не годится, -u с переменной раскрывается уже внутри curl-обёртки ниже):
+# ps его не покажет.
+ExecStart=/bin/bash -c 'if [ -n "$METOPTORG_PASSWORD" ]; then \
+    printf "machine 127.0.0.1 login %%s password %%s\\n" "$METOPTORG_USER" "$METOPTORG_PASSWORD" > /run/metoptorg-nightly.netrc; \
+    chmod 600 /run/metoptorg-nightly.netrc; \
+    curl -sS --netrc-file /run/metoptorg-nightly.netrc -X POST http://127.0.0.1:8092/api/rebuild; \
+    rc=$?; rm -f /run/metoptorg-nightly.netrc; exit $rc; \
+  else curl -sS -X POST http://127.0.0.1:8092/api/rebuild; fi'
+
+# Служба могла только что подняться — дадим ей время принять запрос.
+ExecStartPre=/bin/sleep 20
+TimeoutStartSec=300

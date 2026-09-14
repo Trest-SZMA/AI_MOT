@@ -1,0 +1,2140 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>МЕТОПТОРГ · Реализация металлолома по сериям и бизнес-планам</title>
+<style>
+/* ==========================================================================
+   МЕТОПТОРГ · Реализация — оболочка. Направление «Весовая»: измерительный
+   прибор, не витрина. Решения системы — в .interface-design/system.md.
+   Глубина ТОЛЬКО рамками. Тень допустима в трёх местах, которые физически
+   парят над страницей: поповер правки срока, край залипшей шапки и карточка
+   «что вышло по документу» (.fatepop) — она висит над таблицей поверх строк.
+   ========================================================================== */
+:root{
+  /* --- пространство: база 4px, других значений в файле нет --- */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  /* --- типографика: отношение 1.25, шесть ступеней --- */
+  --fs-micro:10px; --fs-cap:11px; --fs-sm:12px; --fs-base:13px;
+  --fs-md:16px; --fs-lg:20px; --fs-xl:26px;
+  --font:system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* --- радиусы --- */
+  --r-1:4px; --r-2:6px; --r-3:8px; --r-4:12px;
+  /* --- поверхности: одна нейтраль, сдвиг только по светлоте --- */
+  --s-0:#eef1f6; --s-1:#ffffff; --s-2:#f4f6fa; --s-3:#ffffff;
+  --hover:#eff3fa;
+  /* --- линии --- */
+  --line-1:#dde3ee; --line-2:#c3ccdd; --line-3:#2f6fed;
+  /* --- текст: четыре уровня --- */
+  --t-1:#131a29; --t-2:#4a5670; --t-3:#77839c; --t-4:#a3adc2;
+  /* --- цвет со значением --- */
+  --brand:#142248; --steel:#485E88;
+  --accent:#2f6fed;                     /* только взаимодействие */
+  --ok:#1f8a4c; --warn:#a97706; --bad:#c0334c;   /* только статус */
+  /* ДЕНЬГИ — четвёртое назначение цвета, заведено вместе со значками оплат.
+     Статусом фиолетовый быть не может (шкала статуса — зелёный/жёлтый/красный),
+     взаимодействием тоже (это синий --accent), поэтому смысл не двоится. */
+  --pay:#7a4fbf;
+  /* СРОКИ ВЫВОЗА — два разных срока, и путать их нельзя.
+     --plan-luk  срок из 1С (его ставил Лукойл или условие договора);
+     --plan-own  НАШ срок: якорь + число месяцев из бизнес-плана (Битрикс).
+     Синий здесь не спорит с --accent: тот живёт только на линии «сейчас» и на
+     элементах управления, а эти два цвета — на засечках сроков.
+     ⚠️ НАШ ФЛАГ — ЯРКО-ЖЁЛТЫЙ, ОДИН ЦВЕТ В ОБЕИХ ТЕМАХ (решение заказчика
+     20.08.2026, финальное: «закрепи за вторым флажком один цвет, пусть будет
+     ярко-ярко жёлтый»). История подбора: бирюза читалась роднёй синему,
+     маджента тонула в красной штриховке, чёрный/белый менялся по темам.
+     ⚠️ Жёлтый участок дорожки (--warn, приглушённый) — другой тон и другая
+     форма: этап — полоса 6 px у оси, флаг — полотнище на древке во весь рост
+     деления. Чтобы жёлтое полотнище не пропадало на белом фоне, у флага
+     ТЁМНАЯ ОБВОДКА вместо ореола цветом строки (см. .gcells i em). */
+  --plan-luk:#2563eb; --plan-own:#ffd400;
+  /* --- сетка полосы жизненного цикла: ОДИН источник ширины для строк и шапки --- */
+  --lc-col:88px; --lc-inn:80px; --lc-sold:104px; --lc-bal:96px; --lc-gap:4px;
+  --two-col:88px;
+  /* --- поповер: единственная настоящая тень --- */
+  --lift:0 1px 2px rgba(19,26,41,.06),0 8px 24px rgba(19,26,41,.12);
+  --shadow:none;
+  --ease:cubic-bezier(.23,1,.32,1);
+}
+[data-theme="dark"]{
+  --s-0:#10151f; --s-1:#161d2b; --s-2:#0d121b; --s-3:#1c2434;
+  --hover:#1e2637;
+  --line-1:#2a3345; --line-2:#3c4760; --line-3:#5b8bff;
+  --t-1:#e7ebf3; --t-2:#a9b4c9; --t-3:#7d879b; --t-4:#5b6478;
+  --brand:#c9d4ea; --steel:#8fa3ce;
+  --accent:#6d97ff;
+  --ok:#3fb571; --warn:#d5a02c; --bad:#e2687e;
+  --pay:#b48ce8;
+  --plan-luk:#93b6ff; /* --plan-own НЕ переопределяется: жёлтый закреплён один
+     на обе темы по прямому слову заказчика */
+  --lift:0 1px 2px rgba(0,0,0,.5),0 10px 30px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);background:var(--s-0);color:var(--t-1);
+  font-size:var(--fs-base);line-height:1.45;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility}
+/* цифра — главный житель этого интерфейса: везде моноширинные разряды */
+body{font-variant-numeric:tabular-nums}
+p,li{text-wrap:pretty}
+
+/* ============================ ШАПКА ============================
+   Плоская тихая полоса, а не градиент: строка экрана принадлежит данным.
+   Показания (период и итоги) читаются как табло — контрастно, не серым. */
+header{background:var(--s-1);color:var(--t-1);border-bottom:1px solid var(--line-1);
+  padding:var(--sp-2) var(--sp-4);display:flex;align-items:center;gap:var(--sp-3);
+  position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.logo{width:26px;height:26px;flex:none;color:var(--brand)}
+/* Значок-ссылка. Без href (файл открыт с диска) выглядит и ведёт себя как
+   раньше — обычная картинка, курсор не меняется, нажимать не на что. */
+.logolink{display:flex;align-items:center;border-radius:var(--r-1);flex:none}
+.logolink[href]{cursor:pointer}
+.logolink[href]:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.logolink[href]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.brand{font-weight:700;letter-spacing:.6px;font-size:var(--fs-md);line-height:1.15;
+  color:var(--t-1);white-space:nowrap}
+.brand small{font-weight:400;font-size:var(--fs-cap);letter-spacing:0;display:block;
+  color:var(--t-3)}
+/* табло: период ведёт, итоги подчинены — но оба читаемы, а не серым по градиенту */
+.hmeta{margin-left:auto;text-align:right;font-size:var(--fs-cap);color:var(--t-3);
+  line-height:1.35}
+.hmeta b{font-size:var(--fs-base);color:var(--t-1);font-weight:600}
+.hmeta #mTotals{color:var(--t-2)}
+.hact{display:flex;gap:var(--sp-2);align-items:center;flex:none}
+
+/* ============================ КНОПКИ ============================ */
+.btn,.btn2,.btn3{font:inherit;font-size:var(--fs-sm);font-weight:500;cursor:pointer;
+  border-radius:var(--r-2);min-height:32px;padding:0 var(--sp-3);
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
+  transition:background .12s var(--ease),border-color .12s var(--ease),transform .12s var(--ease);
+  white-space:nowrap}
+.btn{background:var(--s-2);border:1px solid var(--line-1);color:var(--t-2)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+a.btn[hidden]{display:none}
+.btn:hover{background:var(--hover);color:var(--t-1)}
+.btn.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn2{background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:600;
+  min-height:34px;padding:0 var(--sp-4)}
+.btn2:hover{background:color-mix(in srgb,var(--accent) 86%,#000)}
+.btn3{background:var(--s-1);border:1px solid var(--line-1);color:var(--t-1)}
+.btn3:hover{background:var(--hover)}
+.btn:active,.btn2:active,.btn3:active{transform:scale(.97)}
+.btn:focus-visible,.btn2:focus-visible,.btn3:focus-visible,
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{
+  outline:2px solid var(--line-3);outline-offset:2px}
+
+/* ============================ ВКЛАДКИ ============================ */
+nav.tabs{display:flex;gap:0;background:var(--s-1);border-bottom:1px solid var(--line-1);
+  padding:0 var(--sp-3);position:sticky;top:var(--hh,49px);z-index:40;overflow-x:auto;
+  scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+nav.tabs button{background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--t-3);padding:0 var(--sp-3);min-height:40px;cursor:pointer;
+  font:inherit;font-size:var(--fs-base);font-weight:500;white-space:nowrap;
+  transition:color .12s var(--ease)}
+nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+nav.tabs button:hover{color:var(--t-1)}
+/* ---- ГРУППА ВКЛАДОК ----
+   Кластер, а не выпадающий список: вкладка, спрятанная за раскрывашкой, для
+   руководителя не существует. Группу видно по вертикальной черте слева и
+   короткой подписи над ней; сами вкладки остаются в один щелчок.
+   Подпись стоит АБСОЛЮТНО и не занимает высоту — иначе строка вкладок стала бы
+   вдвое выше ради двух слов. */
+nav.tabs .tgrp{display:flex;position:relative;margin-left:var(--sp-3);
+  padding-left:var(--sp-3);border-left:1px solid var(--line-1)}
+nav.tabs .tgrp::before{content:attr(data-label);position:absolute;left:var(--sp-3);
+  top:2px;font-size:9px;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--t-4);pointer-events:none}
+nav.tabs .tgrp button{padding-top:6px}
+
+main{padding:var(--sp-4);max-width:1560px;margin:0 auto}
+
+/* ============================ ПОВЕРХНОСТИ ============================
+   Зона данных — вровень с канвой, различает рамка. Зона управления утоплена. */
+.panel{background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-3);
+  padding:var(--sp-3);margin-bottom:var(--sp-4)}
+
+/* ---- метрики: одна ведущая, остальные подчинены ---- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:var(--sp-2);margin-bottom:var(--sp-4)}
+.card{background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-3);
+  padding:var(--sp-3)}
+.card .k{color:var(--t-2);font-size:var(--fs-cap);font-weight:500;text-transform:uppercase;
+  letter-spacing:.4px}
+.card .v{font-size:var(--fs-lg);font-weight:600;margin-top:var(--sp-1);color:var(--t-1);
+  line-height:1.15}
+.card .v.small{font-size:var(--fs-md)}
+.card .v .unit{font-size:var(--fs-sm);font-weight:500;color:var(--t-3)}
+.card .s{color:var(--t-3);font-size:var(--fs-cap);margin-top:var(--sp-1)}
+/* ведущая метрика экрана — та, за которой пришли. Одна на вкладку. */
+.card.lead{grid-column:span 2;border-color:var(--line-2)}
+/* ---- ИТОГИ ОДНОЙ СТРОКОЙ (см. slimCards) ----
+   Та же плашка, но в один ряд и без рамок: пять карточек занимали 140 px и
+   отодвигали таблицу за сгиб экрана. Пояснения ушли в подсказку.
+   Переносится по словам: на узком экране строка станет двумя, но не обрежется
+   и не заставит прокручивать вбок. */
+.cards.sumline{display:flex;flex-wrap:wrap;align-items:baseline;
+  gap:0 var(--sp-2);margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);
+  background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-3);
+  line-height:1.5}
+.cards.sumline .si{display:inline-flex;align-items:baseline;gap:6px;
+  font-size:var(--fs-md);font-weight:600;color:var(--t-1);cursor:default}
+.cards.sumline .si i{font-style:normal;font-weight:500;color:var(--t-2);
+  font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px}
+/* главное число вкладки крупнее прочих — в ровной строке оно бы потерялось */
+.cards.sumline .si.lead{font-size:var(--fs-lg)}
+.cards.sumline .si .unit{font-size:var(--fs-sm);font-weight:500;color:var(--t-3)}
+.cards.sumline .sep{color:var(--line-2);font-weight:400}
+[data-theme=dark] .cards.sumline{background:var(--s-1)}
+.card.lead .v{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.4px}
+.card.lead .k{color:var(--t-1)}
+.card .v.ok{color:var(--ok)} .card .v.bad{color:var(--bad)} .card .v.warn{color:var(--warn)}
+
+/* ---- зона управления: утоплена и отделена от данных ---- */
+.toolbar{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;
+  margin-bottom:var(--sp-3);padding:var(--sp-2);background:var(--s-2);
+  border:1px solid var(--line-1);border-radius:var(--r-3)}
+input[type=search],select,input[type=text],input[type=month],input[type=date]{
+  background:var(--s-1);border:1px solid var(--line-1);color:var(--t-1);
+  border-radius:var(--r-2);padding:0 var(--sp-2);min-height:32px;font:inherit;
+  font-size:var(--fs-sm);min-width:150px;max-width:100%}
+input[type=search]{min-width:220px;flex:1 1 220px}
+select{cursor:pointer;padding-right:var(--sp-4)}
+input::placeholder{color:var(--t-4)}
+input:hover,select:hover{border-color:var(--line-2)}
+input[type=checkbox]{width:18px;height:18px;flex:none;accent-color:var(--accent);cursor:pointer}
+label{display:inline-flex;align-items:center;gap:var(--sp-2);cursor:pointer;
+  font-size:var(--fs-sm);color:var(--t-2);min-height:32px}
+.right{margin-left:auto}
+#cnt{font-size:var(--fs-sm);color:var(--t-2);white-space:nowrap}
+
+/* ============================ ДЕРЕВО ============================
+   Подпись закреплена слева: широкая полоса цифр прокручивается, а чья это
+   строка — видно всегда. Работает в обоих режимах подписи. */
+/* ⚠️ ДЕРЕВО — СВОЯ ОБЛАСТЬ ПРОКРУТКИ. Оно прокручивается и вбок (колонок больше,
+   чем ширины экрана), а элемент с overflow становится системой отсчёта для
+   position:sticky: шапка колонок при странице-скроллере просто уезжала вверх и
+   пропадала. Поэтому дерево прокручивается САМО — по высоте не больше экрана
+   минус липкие полосы, — и шапка колонок липнет к его верху. */
+.tree{font-size:var(--fs-base);overflow:auto;scrollbar-width:thin;
+  max-height:calc(100vh - var(--stick,90px) - var(--sp-6));
+  /* панель ещё и ЛИПКАЯ: страница прокручивается до неё, дальше дерево
+     листается внутри себя, а шапка колонок стоит на месте */
+  position:sticky;top:calc(var(--stick,90px) + var(--sp-2));z-index:1}
+.node{border-bottom:1px solid var(--line-1)}
+.row{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2);
+  cursor:pointer;min-height:32px}
+.row:hover{background:var(--hover)}
+.row:hover>.hd{background:var(--hover)}
+.row .tw{width:16px;color:var(--t-3);flex:none;text-align:center;font-size:var(--fs-cap);
+  transition:transform .12s var(--ease)}
+.row.open>.tw{transform:rotate(90deg)}
+/* ⚠️ `min-width` У ПОДПИСИ ОБЯЗАТЕЛЕН, И ЭТО НЕ КОСМЕТИКА. С `flex:1;
+   min-width:0` колонка подписи сжимается ДО НУЛЯ, как только полоса цифр шире
+   окна: строка остаётся без названия проекта вообще, а заголовок «проект ·
+   серия · склад · номенклатура» переносится на семь строк. Ровно это и
+   случилось, когда в полосу добавили «вернул клиент» и «корректировки» —
+   пятнадцать колонок. Дерево и так прокручивается по горизонтали, поэтому
+   упереться в порог безопаснее, чем исчезнуть.
+   ⚠️ Порог обязан быть ОДИНАКОВЫМ у строки, у шапки и у строки документа
+   (`.dl`) — иначе шапка разъедется с данными (§6). */
+@media (max-width:1200px){ :root{--lblmin:200px} }
+/* ⚠️ ИЗ ПОРОГА ВЫЧИТАЕТСЯ СТУПЕНЬКА ВЛОЖЕННОСТИ --ind (заказчик 21.08.2026:
+   «цены не в столбце»). Пока полоса цифр уже окна, подпись резиновая и сама
+   ужимается на величину отступа — колонки стоят ровно. Но как только полоса
+   ШИРЕ окна (13 колонок «Всего оборота» почти всегда шире), подпись каждого
+   уровня упирается в ОДИН И ТОТ ЖЕ порог, отступ уровня перестаёт
+   компенсироваться — и вся полоса цифр съезжает на 20 px вправо С КАЖДЫМ
+   УРОВНЕМ: проект, серия и склады показывали одну колонку лесенкой
+   (замерено: правые края 1201 → 1221 → 1241). Ровно тот же приём уже стоит
+   в режиме «подписи целиком» (html.wide ниже): фиксированная ширина минус
+   --ind. У шапки --ind = 0, поэтому её порог не меняется — шапка и данные
+   держат одну сетку. */
+.row>.hd{flex:1;min-width:calc(var(--lblmin,300px) - var(--ind,0px));
+  display:flex;align-items:center;gap:var(--sp-2);
+  overflow:hidden;position:sticky;left:0;background:var(--s-1);z-index:1}
+.row.open>.hd{background:var(--s-1)}
+.row .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .lbl b{font-weight:600}
+.row .code{font-family:var(--mono);font-size:var(--fs-cap);color:var(--t-3);
+  background:var(--s-2);border:1px solid var(--line-1);
+  padding:1px var(--sp-2);border-radius:var(--r-1);flex:none}
+.row .val{font-variant-numeric:tabular-nums;font-weight:600;flex:none;text-align:right;
+  min-width:112px}
+/* две цифры рядом: куплено · продано */
+.two{display:inline-flex;gap:var(--sp-2);justify-content:flex-end}
+.two i{font-style:normal;font-variant-numeric:tabular-nums;min-width:var(--two-col);
+  text-align:right;display:inline-block;white-space:nowrap}
+.two i.b{color:var(--t-3);font-weight:500}
+.two i.s{font-weight:600;color:var(--t-1)}
+.row .val.wide{min-width:196px}
+
+/* ---- полоса жизненного цикла ----
+   Ровно 10 колонок. Ширины заданы переменными и одинаковы для строк и для
+   шапки .colhead — физически не могут разойтись. Колонка ПРОДАЛИ и ОСТАТОК
+   шире: раньше при 84px жирное «119 621,275» обрезалось overflow:hidden, и на
+   экране была не та цифра, что в данных. */
+/* ⚠️ ЧИСЛО ВНУТРЕННИХ КОЛОНОК ЗАДАЁТ САМА ОБОЛОЧКА (--lc-inn-n), а не эта
+   строка. Оно было зашито как repeat(4,…), и стоило добавить «в сортировку /
+   из сортировки», как полоса перестала помещаться в сетку: «списание на
+   затраты» и ОСТАТОК переносились на ВТОРОЙ РЯД, а заголовки групп разъезжались
+   с колонками. Теперь значение ставит JS из LC_COLS — один источник правды и
+   для колонок, и для их числа. */
+.lc{display:grid;
+  grid-template-columns:repeat(var(--lc-lead-n,1),var(--lc-col))
+                        repeat(var(--lc-inn-n,4),var(--lc-inn))
+                        var(--lc-sold) repeat(var(--lc-out-n,3),var(--lc-col))
+                        repeat(var(--lc-bal-n,1),var(--lc-bal));
+  gap:var(--lc-gap);align-items:baseline}
+.lc i{font-style:normal;font-variant-numeric:tabular-nums;text-align:right;
+  white-space:nowrap;font-size:var(--fs-sm);overflow:hidden}
+.lc i.aux{color:var(--t-3);font-weight:500}
+.lc i.s{font-weight:600;font-size:var(--fs-base);color:var(--t-1)}
+/* остаток — что ещё лежит и можно продать; отрицательный = в регистре не хватает прихода */
+.lc i.bal{font-weight:600;font-size:var(--fs-base);color:var(--ok)}
+.lc i.bal.neg{color:var(--bad)}
+/* односторонняя переработка: видна, но в остаток не входит — потому курсив,
+   пунктир и приглушённый цвет (см. LC_UNPAIRED в tabs.js) */
+.lc i.unp{color:var(--t-3);font-style:italic;text-decoration:underline dotted;cursor:help}
+/* группы: внешний приход | внутри компании | внешнее выбытие — разделяем визуально,
+   иначе девять чисел читаются одной неразличимой линией */
+.lc i.gs{border-left:1px solid var(--line-1);padding-left:var(--sp-1);margin-left:2px}
+/* ---- режим «все единицы»: по полосе на каждую величину ----
+   Тонны, штуки и километры не складываются, поэтому у строки столько полос,
+   сколько у неё единиц. Ведущая узкая колонка — подпись величины; такая же
+   заведена в шапке, иначе числа уедут вправо относительно заголовков. */
+:root{--lc-unit:38px}
+.lc.lcu{grid-template-columns:var(--lc-unit)
+                             repeat(var(--lc-lead-n,1),var(--lc-col))
+                             repeat(var(--lc-inn-n,4),var(--lc-inn))
+                             var(--lc-sold) repeat(var(--lc-out-n,3),var(--lc-col))
+                             repeat(var(--lc-bal-n,1),var(--lc-bal))}
+.lc i.uu{font-style:normal;font-size:var(--fs-micro);font-weight:600;color:var(--t-2);
+  text-align:center;border:1px solid var(--line-1);border-radius:var(--r-1);
+  background:var(--s-2);padding:0 2px;overflow:hidden}
+/* ⚠️ РАСПОРКА ПОД ТРЕУГОЛЬНИК В ШАПКЕ обязана быть той же ширины, что в строке,
+   и НЕ СЖИМАТЬСЯ. Правило `.row .tw{width:16px;flex:none}` на шапку не
+   распространяется — она `.colhead`, а не `.row`. Инлайновый width:16px без
+   flex:none flex-контейнер ужимал до нуля, как только строка становилась шире
+   окна, и в режиме «подписи короче» ШАПКА УЕЗЖАЛА НА 16 px ВЛЕВО относительно
+   данных: заголовок «купили» стоял на 49 px, а числа — на 65. В режиме
+   «подписи целиком» этого не было видно, потому что там подпись фиксированной
+   ширины и сжимать нечего. */
+.colhead .tw{width:16px;flex:none}
+.colhead .lc i.uu{background:none;border-color:transparent;color:var(--t-3)}
+.lcmulti{display:flex;flex-direction:column;gap:2px}
+.lcmulti .lc + .lc{border-top:1px dotted var(--line-1);padding-top:2px}
+.lc i.inn{color:var(--t-4);font-weight:400;font-style:italic}
+.row .val:has(.lc){min-width:0}
+/* ⚠️ ДЛИННОЕ СЛОВО ОБЯЗАНО ЛОМАТЬСЯ ВНУТРИ КОЛОНКИ. Ячейки шапки переносят
+   текст (`white-space:normal`) — это нужно, подписи в две строки. Но при
+   `overflow:visible` СЛОВО ШИРЕ КОЛОНКИ переносить некуда, и оно вылезает на
+   соседнюю: «ПРОИЗВОДСТВО» (78 px) в колонке 76 px наезжало на «ПРОИЗВОДСТВА»,
+   и в шапке читалось «ПРОИЗВОДСТВОПРОИЗВОДСТВА».
+   `overflow-wrap:anywhere` даёт слову сломаться, `overflow:hidden` — жёсткая
+   страховка на случай, если и это не поможет: пусть лучше обрежется, чем ляжет
+   на соседний заголовок. */
+.colhead .lc i{font-size:var(--fs-micro);white-space:normal;line-height:1.2;
+  overflow:hidden;overflow-wrap:anywhere;color:var(--t-2);font-weight:500}
+/* шапка из двух рядов: группы + колонки */
+/* ⚠️ Шапка колонок липнет ПОД шапкой страницы и вкладками, а не под верхний край
+   экрана: с top:0 она уезжала под них и пропадала, и при прокрутке длинного
+   дерева было не понять, в какой колонке стоит число. Высоты меряются в JS
+   (--hh — шапка, --stick — шапка + вкладки), потому что зависят от переносов. */
+.colhead-box{position:sticky;top:0;background:var(--s-1);z-index:3}
+.colhead.grp{border-bottom:none;padding-bottom:0}
+.colhead.grp .lc u{text-decoration:none;text-align:center;
+  font-size:var(--fs-micro);letter-spacing:.3px;color:var(--steel);font-weight:700;
+  border-bottom:2px solid var(--steel);padding-bottom:2px;white-space:normal;line-height:1.15}
+.colhead.grp .lc u.gs{border-left:1px solid var(--line-1);padding-left:var(--sp-1);margin-left:2px}
+.colhead .lc i.gs{border-left-color:var(--line-2)}
+.colhead{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2);
+  border-bottom:1px solid var(--line-2);font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.4px;color:var(--t-2);font-weight:600}
+.colhead>.hd{flex:1;min-width:calc(var(--lblmin,300px) - var(--ind,0px));
+  display:flex;align-items:center;gap:var(--sp-2);
+  position:sticky;left:0;background:var(--s-1);z-index:1}
+/* ⚠️ Подпись ШАПКИ обрезается так же, как подпись строки. Иначе длинный
+   заголовок «проект · единица · серия · откуда продано · склад · номенклатура»
+   вылезает за свою колонку и ложится на «купили» — первая буква съедается, и
+   в шапке читается «упили». У строк это уже обрезано, шапку забыли. */
+.colhead .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colhead .two i{min-width:var(--two-col)}
+.row .unit{color:var(--t-3);font-weight:400;font-size:var(--fs-cap)}
+.children{display:none}
+.children.open{display:block}
+/* ---- СТУПЕНЬКИ ДЕРЕВА ----
+   Глубина задаётся одной переменной --ind на каждый уровень .children, и на неё
+   сдвигается ТРЕУГОЛЬНИК вместе с подписью: раньше отступ был только у подписи,
+   а треугольники всех уровней стояли одним столбцом, и глубина не читалась.
+   ⚠️ Колонки цифр при этом обязаны остаться на месте. В обычном режиме подпись
+   резиновая (flex:1) и сама ужимается на величину сдвига; в режиме «подписи
+   целиком» ширина фиксированная, поэтому там из неё вычитается тот же --ind —
+   иначе документы уезжали бы вправо относительно шапки. */
+.tree{--ind:0px}
+.children{--ind:20px}
+.children .children{--ind:40px}
+.children .children .children{--ind:60px}
+.children .children .children .children{--ind:80px}
+.children .children .children .children .children{--ind:100px}
+.children .children .children .children .children .children{--ind:120px}
+.row>.tw,.dl>.tw{margin-left:var(--ind,0px)}
+
+/* ============================ БЕЙДЖИ И ЧИПЫ ============================
+   Своя палитра в каждой теме. Раньше тёмная чинилась filter:brightness() от
+   светлых hex — статусы выцветали и переставали различаться. */
+.badge{display:inline-block;font-size:var(--fs-micro);font-weight:600;
+  padding:1px var(--sp-2);border-radius:20px;flex:none;white-space:nowrap;
+  border:1px solid;background:var(--chip-bg);color:var(--chip-fg);border-color:var(--chip-br)}
+.badge,.gst,.fchip{
+  --chip-bg:color-mix(in srgb,var(--chip) 12%,var(--s-1));
+  --chip-fg:color-mix(in srgb,var(--chip) 72%,var(--t-1));
+  --chip-br:color-mix(in srgb,var(--chip) 28%,var(--s-1))}
+[data-theme=dark] .badge,[data-theme=dark] .gst,[data-theme=dark] .fchip{
+  --chip-bg:color-mix(in srgb,var(--chip) 18%,var(--s-1));
+  --chip-fg:color-mix(in srgb,var(--chip) 68%,var(--t-1));
+  --chip-br:color-mix(in srgb,var(--chip) 34%,var(--s-1))}
+/* происхождение серии: от «подтверждено 1С» до «нет» */
+.b-1С{--chip:var(--ok)}
+.b-док{--chip:var(--accent)}
+.b-переработка{--chip:#7b53c9}
+.b-ручная{--chip:var(--warn)}
+.b-донор{--chip:#b45309}   /* серия поправлена по остатку склада */
+.b-площадка{--chip:var(--bad)}
+.b-доля{--chip:#178a9e}
+.b-вероятно{--chip:var(--warn)}
+.b-ввод{--chip:var(--t-3)}
+.b-нет{--chip:var(--bad)}
+
+.docs{margin:var(--sp-1) 0 var(--sp-2) 40px;border-left:1px solid var(--line-1);
+  padding-left:var(--sp-3)}
+.doc{display:flex;gap:var(--sp-3);padding:2px 0;font-size:var(--fs-sm);color:var(--t-3);
+  align-items:baseline}
+.doc .rn{font-family:var(--mono);color:var(--accent);min-width:118px;flex:none}
+.doc .dt{min-width:88px;flex:none}
+.doc .lot{min-width:118px;flex:none;font-family:var(--mono);font-size:var(--fs-cap)}
+.doc .by{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc .q{min-width:96px;text-align:right;flex:none;font-variant-numeric:tabular-nums;
+  color:var(--t-1);font-weight:600}
+
+/* ============================ ТАБЛИЦЫ ============================ */
+.tw-scroll{overflow:auto;scrollbar-width:thin;
+  max-height:calc(100vh - var(--stick,90px) - var(--sp-6));
+  position:sticky;top:calc(var(--stick,90px) + var(--sp-2));z-index:1}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
+th,td{text-align:left;padding:var(--sp-2);border-bottom:1px solid var(--line-1)}
+th{color:var(--t-2);font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  cursor:pointer;position:sticky;top:0;background:var(--s-1);z-index:2;font-weight:600;
+  border-bottom:1px solid var(--line-2);white-space:nowrap}
+th:hover{color:var(--t-1)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--hover)}
+/* первая колонка широкой таблицы стоит на месте при прокрутке вбок */
+table.sticky1 th:first-child,table.sticky1 td:first-child{
+  position:sticky;left:0;background:var(--s-1);z-index:1}
+table.sticky1 th:first-child{z-index:3}
+table.sticky1 tr:hover td:first-child{background:var(--hover)}
+.warn{color:var(--bad);font-weight:600}
+/* плашка «в какой единице смотрим» — только для не-тоннажных разрезов */
+.measbar{margin:0 0 var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-3);
+  border:1px solid var(--line-2);background:var(--s-2);color:var(--t-1);
+  font-size:var(--fs-sm);border-left:3px solid var(--accent)}
+/* название вкладки крупно + одна строка о том, чем она отличается от соседней:
+   «Серии (продано)» и «Серии (насквозь)» различались только словом в скобках */
+.tabhead{margin:0 0 var(--sp-3)}
+.tabhead h2{margin:0 0 2px;font-size:var(--fs-lg);font-weight:700;letter-spacing:-.2px}
+.tabhead p{margin:0;color:var(--t-2);font-size:var(--fs-sm);max-width:96ch}
+.tabhead b{color:var(--t-1)}
+.ok{color:var(--ok);font-weight:600}
+.chip{display:inline-block;padding:2px var(--sp-2);border-radius:20px;background:var(--s-2);
+  border:1px solid var(--line-1);font-size:var(--fs-cap);margin:2px;color:var(--t-2)}
+.muted{color:var(--t-3)}
+.hint{font-size:var(--fs-sm);color:var(--t-3);margin:var(--sp-1) 0}
+.chk{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2);
+  border-bottom:1px solid var(--line-1);font-size:var(--fs-sm);min-height:36px}
+.chk input{width:18px;height:18px;flex:none}
+.tag{font-size:var(--fs-cap);color:var(--t-3)}
+/* «серия не указана» — наша заглушка вместо строки серии 1С, а не сама серия.
+   Обводкой цвета предупреждения: этот узел нельзя сверять с отчётом 1С по серии. */
+/* ---- «ОТКУДА СЕРИЯ»: раскрытие цепочки восстановления под строкой документа.
+   Утоплено (--s-2) и отбито слева цветом взаимодействия: это не данные отчёта,
+   а объяснение, откуда данные взялись. ---- */
+.whysr{border:1px solid var(--line-1);background:var(--s-1);color:var(--accent);
+  font:inherit;font-size:var(--fs-micro);font-weight:600;border-radius:var(--r-1);
+  padding:0 var(--sp-2);margin-left:var(--sp-2);cursor:pointer;min-height:20px;
+  white-space:nowrap}
+.whysr:hover{background:var(--hover)}
+.whybox{background:var(--s-2);border:1px solid var(--line-1);
+  border-left:3px solid var(--accent);border-radius:var(--r-3);
+  padding:var(--sp-3);margin:var(--sp-1) 0 var(--sp-2) var(--sp-5);
+  font-size:var(--fs-sm);overflow-x:auto}
+.whybox .wh1{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--t-2);font-weight:600;margin:var(--sp-2) 0 var(--sp-1)}
+.whybox .wh1:first-child{margin-top:0}
+.whrow{display:flex;gap:var(--sp-2);align-items:baseline;padding:2px 0}
+.whrow i{font-style:normal;color:var(--t-3);flex:0 0 168px;font-size:var(--fs-cap)}
+.whtab{border-collapse:collapse;width:max-content;min-width:100%}
+.whtab th{font-size:var(--fs-cap);color:var(--t-2);text-align:left;font-weight:600;
+  border-bottom:1px solid var(--line-1);padding:2px var(--sp-2)}
+.whtab td{padding:2px var(--sp-2);border-bottom:1px solid var(--line-1);
+  font-variant-numeric:tabular-nums}
+.whtab td.num,.whtab th.num{text-align:right}
+.whjson{background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-1);
+  padding:var(--sp-2);margin:var(--sp-1) 0;font-size:var(--fs-cap);overflow-x:auto;
+  white-space:pre}
+/* переключатель единицы в подписи ПРОЕКТА (вкладка «Серии (продано)») */
+.umeas{display:inline-flex;gap:2px;margin-left:var(--sp-2);vertical-align:-2px}
+.umeas b{font-weight:600;font-size:var(--fs-micro);line-height:1.6;cursor:pointer;
+  border:1px solid var(--line-1);border-radius:var(--r-1);padding:0 5px;
+  color:var(--t-3);background:var(--s-1)}
+.umeas b:hover{background:var(--hover);color:var(--t-1)}
+.umeas b.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tag.umark{border:1px solid var(--line-1);border-radius:var(--r-1);padding:0 5px;
+  font-size:var(--fs-micro);font-weight:600;color:var(--t-3);margin-left:var(--sp-2)}
+/* «единица меняется в переработке» — приход в штуках, расход в тоннах */
+.tag.unitmix{border:1px solid var(--accent);color:var(--accent);border-radius:20px;
+  padding:0 var(--sp-2);font-size:var(--fs-micro);font-weight:600;white-space:nowrap;
+  margin-left:var(--sp-2)}
+.tag.nosr{border:1px solid var(--warn);color:var(--warn);border-radius:20px;
+  padding:0 var(--sp-2);font-size:var(--fs-micro);font-weight:600;white-space:nowrap;
+  margin-left:var(--sp-2)}
+a.link{color:var(--accent);cursor:pointer;text-decoration:none;border-bottom:1px solid transparent}
+a.link:hover{border-bottom-color:currentColor}
+.legend{display:flex;gap:var(--sp-2);flex-wrap:wrap;font-size:var(--fs-cap);
+  margin-top:var(--sp-1);color:var(--t-2)}
+h3{margin:0 0 var(--sp-2);font-size:var(--fs-md);font-weight:600;letter-spacing:-.2px}
+h4{margin:var(--sp-4) 0 var(--sp-1);font-size:var(--fs-cap);color:var(--t-2);
+  text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.bar{height:6px;background:var(--s-2);border-radius:3px;overflow:hidden;min-width:120px;flex:1}
+.bar i{display:block;height:100%;background:var(--accent)}
+.mrow{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) 0}
+.mrow .m{min-width:70px;font-variant-numeric:tabular-nums;color:var(--t-2)}
+.mrow .v{min-width:110px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.scroll{max-height:620px;overflow:auto;scrollbar-width:thin}
+.attn{color:var(--warn);font-weight:700}
+.code-block{background:var(--s-2);border:1px solid var(--line-1);padding:var(--sp-3);
+  border-radius:var(--r-2);overflow:auto;font-size:var(--fs-sm);font-family:var(--mono);
+  color:var(--t-2);line-height:1.5;margin:var(--sp-2) 0}
+/* Широкая таблица на узком экране прокручивается вбок с закреплённой первой
+   колонкой. На широком контейнер НЕ скроллится — иначе перестаёт работать
+   липкая шапка таблицы, а она на длинных списках нужнее. */
+.tw-scroll{overflow-x:visible}
+@media (max-width:1024px){
+  .tw-scroll{overflow-x:auto;scrollbar-width:thin}
+  .tw-scroll table{min-width:max-content}
+}
+/* оглавление длинной вкладки: «Проверка данных» — это десять разных разделов,
+   без указателя её приходилось листать целиком */
+.secnav{display:flex;gap:var(--sp-1);flex-wrap:wrap;padding:var(--sp-2);
+  background:var(--s-2);border:1px solid var(--line-1);border-radius:var(--r-3);
+  margin-bottom:var(--sp-4);position:sticky;top:90px;z-index:20}
+.secnav button{font:inherit;font-size:var(--fs-sm);color:var(--t-2);background:none;
+  padding:var(--sp-1) var(--sp-2);border-radius:var(--r-1);border:1px solid transparent;
+  min-height:28px;display:inline-flex;align-items:center;cursor:pointer;text-align:left}
+.secnav button:hover{background:var(--s-1);border-color:var(--line-1);color:var(--t-1)}
+.secnav button.bad{color:var(--bad);font-weight:600}
+@media (pointer:coarse){.secnav button{min-height:44px}}
+[id^="sec-"]{scroll-margin-top:140px}
+/* сворачивание зоны управления на узком экране */
+.fold{display:none}
+/* кнопка со счётчиком применённых фильтров подсвечивается: свёрнутая панель
+   иначе молчит о том, что список уже сужен */
+.fold.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+@media (max-width:1024px){
+  .fold{display:inline-flex;margin-bottom:var(--sp-2)}
+  .toolbar{display:none}
+  .toolbar.open{display:flex}
+  .secnav{position:static}
+}
+
+/* пояснение — сворачиваемое: читается один раз, место занимать не должно */
+.note{background:var(--s-2);border:1px solid var(--line-1);border-left:2px solid var(--accent);
+  padding:var(--sp-2) var(--sp-3);border-radius:0 var(--r-3) var(--r-3) 0;
+  font-size:var(--fs-sm);margin:var(--sp-2) 0;color:var(--t-2)}
+.note.bad{border-left-color:var(--bad)}
+.note.warn{border-left-color:var(--warn)}
+.note b{color:var(--t-1);font-weight:600}
+details.note{padding:0}
+details.note>summary{cursor:pointer;padding:var(--sp-2) var(--sp-3);font-weight:600;
+  color:var(--t-1);list-style:none;display:flex;align-items:center;gap:var(--sp-2);
+  min-height:36px}
+details.note>summary::-webkit-details-marker{display:none}
+details.note>summary::before{content:'▸';color:var(--t-3);transition:transform .12s var(--ease)}
+details.note[open]>summary::before{transform:rotate(90deg)}
+details.note>summary+*{padding:0 var(--sp-3) var(--sp-3)}
+details.note .nb{padding:0 var(--sp-3) var(--sp-3)}
+
+/* ---- режим «текст целиком»: подпись НЕ переносится и НЕ обрезается —
+   строка растёт В ШИРИНУ, а дерево прокручивается по горизонтали.
+   Колонка подписи одинаковой ширины у всех строк (её задаёт самая длинная
+   подпись, считается в JS), поэтому числовые колонки остаются на одной
+   вертикали и сетка не ломается ---- */
+html.wide .tree{overflow:auto}
+html.wide .tree .row,html.wide .tree .dl,
+html.wide .tree .colhead,html.wide .tree .colhead-box{width:max-content;min-width:100%}
+/* ⚠️ `min-width:0` ЗДЕСЬ ОБЯЗАТЕЛЕН И ОТМЕНЯЕТ ПОРОГ --lblmin.
+   Порог заведён для КОМПАКТНОГО режима, где подпись тянется `flex:1` и
+   схлопывалась до нуля. В режиме «подписи целиком» ширина считается точно:
+   `--lblw` (самая длинная подпись, меряет fitLabels) МИНУС ступенька
+   вложенности `--ind`. У вложенных строк это меньше 300 px, порог их
+   раздвигал — и колонка цифр каждой такой строки уезжала вправо
+   относительно шапки, а подпись наезжала на числа: «упили» вместо «купили»,
+   «26,015» вместо «126,015». Ровно это было на скриншоте заказчика.
+   Один порог на два режима не годится: у них разная механика ширины. */
+html.wide .row>.hd,html.wide .dl>.hd,html.wide .colhead>.hd{
+  flex:0 0 calc(var(--lblw,420px) - var(--ind,0px));overflow:visible;min-width:0}
+/* ⚠️ ПОДПИСЬ НЕ ИМЕЕТ ПРАВА ВЫЛЕЗАТЬ НА ЦИФРЫ. Раньше здесь стояло
+   `overflow:visible`, чтобы длинное название было видно целиком. Ширину
+   колонки `fitLabels` подбирает по САМОЙ длинной подписи, но у вложенных
+   строк из неё вычитается ступенька `--ind`, и их собственная подпись в
+   остаток не влезает — она наезжала на колонку «купили», съедая первые
+   цифры: «упили», «26,015» вместо «126,015».
+   Теперь лишнее обрезается многоточием. Полное название и так в подсказке,
+   а испорченное число прочитать нельзя никак. */
+html.wide .row .lbl,html.wide .dl .lbl{white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+html.wide .dl .ph,html.wide .cline .ph,html.wide .cline .nmn{
+  white-space:nowrap;overflow:visible;text-overflow:clip}
+html.wide .row .tag,html.wide .grow .glbl{white-space:nowrap}
+html.wide .chk span{white-space:nowrap;overflow:visible;text-overflow:clip}
+
+/* ================= ЗНАЧКИ «ИЗ ЧЕГО СОСТОИТ БИЗНЕС-ПЛАН» ======================
+   Строчка текста «Труба 720 (т) +1» читалась только вплотную к экрану: 10 px
+   серым среди таких же серых подписей. Категория материала — то, по чему список
+   сканируют глазами, поэтому она вынесена в ПИКТОГРАММУ и поставлена в начало
+   подписи, на одну вертикаль во всех строках.
+
+   Различает ФОРМА, а не цвет: цвет здесь уже занят статусом (--ok/--warn/--bad)
+   и взаимодействием (--accent). Значок цвета материала в строке Ганты читался бы
+   как второй статус. Размер значка задаётся одной переменной --mi.
+   Сами символы — спрайт <defs> в начале <body>, соответствие групп — MAT_OF. */
+/* Ведущий материал — КРУПНЫМ значком, остальные мелкими в столбик рядом. Четыре
+   одинаковые клетки 2×2 давали значок в 12 px: чтобы разобрать трубу и штангу,
+   приходилось наклоняться к экрану. Тоннаж почти всегда сосредоточен в одной
+   группе (у 482 планов из 1 008 она вообще единственная), поэтому крупным идёт
+   она, а мелкие говорят «есть ещё и это».
+   Ширина блока ФИКСИРОВАННАЯ (34 + 2 + 16): у плана с одной группой второй
+   столбец пустует, но текст во всех строках начинается на одной вертикали. */
+.matset{--mi:16px;display:grid;grid-template-columns:34px var(--mi);
+  grid-auto-rows:var(--mi);gap:2px;flex:none;align-content:center;width:52px}
+.matset .lead{--mi:34px;grid-row:1 / span 2}
+/* в дереве строка одна и высотой 32 px — столбик туда не встанет, значки идут в
+   ряд и все одного размера. Модификатор НЕ может называться row: этот класс уже
+   занят строкой дерева, и её правила (display:flex на всю ширину) ломали значки */
+/* ширина фиксирована и здесь (три клетки по 16 с зазорами): иначе у плана с
+   одним значком название начиналось левее, чем у плана с тремя, и колонка
+   названий переставала быть колонкой */
+.matset.mline{display:inline-flex;width:52px;gap:2px;vertical-align:-4px;
+  margin-right:var(--sp-2)}
+.matset.mline .lead{--mi:16px}
+/* --mi берётся с фолбэком, а НЕ объявляется на .mc: собственное объявление
+   победило бы значение, унаследованное от .matset, и крупный значок не вырос бы */
+.mc{display:flex;align-items:center;justify-content:center;
+  width:var(--mi,17px);height:var(--mi,17px);
+  border:1px solid var(--line-1);border-radius:var(--r-1);background:var(--s-2);
+  color:var(--t-1);font-weight:400;flex:none}
+.mc svg{width:calc(var(--mi,17px) - 5px);height:calc(var(--mi,17px) - 5px);fill:none;
+  stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mc svg .f{fill:currentColor;stroke:none}
+/* «+N»: сколько ещё групп в плане сверх показанных — полный состав в подсказке */
+.mc.more{font-size:var(--fs-micro);font-weight:700;color:var(--t-3);
+  font-variant-numeric:tabular-nums}
+/* легенда значков: разворачивается один раз, дальше значки узнаются сами */
+.matleg{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-4);margin:var(--sp-2) 0}
+.matleg>span{display:inline-flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-sm);color:var(--t-2)}
+.matleg .mc{--mi:20px}
+/* ---- сверка по подразделениям (вкладка «Проверка данных») ----
+   Полоска вклада и разворот складов. Классы НЕ должны пересекаться с деревом:
+   `row`, `lbl`, `hd`, `tw` там заняты (§6), поэтому здесь `rp`, `rsub`, `rbar`. */
+table.recon tr.rp{cursor:pointer}
+table.recon tr.rp:hover>td{background:var(--hover)}
+table.recon .rtog{display:inline-block;width:12px;color:var(--t-3);font-size:11px}
+table.recon .rtot>td{border-top:2px solid var(--line-2);font-size:var(--fs-base)}
+/* полоска длиной в долю расхождения: плюс и минус — разные беды, разный цвет */
+.rbar{display:block;height:8px;border-radius:4px;min-width:2px}
+.rbar.p{background:var(--bad)}
+.rbar.m{background:var(--attn,var(--accent))}
+/* ---- вкладка «Остатки» (14.09.2026): корень → регион → подразделение → группа → НМК ---- */
+table.stock td.num.z{color:var(--t-4)}
+table.stock td.num.neg{color:var(--bad)}
+table.stock td.bal,table.stock th.bal{font-weight:700;border-right:2px solid var(--line-2)}
+table.stock td.bal1c,table.stock th.bal1c{color:var(--t-3)}
+table.stock tr.d0>td{background:var(--s-2)}
+table.stock tr.d1>td:first-child{color:var(--t-1)}
+table.stock tr.d2>td:first-child{color:var(--t-2)}
+table.stock tr.d3>td:first-child{font-size:var(--fs-sm)}
+table.stock tr.d4>td:first-child{font-size:var(--fs-sm);color:var(--t-3)}
+table.stock tr.d5>td:first-child{font-size:var(--fs-sm);color:var(--t-3);font-style:italic}
+table.stock tr.d2>td,table.stock tr.d3>td,table.stock tr.d4>td,table.stock tr.d5>td{background:var(--s-0)}
+/* плашка «на какое число остатки»: красная, когда выгрузка старше полутора суток */
+.freshbar{margin:var(--sp-2) 0 var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-2);
+  border:1px solid var(--line-1);background:var(--s-1);font-size:var(--fs-sm);color:var(--t-2)}
+.freshbar.stale{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent);color:var(--t-1)}
+table.stock tr.rtot>td{border-bottom:2px solid var(--line-2)}
+/* остаток на Ганте и в сводных — ссылка на «Остатки» с этим бизнес-планом */
+.grest{cursor:pointer}
+.grest:hover{color:var(--accent)}
+.stjump{cursor:pointer;text-decoration:underline dotted var(--line-2);text-underline-offset:3px}
+.stjump:hover{color:var(--accent)}
+.bbold button i{font-style:normal;font-weight:400;opacity:.75;margin-left:4px}
+table.inner{width:100%;margin:var(--sp-2) 0 var(--sp-1) var(--sp-4);
+  font-size:var(--fs-sm);border-left:2px solid var(--line-2)}
+table.inner th{font-size:var(--fs-cap);color:var(--t-3);font-weight:600}
+details.panel>summary{cursor:pointer;font-size:var(--fs-base);padding:var(--sp-1) 0}
+details.panel>summary:hover{color:var(--accent)}
+
+/* ================= ПЛАН-ФАКТ (ГАНТА), дискретность настраивается =============
+   Три колонки одной сетки: подпись бизнес-плана · метрики · шкала времени.
+   Шкала имеет ФИКСИРОВАННУЮ ширину деления (--gcell) и общую ширину --gt,
+   поэтому диаграмма не сжимается до нечитаемых полосок, а прокручивается по
+   горизонтали. Подпись и метрики закреплены слева (sticky), шапка — сверху,
+   так что при любой прокрутке видно, чья это строка и какое это деление. */
+/* Ганта — единственная вкладка, которой ширина реально нужна: закреплённые слева
+   подпись и метрики съедают ~870 px, и на общей сетке в 1560 px на саму шкалу
+   оставалось меньше половины окна. Здесь снимаем ограничение ширины страницы. */
+main:has(.gantt){max-width:none}
+/* --gl вырос с 340 до 396: слева от текста встала колонка значков состава
+   (52 px + зазор 8), и без добавки названия бизнес-планов начали обрезаться —
+   на текст остаётся 312 px, как и было до значков */
+.gantt{--gl:396px;--gm:652px;overflow:auto;max-height:78vh;position:relative;
+  border:1px solid var(--line-1);border-radius:var(--r-3);background:var(--s-1);
+  scrollbar-width:thin}
+/* строки разбора живут в той же сетке, что и строка бизнес-плана: иначе их
+   диаграммы не совпали бы по месяцам с диаграммой проекта */
+.ghead,.grow,.gsub{display:grid;grid-template-columns:var(--gl) var(--gm) var(--gt);
+  align-items:stretch;width:max-content;min-width:100%}
+.ghead{position:sticky;top:0;z-index:5;background:var(--s-1);
+  border-bottom:1px solid var(--line-2)}
+/* подпись — колоночный flex, поэтому «прижать вниз» это justify-content,
+   а align-items:end увёл бы заголовок к правому краю */
+.ghead>.glbl,.ghead>.gmetrics{font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.4px;color:var(--t-2);font-weight:600;padding-bottom:var(--sp-1)}
+.ghead>.glbl{justify-content:flex-end}
+.ghead>.gmetrics{align-items:end}
+.ghead>.glbl{z-index:7}
+.ghead>.gmetrics{z-index:6}
+.grow{border-bottom:1px solid var(--line-1);min-height:48px}
+/* статусный рант: по нему список читается сверху вниз без чтения чипов */
+.grow>.glbl{box-shadow:inset 3px 0 0 var(--rail,transparent)}
+.grow.st-ok{--rail:var(--ok)}
+.grow.st-late{--rail:var(--warn)}
+.grow.st-bad{--rail:var(--bad)}
+.grow.st-work{--rail:var(--accent)}
+.grow.st-none{--rail:var(--line-2)}
+/* фон строки держим ПЕРЕМЕННОЙ: им же обводится значок оплаты, чтобы точка
+   оставалась видна на фоне столбика расхода при любом состоянии строки */
+.grow{--rowbg:var(--s-1)}
+.grow:hover{background:var(--hover);--rowbg:var(--hover)}
+.grow:hover>.glbl,.grow:hover>.gmetrics{background:var(--hover)}
+.grow.open{background:var(--s-2);--rowbg:var(--s-2)}
+.grow.open>.glbl,.grow.open>.gmetrics{background:var(--s-2)}
+
+/* закреплённые колонки: подпись у левого края, метрики сразу за ней */
+.glbl,.gmetrics{position:sticky;background:var(--s-1);display:flex;align-items:center;
+  gap:var(--sp-2);padding:var(--sp-1) var(--sp-3)}
+/* режим «шире диаграмму»: цифры убираются, и вся ширина уходит шкале.
+   Закреплённые слева подпись и метрики — это ~870 px, на них уходит больше
+   половины окна, а разглядывать надо именно шкалу. */
+/* В развёрнутом режиме прячем цифры, КРОМЕ ОСТАТКА: это то, ради чего строку и
+   открывают — сколько ещё лежит. Колонка метрик ужимается до одного остатка,
+   шкала растягивается до неё. Пятая ячейка — остаток и в шапке, и в строке
+   бизнес-плана, и в строках разбора; порядок задан в web/tabs.js. */
+/* ⚠️ В РЕЖИМЕ «ШИРЕ ДИАГРАММУ» ОСТАЮТСЯ ДВЕ ЦИФРЫ, А НЕ ОДНА: остаток и прогноз
+   (14.08.2026). Прогноз ради того и заведён, чтобы смотреть на него вместе с
+   остатком; спрятать его тут — значит спрятать ровно в том режиме, в котором
+   диаграмму и разглядывают. Пятая ячейка — остаток, шестая — прогноз; порядок
+   задан в web/tabs.js. */
+.gantt.slim{--gm:252px}
+.gantt.slim .gmetrics{grid-template-columns:minmax(0,120px) minmax(0,96px)}
+.gantt.slim .gmetrics>span{display:none}
+.gantt.slim .gmetrics>span:nth-child(5),
+.gantt.slim .gmetrics>span:nth-child(6){display:block}
+/* срок с карандашом в подписи — виден только когда цифры скрыты */
+.gplan2{display:none;align-items:center;gap:2px;font-size:var(--fs-cap);color:var(--t-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.gplan2.ed{color:var(--accent);font-weight:600}
+.gantt.slim .gplan2{display:inline-flex}
+/* подпись в две строки: статус и название сверху, площадка и контрагент снизу —
+   иначе название переносится под чип и строка растёт втрое */
+.glbl{left:0;z-index:3;min-width:0;overflow:hidden;flex-direction:column;
+  align-items:stretch;justify-content:center;gap:2px;padding-left:var(--sp-3)}
+/* строка бизнес-плана: значки состава стоят ОТДЕЛЬНОЙ колонкой слева, на одной
+   вертикали во всех строках — список сканируется по ним так же, как по цветному
+   статусному ранту. Внутри значков — текст в две строки, как было. */
+.grow>.glbl{flex-direction:row;align-items:center;gap:var(--sp-2)}
+.gltxt{display:flex;flex-direction:column;justify-content:center;gap:2px;
+  min-width:0;flex:1 1 auto}
+.gl1,.gl2{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+/* ⚠️ Вторая строка подписи — РОВНО ОДНА строка, без переноса. Значки, площадка и
+   контрагент вместе шире колонки; при переносе они разъезжались в три ряда,
+   строка вырастала втрое, а «Заготовка» и контрагент уплывали вправо от значков.
+   Теперь всё в один ряд: что не влезло — обрезается многоточием, полный состав
+   плана и так лежит в подсказке значков. */
+.gl2{color:var(--t-3);font-size:var(--fs-cap);overflow:hidden;flex-wrap:nowrap;
+  gap:var(--sp-1)}
+.gl2>*{min-width:0;flex:none}
+.gl2 .tag{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gl2:empty{display:none}
+/* срок · факт · % вывезено · КУПЛЕНО · остаток · опоздание */
+/* колонки через minmax(0,…): сумма фиксированных ширин с зазорами и полями
+   вылезала за --gm на 6–18 px, и хвост «опозд.» подрезался краем шкалы.
+   С minmax дорожки ужимаются ровно до свободного места, а шапка и строки
+   держат одно правило — значит, остаются выровненными. */
+/* седьмая дорожка — ПРОГНОЗ остатка по базам (14.08.2026), стоит сразу за
+   остатком: их читают парой «сколько лежит → сколько останется» */
+.gmetrics{left:var(--gl);z-index:2;display:grid;
+  grid-template-columns:minmax(0,88px) minmax(0,60px) minmax(0,64px) minmax(0,88px)
+    minmax(0,120px) minmax(0,96px) minmax(0,74px);gap:var(--sp-2);align-items:center;
+  font-variant-numeric:tabular-nums;font-size:var(--fs-sm);text-align:right;color:var(--t-3);
+  border-left:1px solid var(--line-1);border-right:1px solid var(--line-1)}
+.gmetrics>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* куплено — опорная величина, от неё читаются и процент, и остаток */
+.gbuy{color:var(--t-1);font-weight:600}
+/* остаток к вывозу и опоздание — то, ради чего вкладку открывают: они ведут,
+   срок и факт подчинены. Раньше все шесть чисел были одного серого веса. */
+.grest{font-size:var(--fs-base);font-weight:700;color:var(--bad)}
+.grest.z{font-weight:500;color:var(--t-4)}
+/* остаток с комментариями — кнопка: подчёркнут пунктиром, как имя плана, и
+   рядом счётчик реплик. Тон счётчика — «бумажный», а не статусный: он говорит
+   «тут есть что почитать», а не «тут беда» */
+.grest.cm{cursor:pointer;border-bottom:1px dashed var(--line-2);
+  display:inline-flex;align-items:center;gap:4px}
+.grest.cm:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.cmn{font-style:normal;font-size:var(--fs-micro);font-weight:700;line-height:1;
+  padding:2px 4px;border-radius:var(--r-1);background:var(--s-3);color:var(--t-2);
+  border:1px solid var(--line-2)}
+.grest.cm:hover .cmn{border-color:var(--accent);color:var(--accent)}
+.gdelay{color:var(--bad);font-weight:700;font-size:var(--fs-base)}
+/* имя бизнес-плана — по нему раскрывается разбор до документов */
+/* название бизнес-плана длинное: по умолчанию («подписи целиком») переносим на
+   две строки, в режиме «текст в строку» — обрезаем многоточием, как в дереве */
+.gnm{font-size:var(--fs-base);font-weight:600;cursor:pointer;
+  border-bottom:1px dashed var(--line-2);flex:1 1 auto;min-width:0;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gnm:hover{color:var(--accent);border-bottom-color:var(--accent)}
+/* ⚠️ НЕ ДОБАВЛЯТЬ СЮДА `white-space:nowrap`. У `.gnm` выше уже стоит
+   `-webkit-line-clamp:2` — имя переносится на ДВЕ строки с многоточием, и это
+   осознанно: в одну строку длинные названия БП не помещаются никогда. Правило
+   с nowrap отменяет клэмп и делает подписи КОРОЧЕ, а не длиннее. Я на этом чуть
+   не споткнулся, когда чинил «таблица закрывает названия»: лечить надо ШИРИНУ
+   колонки, а не способ обрезки. */
+html.wide .gnm{display:block;white-space:nowrap;text-overflow:ellipsis}
+/* значки «что внутри бизнес-плана»: номенклатура отчёта по убыванию тоннажа.
+   Стоят между названием и цифрами — чтобы по строке было видно, лом это,
+   труба или кабель, не раскрывая план. */
+.nmtags{display:inline-flex;gap:3px;flex-wrap:wrap;vertical-align:middle;margin-left:var(--sp-2)}
+.nmtags i{font-style:normal;font-size:var(--fs-micro);line-height:1.5;color:var(--t-2);
+  background:var(--s-2);border:1px solid var(--line-1);border-radius:var(--r-1);
+  padding:0 5px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.nmtags i.more{color:var(--t-3);font-weight:600}
+.gl2 .nmtags{margin-left:0;flex-wrap:nowrap;gap:2px}
+.gl2 .nmtags i{max-width:92px}
+.gsite{font-size:var(--fs-micro);font-weight:600;color:var(--t-2);border:1px solid var(--line-1);
+  border-radius:20px;padding:0 var(--sp-2);white-space:nowrap}
+.gdelay{color:var(--bad);font-weight:600}
+/* правка срока вывоза */
+.gplan{display:flex;align-items:center;justify-content:flex-end;gap:2px}
+.gplan.ed{color:var(--accent);font-weight:600}
+.gplan .edm{font-style:normal;font-size:var(--fs-micro);opacity:.9}
+.gpen{border:none;background:none;cursor:pointer;color:var(--t-3);font-size:var(--fs-sm);
+  padding:0 2px;border-radius:var(--r-1);opacity:0;transition:opacity .12s var(--ease);
+  min-width:24px;min-height:24px}
+.grow:hover .gpen,.gplan.ed .gpen{opacity:1}
+.gpen:hover{color:var(--accent);background:var(--hover)}
+/* на планшете и телефоне наведения нет — иначе правка срока недоступна физически */
+@media (hover:none){.gpen{opacity:1}}
+
+/* шкала времени */
+.gtime{position:relative}
+.ghead .gtime{display:flex;flex-direction:column;justify-content:flex-end}
+.gyears{display:flex}
+/* границы года — рамкой, а не полем: поле в 1px копилось на каждом году, и к
+   концу шкалы подпись года уезжала от своих месяцев */
+.gyears u{text-decoration:none;text-align:center;font-size:var(--fs-sm);font-weight:600;
+  color:var(--steel);border-bottom:2px solid var(--steel);flex:none;overflow:hidden;
+  box-shadow:inset -1px 0 0 var(--s-1);padding-bottom:1px}
+.gmonths,.gcells{display:grid;grid-auto-flow:column;grid-auto-columns:var(--gcell)}
+.gmonths i{font-style:normal;text-align:center;font-size:var(--fs-micro);color:var(--t-3);
+  overflow:hidden;padding:2px 0;white-space:nowrap}
+.gmonths i.now{color:var(--accent);font-weight:700}
+/* узкое деление: подписи всех месяцев не помещаются и сливаются в кашу —
+   оставляем начала кварталов, остальные месяцы читаются по подсказке */
+.gantt.narrow .gmonths i{color:transparent}
+.gantt.narrow .gmonths i.q{color:var(--t-3);overflow:visible}
+.gantt.narrow .gmonths i.now{color:var(--accent)}
+/* ---- ДЕЛЕНИЕ ШКАЛЫ ----
+   Было две беды. Первая: метки нарисованы полупрозрачным шёпотом — в таблице
+   это правильно, в диаграмме метка и есть содержание, и всё расплывалось.
+   Вторая, главная: при 63 месяцах по 40 px строка уезжала на 2 500 px, проект
+   целиком в экран не помещался, и читать было физически нечего.
+
+   Теперь ширина деления подгоняется под свободное место (считает JS), а меток
+   осталось четыре, и все они полной силы:
+
+        ▐▊▂            расход — столбик, растёт из оси
+    ────█████████──    ось: в периоде факта — жирная и цветом статуса,
+                              вне периода — волосяная серая
+    ▬▬▬▬▬⚑▬▬⚑▬▬          план — одна цветная дорожка с двумя датами
+            ▨▨▨▨▨      штриховка — вывоз не закончен
+
+   Период факта больше не заливка и не отдельная дорожка, а сам отрезок оси:
+   строка читается одним непрерывным объектом, а не россыпью столбиков. */
+.gcells{--plot:26px;--lane:6px;--gap:3px;--axis:2px;
+  /* ⚠️ ПОЛОСЫ ХОДА БОЛЬШЕ НЕТ (заказчик 20.08.2026: «сделать их одной»): две
+     параллельные линии у оси — дорожка сроков и полоса хода — читались как
+     дубль, обе про наш план. Осталась ОДНА дорожка (на 1px толще прежней),
+     зоны хода живут словами в подсказке деления. */
+  --lane-b:0px;
+  /* Одна плановая дорожка сопоставляет срок БП и срок вывоза. */
+  --axis-b:calc(var(--lane-b) + var(--lane) + var(--gap));
+  --base:calc(var(--axis-b) + var(--axis));
+  height:calc(var(--plot) + var(--base));position:relative;margin:var(--sp-1) 0}
+/* ---- НЕТ НЕДЕЛЬНОЙ ДЕТАЛИЗАЦИИ ----
+   Пустая шкала на неделях означает «разбивки по неделям нет», а не «движений не
+   было»: расчёт ведёт недели только за последние 12 месяцев. Без пометки такая
+   строка читалась как потеря данных — на это и пожаловались на совещании.
+   Штриховка НЕЙТРАЛЬНО-СЕРАЯ и очень бледная: это подложка «здесь ничего не
+   показываем», а не статус и не предупреждение, цвета которых уже заняты. */
+/* ---- СВОДНАЯ: раскрытие списка бизнес-планов ----
+   Кликабельно ИМЕННО ЧИСЛО ПЛАНОВ: цифра и её расшифровка не должны жить в
+   разных местах экрана. Подчёркивание пунктиром — общепринятый знак «здесь
+   что-то откроется», и он не спорит со ссылками. */
+td.drill{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+td.drill:hover{color:var(--accent)}
+tr.open>td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+tr.bpdrill>td{padding:0 0 var(--sp-2)}
+tr.bpdrill .inner{width:100%}
+.bpjump{color:var(--accent);text-decoration:none;cursor:pointer}
+.bpjump:hover{text-decoration:underline}
+/* плашка «недели только за 12 месяцев» — заметная, но не тревожная */
+.gwkwarn{border-left:3px solid var(--t-4);padding:var(--sp-2) var(--sp-3);
+  background:color-mix(in srgb,var(--t-4) 8%,transparent);
+  border-radius:0 var(--r-1) var(--r-1) 0;margin:0 0 var(--sp-2)}
+.gcells.nowk{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--t-4) 12%,transparent) 0 3px,transparent 3px 8px);
+  border-radius:var(--r-1)}
+/* ось вне периода факта — волосяная: это подложка, а не данные */
+.gcells::after{content:'';position:absolute;left:0;right:0;
+  bottom:var(--axis-b);height:var(--axis);
+  background:var(--line-2);z-index:0;pointer-events:none}
+.gcells i{display:block;height:100%;position:relative;z-index:1}
+/* сетка только по кварталам и годам: помесячная при узком делении сливалась
+   в серую заливку и мешала видеть сами метки */
+.gcells i.q{box-shadow:inset 1px 0 0 color-mix(in srgb,var(--line-1) 45%,transparent)}
+.gcells i.yb{box-shadow:inset 1px 0 0 var(--line-2)}
+/* ⚠️ НА УЗКИХ ДЕЛЕНИЯХ КВАРТАЛЬНОЙ СЕТКИ НЕТ (20.08.2026): при делении в
+   15–20 px линия каждые три деления на двухстах строках складывалась в решётку
+   заметнее самих данных. Ориентир остаётся: границы ЛЕТ и подписи кварталов в
+   шапке — они в narrow-режиме и так единственные подписанные. */
+.gantt.narrow .gcells i.q{box-shadow:none}
+.gantt.narrow .gcells i.yb{box-shadow:inset 1px 0 0 var(--line-2)}
+.gcells i:hover{background-color:color-mix(in srgb,var(--accent) 10%,transparent)}
+/* ---- ЗНАЧОК ОПЛАТЫ: в этом месяце по бизнес-плану прошёл платёж ----
+   Пятая метка деления и единственная, которая говорит не про металл, а про
+   деньги, поэтому у неё свой цвет --pay: статусная шкала (зелёный/жёлтый/
+   красный) и синий цвет взаимодействия уже заняты другим смыслом.
+   Точка стоит НАД шкалой, у верхнего края деления: столбик расхода растёт от
+   оси вверх и в редком случае достаёт до верха — от него точку отделяет ореол
+   цветом строки (--rowbg), поэтому она читается всегда.
+   Оплаты привязаны к бизнес-плану целиком, поэтому значки есть только на строке
+   проекта: в разбор по складам они не спускаются. */
+.gcells i>s{position:absolute;z-index:3;top:1px;left:50%;width:8px;height:8px;
+  margin-left:-4px;border-radius:50%;background:var(--pay);
+  box-shadow:0 0 0 1.5px var(--rowbg,var(--s-1))}
+/* цвет статуса — на всей строке, а не на отдельной ячейке */
+.gcells{--st:var(--accent)}
+.gcells.st-ok{--st:var(--ok)}
+.gcells.st-late{--st:var(--warn)}
+.gcells.st-bad{--st:var(--bad)}
+.gcells.st-work{--st:var(--accent)}
+.gcells.st-none{--st:var(--t-3)}
+/* ---- цвет ОТДЕЛЬНОГО деления: положение относительно срока вывоза ----
+   Статус строки (чип в подписи) считается по бизнес-плану целиком и остаётся
+   как есть. Раскраска же помесячная: месяцы до срока вывезены в срок и зелены
+   даже у строки «с опозданием». --st каскадируется от ячейки и на жирный
+   отрезок оси (.f), и на столбик расхода (b) — переписывать схему не нужно. */
+.gcells i.c-ok{--st:var(--ok)}
+.gcells i.c-late{--st:var(--warn)}
+.gcells i.c-bad{--st:var(--bad)}
+/* цвет штриховки незакрытого вывоза: красная только за сроком */
+.gcells i{--ht:var(--t-3)}
+.gcells i.o-bad{--ht:var(--bad)}
+/* ПЕРИОД ФАКТА — жирный отрезок самой оси, полным цветом статуса */
+.gcells i.f{background-image:linear-gradient(var(--st),var(--st));
+  background-repeat:no-repeat;
+  background-position:left 0 bottom var(--axis-b);
+  background-size:100% var(--axis)}
+/* Хвост «вывоз не закончен» поверх единой плановой дорожки */
+.gcells i.o::before{content:'';position:absolute;left:0;right:0;
+  bottom:var(--lane-b);height:var(--lane);z-index:2}
+.gcells i.o::before{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--ht) 70%,transparent) 0 2px,transparent 2px 5px)}
+/* СРОК ВЫВОЗА 1С — флаг во всю высоту деления. Это единственная дата, ради которой
+   строку открывают, и в тонкой засечке она терялась.
+   ⚠️ Цвет СИНИЙ (--plan-luk): срок ставил Лукойл (или условие договора), и его
+   надо отличать с одного взгляда от НАШЕГО срока (жёлтый флаг ниже).
+
+   Флаг ВО ВСЮ ВЫСОТУ, вымпел СВЕРХУ — так он не путается с нашим сроком, у
+   которого вымпел снизу: даже если обе даты попали в одно деление, направление
+   вымпела говорит, чей это флаг, ещё до того, как глаз различил цвет.
+   Ореол цветом строки нужен, чтобы флаг читался поверх столбика расхода и
+   поверх красной штриховки — иначе на тёмной теме он в них тонул. */
+/* ФЛАЖОК КАК ФЛАЖОК (заказчик 20.08.2026, по присланной иконке): древко 2px
+   и прямоугольное полотнище С ЗАЛИВКОЙ — чётче вымпела-уголка и читается как
+   флаг с первого взгляда. Полотнище смотрит ВЛЕВО от древка, в своё деление:
+   вправо оно залезало бы в чужой месяц.
+   Различение двух флагов прежнее: срок 1С — полотнище ВВЕРХУ, наша дата —
+   НА ВЕРХУШКЕ КОРОТКОГО ДРЕВКА — в середине деления, плюс цвет (синий против жёлтого). */
+/* полотнище ПРИМЫКАЕТ к древку (right = ширине древка, без зазора) и чуть
+   крупнее — 10x7: заказчик, «чуть крупнее, чтобы не съезжали» */
+.gcells i u{position:absolute;right:0;top:0;bottom:0;width:2.5px;text-decoration:none;
+  background:var(--plan-luk);z-index:3;border-radius:1px;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--rowbg,var(--s-1)) 70%,transparent)}
+.gcells i u::after{content:'';position:absolute;right:2.5px;top:0;width:10px;height:7px;
+  background:var(--plan-luk);border-radius:2px 0 0 2px;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--rowbg,var(--s-1)) 70%,transparent)}
+
+/* ---- ЕДИНАЯ ПЛАНОВАЯ ДОРОЖКА: две даты, три цвета ----
+   Сколько месяцев на вывоз закладывал сам бизнес-план (выгрузка из Битрикса).
+   Отсчёт идёт от ЯКОРЯ — месяца первой оплаты за лом, а если оплат в выгрузке
+   нет, от месяца первого прихода.
+     зелёный  — от первой покупки до более ранней даты;
+     жёлтый   — между датами, если первой наступила дата БП;
+     красный  — между датами, если первым наступил срок вывоза, и после него. */
+.gcells i>span.w{position:absolute;left:0;right:0;bottom:var(--lane-b);height:var(--lane);z-index:1}
+.gcells i>span.w1{background:color-mix(in srgb,var(--ok) 65%,transparent)}
+.gcells i>span.w2{background:color-mix(in srgb,var(--warn) 70%,transparent)}
+/* оранжевый этап «после второй точки» — терракота, освободившаяся после
+   слияния полосы хода: от жёлтого и красного отличима с одного взгляда */
+.gcells{--stage-or:#d4772e}
+[data-theme=dark] .gcells{--stage-or:#f0954a}
+.gcells i>span.w4{background:color-mix(in srgb,var(--stage-or) 75%,transparent)}
+.gcells i>span.w3{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--bad) 80%,transparent) 0 2px,
+  color-mix(in srgb,var(--bad) 25%,transparent) 2px 5px)}
+.gcells i>span.ws{left:1px;border-radius:var(--r-1) 0 0 var(--r-1)}
+/* ---- ПОЛОСА ХОДА УБРАНА (20.08.2026) ----
+   Была вторым этажом под плановой дорожкой: мята/терракота/пурпур показывали,
+   сколько отпущенного времени израсходовано. Заказчик попросил слить две линии
+   в одну — и правда, обе были про наш план, и на строке они читались как дубль.
+   Зоны хода никуда не делись: «есть запас / идём впритык / срок прошёл» пишутся
+   словами в подсказке деления (ownTitle в web/tabs.js). */
+/* (стили span.p удалены вместе с самой полосой — мята/терракота/пурпур снова
+   свободные тона) */
+/* НАША дата — КОРОТКИЙ флаг, полотнище на ВЕРХУШКЕ своего древка (идея
+   заказчика 20.08.2026: «может, не делать его перевёрнутым — просто чуть
+   короче, чтобы при совпадении не было наложения»). Оба флага теперь смотрятся
+   «как флаги» — древко и полотнище наверху, — но у нашего древко до середины
+   деления, поэтому при совпадении дат полотнища стоят на РАЗНЫХ ВЫСОТАХ:
+   1С — у верхнего края, наш — в середине, и зазор между ними остаётся всегда.
+   Различение: ЦВЕТ (ярко-жёлтый против синего) и ДЛИНА (до середины против всей
+   высоты); перевёрнутый вымпел больше не нужен. */
+/* обводка нашего флага — ТЁМНАЯ, а не цветом строки: ярко-жёлтое полотнище на
+   белом фоне без неё растворялось бы, а на тёмной теме тёмный контур просто
+   сливается с фоном и не мешает */
+.gcells i em{position:absolute;right:0;bottom:0;width:2.5px;font-style:normal;
+  height:calc(var(--base) + var(--plot) * .45);
+  background:var(--plan-own);z-index:4;border-radius:1px;
+  box-shadow:0 0 0 1px color-mix(in srgb,#1f2937 55%,transparent)}
+.gcells i em::after{content:'';position:absolute;right:2.5px;
+  bottom:calc(var(--base) + var(--plot) * .45 - 7px);width:10px;height:7px;
+  background:var(--plan-own);border-radius:2px 0 0 2px;
+  box-shadow:0 0 0 1px color-mix(in srgb,#1f2937 55%,transparent)}
+/* ---- РАМКА ПЛАНА ПО ОБЪЁМАМ ПРОИЗВОДСТВА ----
+   Вариант «А» из макета, выбран заказчиком 14.08.2026: графитовый ПУНКТИР во
+   всю высоту деления. Пунктир сам по себе читается как «план, а не факт», и
+   объяснять его легендой не нужно.
+   ⚠️ ГРАФИТ — единственный свободный тон на строке: зелёный, жёлтый и красный
+   заняты статусом, синий сроком 1С, ярко-жёлтый нашей датой, фиолетовый оплатой, а
+   мята/терракота/пурпур — полосой хода.
+   ⚠️ Боковые грани только на КРАЙНИХ делениях месяца (.f и .l): на недельной
+   шкале месяц занимает 4–5 делений, и без этого вместо рамки вышел бы частокол.
+   pointer-events:none — рамка не должна перехватывать подсказку деления. */
+.gcells{--plan-prod:#3f4a63}
+[data-theme=dark] .gcells{--plan-prod:#94a3c4}
+/* ⚠️ РАМКА СТАЛА СКОБКОЙ СВЕРХУ (20.08.2026, «убрать лишние линии»). Нижний
+   пунктир рамки ложился ровно туда, где уже живут ось и плановая
+   дорожка, — у оси сходились горизонтальные линии подряд. Скобка
+   (верхний пунктир + короткие спуски по краям месяца) очерчивает тот же
+   отрезок, но не трогает низ деления. Высота спусков — до подписи объёма. */
+.gcells i>div.pf{position:absolute;top:0;height:14px;left:0;right:0;z-index:4;
+  pointer-events:none;border-top:1.5px dashed var(--plan-prod)}
+.gcells i>div.pf.f{border-left:1.5px dashed var(--plan-prod);
+  border-radius:var(--r-1) 0 0 0}
+.gcells i>div.pf.l{border-right:1.5px dashed var(--plan-prod);
+  border-radius:0 var(--r-1) 0 0}
+.gcells i>div.pf.f.l{border-radius:var(--r-1) var(--r-1) 0 0}
+.gcells i>div.pf em{position:absolute;top:1px;left:50%;transform:translateX(-50%);
+  max-width:calc(100% - 2px);font-style:normal;
+  font-size:9px;font-weight:700;color:var(--plan-prod);text-align:center;
+  background:color-mix(in srgb,var(--rowbg,var(--s-1)) 82%,transparent);
+  padding:0 2px;border-radius:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:clip}
+/* ---- ПРОГНОЗ ОСТАТКА ПО БАЗАМ: ШТРИХОВКА И ПОДПИСЬ «ОСТАНЕТСЯ» ----
+   Заказано 14.08.2026. Смысл штриховки — «в этот месяц план съедает остаток
+   этого бизнес-плана», подписи — «а после плана останется столько».
+   ⚠️ ШТРИХОВКА, А НЕ ЗАЛИВКА: под ней лежат столбик расхода и дорожка плана, и
+   закрасить их значило бы спрятать факт ради прогноза. Наклон 45° выбран
+   встречным к штриховке «вывоз не закончен» (та же сетка под 45°, но она лежит
+   ФОНОМ деления, а эта поверх и тоньше) — рядом они не сливаются.
+   ⚠️ ЦВЕТ — ТОТ ЖЕ ГРАФИТ, что у рамки плана: это две стороны одного плана по
+   объёмам, и разводить их третьим тоном значило бы занять последний свободный.
+   pointer-events:none — подсказку деления перехватывать нельзя. */
+/* ⚠️ ШТРИХОВКА РАЗРЕЖЕНА (20.08.2026): 1,5px/6px читалась как забор поверх
+   столбиков. Реже и бледнее — это пометка месяца, а не второй график. */
+.gcells i>div.fc{position:absolute;top:0;bottom:0;left:0;right:0;z-index:3;
+  pointer-events:none;
+  background:repeating-linear-gradient(45deg,
+    color-mix(in srgb,var(--plan-prod) 30%,transparent) 0 1px,
+    transparent 1px 9px)}
+/* подпись доли внутри штриховки и подпись остатка за планом: обе перебивают
+   `.gcells i em` (флаг нашей даты) — иначе стали бы 3-пиксельным вымпелом */
+/* ⚠️ ПОДПИСЬ НА ПЛАШКЕ (заказчик 20.08.2026: «плохо видно цифры»): цифра
+   лежала голой поверх красной штриховки и столбиков. Плашка цветом строки
+   под цифрой возвращает контраст на любом фоне и в обеих темах. */
+.gcells i>div.fc em,.gcells i>div.fcl em{position:absolute;bottom:1px;left:50%;
+  transform:translateX(-50%);max-width:calc(100% - 2px);
+  font-style:normal;font-size:9px;font-weight:700;color:var(--plan-prod);
+  background:color-mix(in srgb,var(--rowbg,var(--s-1)) 82%,transparent);
+  padding:0 2px;border-radius:2px;height:auto;width:auto;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:clip;box-shadow:none}
+.gcells i>div.fc em::after,.gcells i>div.fcl em::after{content:none}
+/* подпись «останется» стоит в делении СРАЗУ ЗА планом и ничем не залита:
+   это не месяц плана, а его итог */
+.gcells i>div.fcl{position:absolute;top:0;bottom:0;left:0;right:0;z-index:4;
+  pointer-events:none;border-left:1.5px solid var(--plan-prod)}
+.gcells i>div.fcl em{color:var(--plan-prod);opacity:.9}
+/* «сейчас» — сквозная линия во всю высоту */
+.gcells i.now::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;
+  margin-left:-1px;background:var(--accent);z-index:2}
+/* РАСХОД — растёт прямо из оси, полным цветом статуса.
+   Высота — доля от самого крупного расхода ЭТОЙ строки. */
+.gcells i b{position:absolute;left:1px;right:1px;bottom:var(--base);
+  height:calc(var(--h,0) * var(--plot) / 100);min-height:2px;
+  border-radius:1px 1px 0 0;background:var(--st);z-index:2}
+
+/* статус-чип */
+.gst{display:inline-block;font-size:var(--fs-cap);font-weight:600;padding:1px var(--sp-2);
+  border-radius:20px;border:1px solid;white-space:nowrap;flex:none;
+  background:var(--chip-bg);color:var(--chip-fg);border-color:var(--chip-br)}
+.gst.ok{--chip:var(--ok)}
+.gst.late{--chip:var(--warn)}
+.gst.bad{--chip:var(--bad)}
+.gst.work{--chip:var(--accent)}
+.gst.none{--chip:var(--t-3)}
+
+/* выбор ОТРЕЗКА шкалы (с какого по какой месяц) — рядом с переключателем
+   дискретности: одно про ширину деления, другое про показанный кусок времени */
+.grange{display:inline-flex;gap:var(--sp-1)}
+.grange select{max-width:150px}
+/* переключатель масштаба */
+.gzoom{display:inline-flex;border:1px solid var(--line-1);border-radius:var(--r-2);
+  overflow:hidden}
+.gzoom button{border:none;background:var(--s-1);color:var(--t-2);cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:0 var(--sp-3);min-height:32px}
+.gzoom button+button{border-left:1px solid var(--line-1)}
+.gzoom button:hover{background:var(--hover);color:var(--t-1)}
+.gzoom button.on{background:var(--accent);color:#fff;font-weight:600}
+#gslim.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+/* разбор бизнес-плана под строкой: закреплён у левого края, чтобы не уезжать
+   вместе со шкалой времени */
+/* ---- разбор бизнес-плана: уровни со своими диаграммами ---- */
+.gdet-wrap{background:var(--s-2);border-bottom:1px solid var(--line-1)}
+.gsub{min-height:30px;font-size:var(--fs-sm);border-top:1px solid var(--line-1)}
+.gsub .glbl,.gsub .gmetrics{background:var(--s-2);padding:2px var(--sp-3)}
+.gsub:hover .glbl,.gsub:hover .gmetrics{background:var(--hover)}
+/* ⚠️ justify-content:center у .glbl задан для КОЛОНОЧНОГО flex строки проекта —
+   там он центрирует по вертикали. Здесь направление строчное, и та же строчка
+   центрировала содержимое ПО ГОРИЗОНТАЛИ: у коротких названий («Лангепас»)
+   треугольник и подпись уезжали вправо, и ступеньки разбора выглядели
+   случайными — три разных отступа на одном уровне вложенности. */
+.gsub .glbl{flex-direction:row;align-items:center;justify-content:flex-start;
+  gap:var(--sp-1)}
+/* В разборе по складам плановой дорожки нет (число месяцев по складам не
+   разложено), поэтому и полосы хода нет — место под неё не резервируем. */
+.gsub .gcells{--plot:13px;--lane:3px;--gap:2px;--axis:2px;
+  --way:0px;--way-gap:0px;margin:2px 0}
+.gsub .gtw{width:12px;flex:none;color:var(--t-3);font-size:9px}
+.gsub.has .gsnm{cursor:pointer;border-bottom:1px dashed var(--line-2)}
+.gsub.has:hover .gsnm{color:var(--accent)}
+.gsnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.gsub.lvl1 .glbl{padding-left:24px}
+.gsub.lvl2 .glbl{padding-left:42px}
+.gsub.lvl3 .glbl{padding-left:60px}
+.gsub.lvl4 .glbl{padding-left:78px}
+.gkids{display:none}
+.gkids.open{display:block}
+.gdet{position:sticky;left:0;z-index:1;border-bottom:1px solid var(--line-1);
+  background:var(--s-2);padding:var(--sp-2) var(--sp-3) var(--sp-3)}
+.gdet-h{font-size:var(--fs-sm);color:var(--t-2);margin-bottom:var(--sp-1)}
+.gdet .panel{background:var(--s-1);margin:0;overflow-x:auto}
+/* шапка дерева не должна прилипать к верху диаграммы: там уже стоит шапка
+   шкалы, и две липкие строки наезжали друг на друга */
+.gdet .colhead-box{position:static}
+
+/* всплывающая правка срока вывоза — единственный элемент, который физически
+   парит над страницей, поэтому единственный с настоящей тенью */
+.gpop{position:absolute;z-index:60;background:var(--s-3);border:1px solid var(--line-2);
+  border-radius:var(--r-4);box-shadow:var(--lift);padding:var(--sp-3);
+  width:330px;max-width:calc(100vw - 32px);font-size:var(--fs-base)}
+.gpop-h{font-weight:600;margin-bottom:2px}
+/* ---- ЛЕНТА КОММЕНТАРИЕВ ПО ЗАПАСАМ (20.08.2026) ----
+   Окно шире редактора срока и с прокруткой внутри: реплик у плана бывает за две
+   сотни, а окно во весь экран пришлось бы закрывать, чтобы вернуться к строке.
+   ⚠️ Высота ограничена ВНУТРЕННЕЙ прокруткой списка, а не окна целиком: шапка с
+   названием плана и подпись «ведут экономисты в 1С» должны оставаться на виду —
+   без них лента читается как безымянный список чужих фраз. */
+.cmpop{width:min(560px,92vw)}
+.cmpop .cmlist{max-height:min(52vh,420px);overflow:auto;scrollbar-width:thin;
+  margin:var(--sp-2) 0;padding-right:var(--sp-1)}
+.cmi{padding:var(--sp-2) 0;border-top:1px solid var(--line-1)}
+.cmi:first-child{border-top:none}
+/* ⚠️ ПОЗИЦИИ — ПОД ТЕКСТОМ, А НЕ НАД НИМ. Комментарий 1С проставляет сразу на
+   все позиции плана, поэтому ведёт дата и сама фраза, а «53 позиции · 41,2 т» —
+   это уже уточнение, к чему она относится. Полный список складов — в подсказке
+   строки: полсотни имён в окне не читаются, а одно нажатие лишнее. */
+.cmp{font-size:var(--fs-cap);color:var(--t-3);margin-top:2px;cursor:help;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp b{color:var(--t-2);font-variant-numeric:tabular-nums}
+.cmt{font-size:var(--fs-sm);color:var(--t-1);line-height:1.45}
+/* сколько записей 1С стоит за лентой — мелко и в шапке: цифра «235» рядом с
+   «4 комментария» иначе выглядит как потеря данных */
+.cmw{font-weight:400;font-size:var(--fs-cap);color:var(--t-3)}
+/* дата — не отдельной строкой, а «полем» слева от текста: реплики короткие
+   (медиана 23 знака), и дата над каждой съедала бы половину ленты */
+.cmt i{display:inline-block;min-width:78px;font-style:normal;color:var(--t-3);
+  font-variant-numeric:tabular-nums}
+/* кто ведёт — подразделение из 1С (Пермь, Когалым…): колонки с ФИО автора в
+   выгрузке нет; появится — расчёт подставит её сам (см. load_stock_notes) */
+.cmu{font-style:normal;font-size:var(--fs-cap);font-weight:600;color:var(--t-2);
+  margin-right:var(--sp-2)}
+.cmq{font-weight:600;color:var(--t-2);font-variant-numeric:tabular-nums}
+/* заголовок номенклатуры в ленте одного склада */
+.cmp.nom{text-transform:none;font-weight:600;color:var(--t-2);cursor:default;
+  margin-bottom:2px}
+.cmmore{display:block;width:100%;margin-top:var(--sp-2);font:inherit;
+  font-size:var(--fs-sm);min-height:32px;cursor:pointer;color:var(--accent);
+  background:none;border:1px dashed var(--line-2);border-radius:var(--r-2)}
+.cmmore:hover{background:var(--hover)}
+.gpop-n{font-size:var(--fs-sm);color:var(--t-3);margin-bottom:var(--sp-2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.gpop label{display:block;font-size:var(--fs-cap);color:var(--t-2);margin-bottom:var(--sp-2)}
+.gpop input{display:block;width:100%;margin-top:var(--sp-1);padding:0 var(--sp-2);
+  min-height:34px;font:inherit;border:1px solid var(--line-1);border-radius:var(--r-2);
+  background:var(--s-1);color:var(--t-1)}
+.gpop-b{display:flex;gap:var(--sp-1);flex-wrap:wrap;margin:var(--sp-1) 0 var(--sp-2)}
+.gpop-b button{font:inherit;font-size:var(--fs-sm);padding:0 var(--sp-3);min-height:32px;
+  border-radius:var(--r-2);border:1px solid var(--line-1);background:var(--s-2);
+  color:var(--t-1);cursor:pointer}
+.gpop-b button:hover{background:var(--hover)}
+.gpop-b button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.gpop .hint.ok{color:var(--ok)}
+.gpop .hint.warn{color:var(--bad)}
+.gmore{font:inherit;font-size:var(--fs-sm);padding:0 var(--sp-3);min-height:32px;
+  border-radius:var(--r-2);cursor:pointer;border:1px solid var(--line-1);
+  background:var(--s-1);color:var(--accent);font-weight:600}
+.gmore:hover{background:var(--hover)}
+.tw-scroll>.gmore{margin:var(--sp-2) 0}
+
+/* легенда в пояснении */
+.gl{display:inline-block;width:22px;height:12px;vertical-align:-2px;border-radius:1px}
+/* ось в периоде факта */
+.gl-axis{background:var(--accent);height:3px;vertical-align:3px}
+/* плановое окно с засечкой срока на конце */
+.gl-plan{background:color-mix(in srgb,var(--steel) 55%,transparent);height:5px;
+  border-right:3px solid var(--plan-luk);border-radius:1px 0 0 1px;vertical-align:1px}
+/* НАШ план вывоза: дорожка с жёлтой засечкой нашей даты и три её цвета */
+.gl-own{background:color-mix(in srgb,var(--ok) 65%,transparent);height:5px;
+  border-right:3px solid var(--plan-own);border-radius:1px 0 0 1px;vertical-align:1px}
+.gl-w1{width:14px;height:5px;vertical-align:1px;
+  background:color-mix(in srgb,var(--ok) 65%,transparent)}
+.gl-w2{width:14px;height:5px;vertical-align:1px;
+  background:color-mix(in srgb,var(--warn) 70%,transparent)}
+.gl-w4{width:14px;height:5px;vertical-align:1px;background:color-mix(in srgb,#d4772e 75%,transparent)}
+[data-theme=dark] .gl-w4{background:color-mix(in srgb,#f0954a 75%,transparent)}
+.gl-w3{width:14px;height:5px;vertical-align:1px;
+  background:repeating-linear-gradient(45deg,
+    color-mix(in srgb,var(--bad) 80%,transparent) 0 2px,
+    color-mix(in srgb,var(--bad) 25%,transparent) 2px 5px)}
+/* дорожка факта */
+.gl-fact{background:var(--accent);height:3px;vertical-align:3px}
+/* свотчи легенды Ганты: флажки, скобка плана, штриховка прогноза */
+.gl-luk{width:10px;height:8px;background:var(--plan-luk);border-radius:2px 0 0 2px}
+.gl-ownf{width:10px;height:8px;background:var(--plan-own);border-radius:2px 0 0 2px}
+.gl-pf{width:16px;height:9px;border:1.5px dashed #3f4a63;border-bottom:none;
+  border-radius:2px 2px 0 0;background:none;vertical-align:-1px}
+[data-theme=dark] .gl-pf{border-color:#94a3c4}
+.gl-fc{width:16px;height:10px;background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,#3f4a63 45%,transparent) 0 1.5px,transparent 1.5px 6px)}
+[data-theme=dark] .gl-fc{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,#94a3c4 45%,transparent) 0 1.5px,transparent 1.5px 6px)}
+/* столбик расхода на базовой линии */
+.gl-out{width:16px;height:12px;background:
+  linear-gradient(var(--accent),var(--accent)) no-repeat left 2px bottom 2px/4px 9px,
+  linear-gradient(var(--accent),var(--accent)) no-repeat left 9px bottom 2px/4px 5px,
+  linear-gradient(var(--accent),var(--accent)) no-repeat left bottom/100% 2px}
+/* «без БП в 1С: N платежей» — не статус и не деньги плана, а дыра в данных:
+   платежи по этому договору есть, а бизнес-план в 1С у них не проставлен.
+   Приглушённый цвет: это подсказка «смотри в 1С», а не показатель. */
+.tag.paygap{border-color:color-mix(in srgb,var(--pay) 45%,var(--line-1));
+  color:var(--pay)}
+.gl-pay{width:12px;height:12px;border-radius:50%;background:var(--pay);
+  vertical-align:-2px}
+.gl-open{height:5px;background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--bad) 70%,transparent) 0 2px,transparent 2px 5px)}
+/* ---- ВКЛАДКА «ЗАКУПКА ПО БП» (01.09.2026) ----
+   План из расчёта против факта 1С по головной серии. Строка плана
+   раскрывается в таблицу номенклатуры со складами; колонки «план, т» и
+   «план, ₽» пока пустые — под позиции из Excel, они подключаются следующим
+   шагом (помечены классом .plan, чтобы их было видно как задел). */
+.bbrow{border-bottom:1px solid var(--line-1)}
+.bbh{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
+  cursor:pointer;flex-wrap:wrap}
+.bbh:hover{background:var(--hover)}
+.bbrow.open>.bbh{background:var(--s-2)}
+.bbh .tw{width:14px;color:var(--t-3);flex:none}
+.bbnm{flex:1 1 320px;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;color:var(--t-1)}
+.bbv{flex:none;font-variant-numeric:tabular-nums;font-weight:600;color:var(--t-1);
+  white-space:nowrap}
+.bbv i{font-style:normal;font-weight:400;font-size:var(--fs-cap);color:var(--t-3)}
+.bbv.rev{color:var(--ok)}
+.bbv.muted{color:var(--t-4);font-weight:500}
+.bbkids{display:none;padding:0 var(--sp-3) var(--sp-3)}
+.bbrow.open>.bbkids{display:block}
+/* ветки версий лук/дсп — второй уровень разбора: проект -> версия -> НМК
+   (заказчик 02.09.2026: «декомпозиция как в других вкладках»). Ветка
+   раскрывается кликом, внутри — своя таблица номенклатуры. */
+.bbver{border:1px solid var(--line-1);border-radius:var(--r-2);
+  margin:0 0 var(--sp-2);overflow:hidden}
+.bbvh{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);
+  cursor:pointer;background:var(--s-1)}
+.bbvh:hover{background:var(--hover)}
+.bbver.open>.bbvh{background:var(--s-2)}
+.bbvh .tw{width:14px;color:var(--t-3);flex:none}
+.bbvh b{min-width:52px;letter-spacing:.4px}
+.bbvv{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ok)}
+.bbvv i{font-style:normal;font-weight:400;font-size:var(--fs-cap);color:var(--t-3)}
+/* плановый объём в шапке ветки: рядом с выручкой, со сверкой к факту */
+.bbvp{font-variant-numeric:tabular-nums;font-weight:600;color:var(--t-1);
+  display:inline-flex;align-items:baseline;gap:var(--sp-1)}
+.bbvp i{font-style:normal;font-weight:400;font-size:var(--fs-cap);color:var(--t-3)}
+.bbvp em{font-style:normal;font-size:var(--fs-cap);font-weight:600}
+.bbvp em.ok{color:var(--ok)}
+.bbvp em.no{color:#b45309}
+.bbvp.muted{color:var(--t-4);font-weight:500}
+/* блок «План из расчёта»: таблица позиций Excel над таблицей факта */
+.bbpl{margin-bottom:var(--sp-3)}
+.bbpl-h{font-size:var(--fs-sm);font-weight:600;margin:var(--sp-2) 0 var(--sp-1);
+  color:var(--t-1)}
+.bbpl-h .muted{font-weight:400;font-size:var(--fs-cap)}
+.bbt.plan th{background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.bbt.plan td{background:color-mix(in srgb,var(--warn) 4%,transparent)}
+.bbt.plan td:first-child{max-width:420px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.bbvs{margin-left:auto;font-size:var(--fs-cap);color:var(--t-3);cursor:help}
+.bbvs.ok{color:var(--ok);font-weight:600}
+.bbvk{display:none;padding:0 var(--sp-3) var(--sp-2)}
+.bbver.open>.bbvk{display:block}
+.bbtr-note{font-size:var(--fs-cap);color:var(--t-3);margin-bottom:var(--sp-2)}
+/* позиция, прошедшая переработку: значок ⇄ и подсказка «купили трубу — продали лом» */
+.bbt tr.mix td:first-child{cursor:help}
+.mixi{font-style:normal;color:var(--accent);cursor:help}
+.bbt{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.bbt th{text-align:left;font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.3px;color:var(--t-2);padding:var(--sp-1) var(--sp-2);
+  border-bottom:1px solid var(--line-2)}
+.bbt td{padding:2px var(--sp-2);border-bottom:1px solid var(--line-1);
+  font-variant-numeric:tabular-nums}
+.bbt th.num,.bbt td.num{text-align:right}
+.bbt th.plan,.bbt td.plan{background:color-mix(in srgb,var(--warn) 7%,transparent)}
+.bbw{color:var(--t-2);max-width:380px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;cursor:help}
+.bbw i{font-style:normal;color:var(--t-3);font-variant-numeric:tabular-nums}
+/* план, разнесённый по нашей НМК: цвет только у тонн — недобор и перевыполнение
+   к плану видно сразу, суммы остаются нейтральными */
+/* факт выручки: своя подложка, чтобы рубли не путались с тоннами */
+.bbt th.rub,.bbt td.rub,table th.rub,table td.rub{background:color-mix(in srgb,var(--ok) 6%,transparent)}
+.bbvv em{font-style:normal;font-size:var(--fs-cap);font-weight:600;margin-left:6px}
+.bbvv em.ok{color:var(--ok)} .bbvv em.no{color:#b45309}
+.tag.deal{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--t-1);font-weight:600}
+.tag.deal.q{border:1px dashed var(--warn)}
+.bbt th.sh,.bbt td.sh{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.bbw u.pw{text-decoration:underline dotted;color:var(--warn);font-size:var(--fs-cap);cursor:help}
+.bbv.bad{color:var(--bad)}
+.bbmk small{font-size:var(--fs-micro);line-height:1.1}
+.bbt td.plan.ok{color:var(--ok);font-weight:600}
+.bbt td.plan.bad{color:var(--bad);font-weight:600}
+.bbt tfoot td{border-top:1px solid var(--line-2);border-bottom:none;
+  padding-top:var(--sp-1);font-weight:600}
+.bbmk{color:var(--t-2);max-width:220px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;cursor:help}
+.bbpn{font-size:var(--fs-cap);color:var(--t-3);margin:var(--sp-1) 0 var(--sp-3)}
+.bbpn b{color:var(--t-1)}
+.bbpn span{cursor:help;border-bottom:1px dotted var(--line-2)}
+
+/* ---- ВКЛАДКА «ДАШБОРД» (01–02.09.2026) ----
+   Экран оперативки: карточки итогов и динамики, короткие списки «стало хуже» и
+   «на грани», ниже — дивизионы, разложенные по группам (регионы, базы,
+   демонтаж, прочее).
+   ⚠️ КРУПНО, А НЕ ПЛОТНО (заказчик 02.09.2026: «дашборд хороший, но очень
+   мелкий — сделай побольше»). Его показывают с ПРОЕКТОРА на совещании, где
+   читают через весь кабинет: цифры карточек 30 px, полосы 34 px, подписи
+   дивизионов и итоги — базовым кеглем. Две колонки остались, но включаются с
+   1500 px: на ноутбуке крупные полосы в две колонки уже не читаются, и одна
+   колонка честнее, чем сжатые пополам. */
+.dashp{padding:var(--sp-4)}
+/* ⚠️ КАРТОЧКИ — ОДИН РЯД И ОДИН РАЗМЕР (заказчик 02.09.2026). Все блоки равной
+   ширины и кегля: глаз сравнивает числа, а не размеры плашек. Ряд переносится
+   только когда физически не влезает; на широком экране это одна строка. */
+.dcards{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-3);
+  align-items:stretch}
+.dcard{font:inherit;text-align:left;cursor:pointer;flex:1 1 158px;max-width:230px;
+  padding:var(--sp-2) var(--sp-3);border:1px solid var(--line-2);
+  border-radius:var(--r-2);background:var(--s-1);color:var(--t-2);
+  font-size:var(--fs-cap);line-height:1.25}
+.dcard b{display:flex;align-items:center;gap:6px;font-size:20px;line-height:1.15;
+  color:var(--t-1);font-variant-numeric:tabular-nums;font-weight:700;
+  margin-bottom:1px;white-space:nowrap}
+.dcard b i{width:12px;height:12px;border-radius:2px;flex:none}
+.dcard i{display:block;font-style:normal;color:var(--t-3);font-size:var(--fs-micro)}
+button.dcard:hover{background:var(--hover);border-color:var(--accent)}
+/* общий итог — единственный акцентный блок ряда */
+.dcard.sum{background:var(--s-2)}
+.dcard.sum b{font-size:22px}
+/* карточки динамики и «на грани» — не кнопки, а сводка: без hover-подсветки */
+.dcard.dyn{background:color-mix(in srgb,var(--accent) 6%,transparent);cursor:default}
+.dcard.edge{background:color-mix(in srgb,var(--warn) 10%,transparent);cursor:default}
+.dcard.edge b{color:#b45309}
+.dcard.dyn.bad b{color:var(--bad)}
+@media (max-width:900px){ .dcard{flex:1 1 132px} .dcard b{font-size:17px} }
+
+/* легенда цветов полос — под карточками, крупно и в одну строку */
+.dlegend{display:flex;gap:var(--sp-3) var(--sp-4);flex-wrap:wrap;
+  font-size:var(--fs-sm);color:var(--t-2);margin:0 0 var(--sp-4);
+  padding:var(--sp-2) var(--sp-3);background:var(--s-2);border-radius:var(--r-2)}
+.dlegend i{display:inline-block;width:16px;height:12px;border-radius:2px;
+  vertical-align:-1px;margin-right:6px}
+
+/* короткие списки «стало хуже за неделю» и «на грани» */
+.dchg{margin:0 0 var(--sp-4);border:1px solid var(--line-1);border-radius:var(--r-2);
+  overflow:hidden}
+.dchg-h{padding:var(--sp-2) var(--sp-4);background:var(--s-2);font-weight:600;
+  font-size:var(--fs-base)}
+.dchg.edge .dchg-h{background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.dchg-i{display:flex;width:100%;gap:var(--sp-3);align-items:center;font:inherit;
+  font-size:var(--fs-base);text-align:left;cursor:pointer;background:none;border:none;
+  border-top:1px solid var(--line-1);padding:var(--sp-2) var(--sp-4);color:var(--t-1)}
+.dchg-i:hover{background:var(--hover)}
+.dchg-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dchg-b{flex:none;color:var(--t-2);font-size:var(--fs-sm)}
+.dchg-b b{color:var(--bad)}
+.dchg-t{flex:none;width:126px;text-align:right;font-variant-numeric:tabular-nums;
+  font-weight:700;font-size:var(--fs-lg,17px)}
+
+/* два экрана: «сейчас» и «было на <понедельник>» (заказчик 02.09.2026).
+   Второй экран приглушён рамкой и подписью, чтобы на совещании было сразу
+   понятно, какая половина — прошлое. */
+.dscr{margin-bottom:var(--sp-4)}
+.dscr-h{font-size:var(--fs-lg,17px);font-weight:700;margin-bottom:var(--sp-2);
+  padding-bottom:var(--sp-1);border-bottom:2px solid var(--accent)}
+.dscr-h .muted{font-weight:400;font-size:var(--fs-sm)}
+.dscr.was{opacity:.92;border-left:3px solid var(--line-2);padding-left:var(--sp-3)}
+.dscr.was .dscr-h{border-bottom-color:var(--line-2);color:var(--t-2)}
+/* дельта дивизиона к «было»: вниз — хорошо (вывезли), вверх — плохо */
+.ddlt{width:104px;flex:none;text-align:right;font-variant-numeric:tabular-nums;
+  font-size:var(--fs-sm);font-weight:600;cursor:help}
+.ddlt.good{color:var(--ok)}
+.ddlt.bad{color:var(--bad)}
+.ddlt.zero{color:var(--t-4)}
+@media (max-width:900px){ .ddlt{width:72px;font-size:var(--fs-cap)} }
+
+/* группы дивизионов — две колонки только на широком экране (см. ⚠️ выше) */
+.dgrid{display:grid;grid-template-columns:1fr;gap:var(--sp-4) var(--sp-5)}
+@media (min-width:1500px){ .dgrid{grid-template-columns:1fr 1fr} }
+.dgrp-h{font-weight:700;font-size:var(--fs-lg,17px);color:var(--t-1);
+  padding-bottom:var(--sp-1);margin-bottom:var(--sp-2);
+  border-bottom:2px solid var(--line-2)}
+.dgrp-h .muted{font-weight:400;font-size:var(--fs-sm)}
+.drow{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2)}
+.ddiv{font:inherit;font-size:var(--fs-base);width:196px;flex:none;text-align:right;
+  cursor:pointer;border:none;background:none;color:var(--t-1);padding:1px 0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  border-bottom:1px dashed transparent}
+.ddiv:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.dbar{flex:1;display:flex;height:34px;border-radius:var(--r-2);overflow:hidden;
+  background:color-mix(in srgb,var(--line-1) 40%,transparent)}
+.dseg{border:none;padding:0;cursor:pointer;min-width:3px;opacity:.94;
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* ⚠️ ЦИФРА НА ЛИНИИ — БЕЛАЯ С ТЕНЬЮ: сегменты идут от жёлтого до тёмно-красного,
+   один цвет текста на всех не читается, а тень даёт контраст и на жёлтом. */
+.dseg i{font-style:normal;font-size:var(--fs-sm);font-weight:700;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap;pointer-events:none}
+.dseg:hover{opacity:1;outline:2px solid var(--t-1);outline-offset:-2px;z-index:1}
+.dsum{width:118px;flex:none;text-align:right;font-variant-numeric:tabular-nums;
+  font-weight:700;color:var(--t-1);font-size:var(--fs-lg,17px)}
+@media (max-width:900px){
+  .ddiv{width:128px;font-size:var(--fs-sm)}
+  .dsum{width:88px;font-size:var(--fs-base)}
+  .dbar{height:26px}
+  .dcard b{font-size:24px}
+}
+
+/* ---- ВКЛАДКА «ВЕРСИИ БП» (25.08.2026) ----
+   Таблица выбора верной версии расчёта. Смысловые цвета: зелёная строка —
+   версия подтверждена экономистом, красная — отклонена, жёлтая — «по
+   умолчанию» (последняя по дате, выбор ещё не сделан). Кнопки ✓/✗ всегда
+   видимы: вкладка рабочая, наведение на планшете недоступно. */
+.bvt{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.bvt th{position:sticky;top:0;background:var(--s-2);z-index:1;text-align:left;
+  font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
+  color:var(--t-2);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line-2)}
+.bvt td{padding:var(--sp-1) var(--sp-3);border-bottom:1px solid var(--line-1);
+  font-variant-numeric:tabular-nums}
+.bvt th.num,.bvt td.num{text-align:right}
+.bvt tr.bvh td{background:var(--s-2);font-weight:600;padding-top:var(--sp-2)}
+.bvt .bvs{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bvt tr.ok td{background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.bvt tr.bad td{background:color-mix(in srgb,var(--bad) 8%,transparent);color:var(--t-3)}
+.bvt tr.dflt td{background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.bvm{font-size:var(--fs-cap);color:var(--t-2);white-space:nowrap}
+tr.ok .bvm{color:var(--ok);font-weight:600}
+tr.bad .bvm{color:var(--bad)}
+.bvb{white-space:nowrap}
+.bvb button{font:inherit;min-width:34px;min-height:30px;cursor:pointer;
+  border:1px solid var(--line-2);border-radius:var(--r-1);background:var(--s-1);
+  color:var(--t-2);margin-left:4px}
+.bvb button:hover{background:var(--hover)}
+.bvb .bok.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.bvb .bbad.on{background:var(--bad);border-color:var(--bad);color:#fff}
+
+/* ---- документы строками ВНУТРИ номенклатуры: то же расположение колонок,
+   что у строк дерева, поэтому количество документа встаёт ровно в свою ячейку
+   (уехало / приехало / в производство / ПРОДАЛИ …) ---- */
+.doclines{margin:2px 0 var(--sp-2) 0}
+.dl{display:flex;align-items:center;gap:var(--sp-2);padding:2px var(--sp-2);
+  font-size:var(--fs-sm)}
+.dl:hover{background:var(--hover)}
+.dl:hover>.hd{background:var(--hover)}
+.dl .tw{width:16px;flex:none;border-left:1px solid var(--line-1);height:16px}
+.dl>.hd{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-2);overflow:hidden;
+  position:sticky;left:0;background:var(--s-1);z-index:1}
+.dl .lbl{flex:1;min-width:0;display:flex;gap:var(--sp-2);align-items:baseline;
+  overflow:hidden;white-space:nowrap}
+.dl .lbl .dt{min-width:78px;flex:none;color:var(--t-3);font-variant-numeric:tabular-nums}
+.dl .lbl .rn{min-width:108px;flex:none;font-family:var(--mono);color:var(--accent)}
+.dl .lbl .ph{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dl .val{flex:none;text-align:right}
+/* заголовок лота — та же сетка, но итог по лоту */
+.dl.lot{background:var(--s-2);border-radius:var(--r-1);margin-top:var(--sp-1);
+  font-size:var(--fs-sm)}
+.dl.lot>.hd{background:var(--s-2)}
+.dl.lot .lbl{color:var(--t-1);font-weight:500}
+/* ---- ФОКУС НА ДОКУМЕНТЕ ----
+   Номер документа кликабелен: подсвечиваются все его вхождения на вкладке.
+   Цвет — «взаимодействие», а не статус: это выбор пользователя, и он не должен
+   читаться как «здесь расхождение». */
+.rn{cursor:pointer}
+.rn:hover{text-decoration:underline}
+.dochit{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.dochit>.hd,tr.dochit td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.dl.dochit,.cline.dochit,.fate .fl.dochit{box-shadow:inset 2px 0 0 var(--accent)}
+.docbar{position:fixed;left:var(--sp-4);bottom:var(--sp-4);z-index:60;display:flex;
+  align-items:center;gap:var(--sp-2);background:var(--s-3);border:1px solid var(--line-2);
+  border-left:3px solid var(--accent);border-radius:var(--r-3);padding:var(--sp-2) var(--sp-3);
+  box-shadow:var(--lift);font-size:var(--fs-sm);max-width:calc(100vw - 32px)}
+.docbar b{font-family:var(--mono);font-weight:600}
+.docbar .hint{margin:0;white-space:nowrap}
+@media (max-width:768px){ .docbar{left:var(--sp-2);right:var(--sp-2);bottom:var(--sp-2);flex-wrap:wrap} }
+
+/* ---- РАСХОЖДЕНИЕ ПО ДОКУМЕНТУ И ЕГО ПРОДОЛЖЕНИЕ ----
+   Значок в строке: сколько ушло по документу и сколько вернулось. Цвет здесь —
+   статус (сошлось / угар в пределах / расхождение), четвёртое значение цвета не
+   заводим. Строка с расхождением ещё и отбита слева тем же цветом: значок
+   маленький, а в списке из сотни документов глаз ищет цветную засечку. */
+.dgap{display:inline-block;font-size:var(--fs-micro);font-weight:600;white-space:nowrap;
+  padding:1px var(--sp-2);border-radius:20px;flex:none;margin-left:var(--sp-1);
+  border:1px solid;background:var(--chip-bg);color:var(--chip-fg);border-color:var(--chip-br)}
+.dgap,.fate .fp.gap{--chip-bg:color-mix(in srgb,var(--chip) 12%,var(--s-1));
+  --chip-fg:color-mix(in srgb,var(--chip) 72%,var(--t-1));
+  --chip-br:color-mix(in srgb,var(--chip) 28%,var(--s-1))}
+[data-theme=dark] .dgap{--chip-bg:color-mix(in srgb,var(--chip) 18%,var(--s-1));
+  --chip-fg:color-mix(in srgb,var(--chip) 68%,var(--t-1));
+  --chip-br:color-mix(in srgb,var(--chip) 34%,var(--s-1))}
+.g-bad{--chip:var(--bad)} .g-warn{--chip:var(--warn)} .g-mix{--chip:var(--accent)}
+.g-ok{--chip:var(--ok)}
+.dl.gap-bad,.cline.gap-bad{box-shadow:inset 2px 0 0 var(--bad)}
+.dl.gap-warn,.cline.gap-warn{box-shadow:inset 2px 0 0 var(--warn)}
+.dl.gap-mix,.cline.gap-mix{box-shadow:inset 2px 0 0 var(--accent)}
+table.mv tr.gap-bad td:first-child{box-shadow:inset 2px 0 0 var(--bad)}
+table.mv tr.gap-warn td:first-child{box-shadow:inset 2px 0 0 var(--warn)}
+table.mv tr.gap-mix td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+/* строка, у которой есть продолжение: наведение показывает карточку */
+.hasfate{cursor:help}
+.dl.fate-on,.cline.fate-on,tr.fate-on td{background:var(--hover)}
+/* карточка «что вышло по документу»: ТРЕТЬЕ и последнее место в интерфейсе,
+   где допустима тень, — она физически парит над таблицей (см. шапку файла) */
+.fatepop{position:fixed;z-index:70;width:min(560px,calc(100vw - 24px));
+  max-height:min(62vh,620px);overflow:auto;background:var(--s-3);
+  border:1px solid var(--line-2);border-radius:var(--r-3);box-shadow:var(--lift);
+  padding:var(--sp-3);font-size:var(--fs-sm);color:var(--t-1)}
+.fatepop.pin{border-color:var(--line-3)}
+.fate .wh1{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
+  color:var(--t-2);font-weight:600;margin:var(--sp-3) 0 var(--sp-1)}
+.fate-h{display:flex;gap:var(--sp-2);align-items:baseline;flex-wrap:wrap;
+  padding-bottom:var(--sp-2);border-bottom:1px solid var(--line-1)}
+.fate-h .dt{color:var(--t-3);font-variant-numeric:tabular-nums;flex:none}
+.fate-h .rn{font-family:var(--mono);color:var(--accent);flex:none}
+.fate-h .nmn{flex:1;min-width:0;color:var(--t-2);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+/* пара документа: ушло / пришло / расхождение — три строки одной сеткой */
+.fate .fp{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:var(--sp-2);
+  align-items:baseline;padding:2px 0}
+.fate .fp>span:first-child{color:var(--t-3);font-size:var(--fs-cap)}
+.fate .fp b{font-variant-numeric:tabular-nums;font-weight:600}
+.fate .fp b i{font-style:normal;color:var(--t-3);font-weight:400;font-size:var(--fs-cap)}
+.fate .fp .hint{margin:0;text-align:right}
+.fate .fp.gap{border-top:1px solid var(--line-1);margin-top:2px;padding-top:var(--sp-1)}
+.fate .fp.gap b{color:var(--chip-fg)}
+.fate .fp.gap.g-ok b{color:var(--ok)}
+/* строка продолжения: дата · документ · поток · количество · куда */
+.fate .fl{display:flex;gap:var(--sp-2);align-items:baseline;padding:2px 0;
+  border-top:1px solid var(--line-1)}
+.fate .fl .dt{min-width:76px;flex:none;color:var(--t-3);font-variant-numeric:tabular-nums}
+.fate .fl .rn{min-width:104px;flex:none;font-family:var(--mono);color:var(--accent)}
+.fate .fl .q{min-width:92px;text-align:right;flex:none;font-weight:600;
+  font-variant-numeric:tabular-nums}
+.fate .fl .q i{font-style:normal;font-weight:400;color:var(--t-3);font-size:var(--fs-cap)}
+.fate .fl .to{flex:1;min-width:0;color:var(--t-2);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.fate .fl .nmn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fate .fl.past{opacity:.7}
+/* строка, с которой пришли: она одна в этой цепочке своя */
+.fate .fl.me{background:var(--s-2);border-radius:var(--r-1);font-weight:600}
+.fate .fl.me .to{color:var(--t-3);font-weight:400;font-size:var(--fs-cap)}
+.fate-tot{margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--line-1);
+  color:var(--t-2);font-size:var(--fs-cap)}
+.fate-tot b{color:var(--t-1);font-variant-numeric:tabular-nums}
+@media (max-width:768px){
+  .fate .fl{flex-wrap:wrap}
+  .fate .fl .to{flex:1 1 100%}
+}
+/* ---- построчные движения (§5): документ · что произошло · откуда · куда ---- */
+table.mv{font-size:var(--fs-sm)}
+table.mv td{padding:var(--sp-1) var(--sp-2);vertical-align:top}
+table.mv td.nw{white-space:nowrap}
+table.mv td.rn{font-family:var(--mono);color:var(--accent);white-space:nowrap}
+table.mv td.lot{font-family:var(--mono);font-size:var(--fs-cap);white-space:nowrap}
+/* подпись потока: внешний приход зелёный, внутреннее серое, выбытие красное —
+   чтобы «перекладывание того же металла» не читалось как приход или расход */
+.fchip{display:inline-block;font-size:var(--fs-micro);font-weight:600;
+  padding:1px var(--sp-2);border-radius:20px;white-space:nowrap;border:1px solid;
+  background:var(--chip-bg);color:var(--chip-fg);border-color:var(--chip-br)}
+.f-in{--chip:var(--ok)}
+.f-mv{--chip:var(--t-3);font-weight:500;font-style:italic}
+.f-out{--chip:var(--bad)}
+/* цепочка по лоту: строки идут подряд, как путь металла */
+.chain{border:1px solid var(--line-1);border-radius:var(--r-3);padding:var(--sp-2) var(--sp-3);
+  margin:var(--sp-2) 0;background:var(--s-2)}
+.chain-h{display:flex;gap:var(--sp-2);align-items:baseline;margin-bottom:var(--sp-1);
+  font-size:var(--fs-base);font-weight:500}
+.cline{display:flex;gap:var(--sp-2);align-items:baseline;padding:2px 0;font-size:var(--fs-sm);
+  border-top:1px solid var(--line-1)}
+.cline .dt{min-width:82px;flex:none;color:var(--t-3);font-variant-numeric:tabular-nums}
+.cline .rn{min-width:112px;flex:none;font-family:var(--mono);color:var(--accent)}
+.cline .q{min-width:78px;text-align:right;flex:none;font-variant-numeric:tabular-nums;
+  font-weight:600}
+.cline .ph{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cline .nmn{min-width:150px;max-width:220px;flex:none;color:var(--t-3);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+
+/* ============================ АДАПТИВНОСТЬ ============================
+   Узкий экран НЕ сжимает таблицы в кашу — они прокручиваются вбок, подпись
+   закреплена. Точки перелома и что на них происходит — в system.md. */
+/* ⚠️ НА ШИРОКОМ ЭКРАНЕ ПОДПИСЬ РАСТЁТ. Ширины закреплённых колонок — числа, а
+   не доли: `.gmetrics` стоит на `left:var(--gl)`, и sticky требует известного
+   смещения. Поэтому вместо резинки — ступеньки по ширине окна. До этой правки
+   подпись была 396 px на любом мониторе, а таблица цифр рядом — 532 px, то есть
+   БОЛЬШЕ подписи: названия проектов и строки декомпозиции (там ступенька
+   вложенности ест ширину внутри тех же 396 px) срезались даже на 27-дюймовом
+   экране, где места вагон. */
+@media (min-width:1700px){ .gantt{--gl:500px} }
+@media (min-width:2000px){ .gantt{--gl:600px} }
+
+@media (max-width:1440px){
+  :root{--lc-col:84px;--lc-inn:76px;--lc-sold:100px;--lc-bal:92px}
+  /* +44 px на колонку значков состава — та же добавка, что на широком экране,
+     иначе на ноутбуке названия бизнес-планов режутся сильнее, чем до значков */
+  .gantt{--gl:344px;--gm:568px}
+  .gantt.slim{--gm:212px}
+  .gmetrics{grid-template-columns:minmax(0,82px) minmax(0,54px) minmax(0,58px)
+    minmax(0,74px) minmax(0,96px) minmax(0,86px) minmax(0,66px);gap:var(--sp-2)}
+}
+@media (max-width:1200px){
+  /* «куплено» рядом с «продано» уходит: та же цифра есть в полосе движений */
+  .two i.b,.colhead .two i.b{display:none}
+}
+@media (max-width:1024px){
+  main{padding:var(--sp-3)}
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .card.lead{grid-column:span 2}
+  /* зона управления сворачивается: на планшете она занимала три ряда и
+     отодвигала данные ниже первого экрана */
+  .toolbar{gap:var(--sp-2)}
+  input[type=search]{flex:1 1 100%}
+}
+@media (max-width:768px){
+  :root{--lc-col:80px;--lc-inn:72px;--lc-sold:96px;--lc-bal:88px;--two-col:80px}
+  header{padding:var(--sp-2) var(--sp-3);gap:var(--sp-2)}
+  .brand{font-size:var(--fs-base)}
+  .brand small{display:none}
+  .hmeta{margin-left:0;order:3;flex:1 1 100%;text-align:left;
+    border-top:1px solid var(--line-1);padding-top:var(--sp-2)}
+  .hact{margin-left:auto}
+  nav.tabs{top:auto;position:static;padding:0 var(--sp-2)}
+  .gantt{--gl:220px;--gm:0px;max-height:70vh}
+  /* подпись здесь всего 220 px — значки состава ужимаются, чтобы не съесть
+     треть колонки; узнаваемость держит крупный ведущий значок */
+  .gantt .matset{--mi:12px;grid-template-columns:26px var(--mi);width:40px}
+  .gantt .matset .lead{--mi:26px}
+  /* на планшете метрики Ганта не помещаются рядом со шкалой — шкала важнее,
+     цифры возвращает кнопка «шире диаграмму» */
+  .gantt .gmetrics{display:none}
+  /* срок вывоза с карандашом обычно живёт в колонке метрик; раз её тут нет,
+     переносим в подпись — иначе правка срока на планшете недоступна */
+  .gantt .gplan2{display:inline-flex}
+  .gnm{font-size:var(--fs-sm)}
+  .doc,.cline{flex-wrap:wrap}
+}
+@media (max-width:480px){
+  :root{--lc-col:76px;--lc-inn:70px;--lc-sold:92px;--lc-bal:84px}
+  main{padding:var(--sp-2)}
+  /* ведущая метрика во всю ширину, подчинённые — в два столбца: пять карточек
+     в один столбец занимали весь первый экран, и до данных надо было листать */
+  .cards{grid-template-columns:1fr 1fr;gap:var(--sp-2)}
+  .card.lead{grid-column:span 2}
+  .card:not(.lead){padding:var(--sp-2)}
+  .card:not(.lead) .v{font-size:var(--fs-md)}
+  .card:not(.lead) .k{font-size:var(--fs-micro)}
+  .card:not(.lead) .s{font-size:var(--fs-micro)}
+  .panel{padding:var(--sp-2);border-radius:var(--r-2)}
+  .toolbar{padding:var(--sp-2)}
+  select,input[type=search],input[type=text],input[type=month]{flex:1 1 100%;min-width:0}
+  /* шапка в три компактных ряда вместо башни */
+  header{padding:var(--sp-2) var(--sp-2);gap:var(--sp-2) var(--sp-2)}
+  .brand{font-size:var(--fs-base);letter-spacing:.4px}
+  .logo{width:22px;height:22px}
+  .hact{gap:var(--sp-1)}
+  .hact .btn{font-size:var(--fs-cap);padding:0 var(--sp-2)}
+  .hmeta{font-size:var(--fs-micro);padding-top:var(--sp-1)}
+  .hmeta b{font-size:var(--fs-sm)}
+  .row .val{min-width:0}
+}
+/* палец вместо мыши: цели нажатия WCAG 44px */
+@media (pointer:coarse){
+  .btn,.btn2,.btn3,nav.tabs button,.gzoom button,.gmore,.gpop-b button{min-height:44px}
+  select,input[type=search],input[type=text],input[type=month],input[type=date]{min-height:44px}
+  .row{min-height:44px}
+  .row .tw{width:24px}
+  .gpen{min-width:44px;min-height:44px}
+  label{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
+  .row.open>.tw{transform:none}
+}
+
+/* ============================ ПЕЧАТЬ (A4) ============================
+   Зона управления и навигация не печатаются, фон снимается, шапка таблицы
+   повторяется на каждой странице, строки не рвутся пополам. */
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  :root{--s-0:#fff;--s-1:#fff;--s-2:#fff;--s-3:#fff;--hover:#fff;
+        --t-1:#000;--t-2:#333;--t-3:#555;--t-4:#777;
+        --line-1:#bbb;--line-2:#666;--lift:none}
+  body{background:#fff}
+  /* Дерево на бумаге: полоса из десяти колонок шире листа, и правые колонки
+     («списание на затраты», «остаток») уезжали за край. Ужимаем колонки и
+     колонку подписи под ширину A4 — прокрутки на бумаге нет.
+     Кегли тоже уменьшаем именно здесь: они заданы в пикселях, и font-size
+     у body их не масштабирует — числа продолжали бы обрезаться. */
+  :root{--fs-micro:7px;--fs-cap:8px;--fs-sm:9px;--fs-base:10px;
+        --fs-md:12px;--fs-lg:15px;--fs-xl:19px;
+        --lc-col:64px;--lc-inn:54px;--lc-sold:84px;--lc-bal:78px;--lc-gap:2px;
+        --two-col:70px;--sp-3:8px;--sp-4:10px}
+  html.wide .row>.hd,html.wide .dl>.hd,html.wide .colhead>.hd{
+    flex:0 0 calc(270px - var(--ind,0px))}
+  html.wide .tree .row,html.wide .tree .dl,
+  html.wide .tree .colhead,html.wide .tree .colhead-box{width:auto;min-width:0}
+  html.wide .row .lbl,html.wide .dl .lbl{white-space:normal;overflow:hidden}
+  header{position:static;border-bottom:1px solid #666}
+  header .hact,nav.tabs,.toolbar,.gzoom,.gpen,.gmore,.fold,.secnav,
+  #wrapBtn,#themeBtn,#adminBtn{display:none!important}
+  main{max-width:none;padding:0}
+  .panel,.card,.gantt{border:1px solid #bbb;break-inside:avoid}
+  .cards{gap:4pt}
+  .scroll,.tree,.gantt{max-height:none;overflow:visible}
+  thead{display:table-header-group}
+  tr,.row,.node,.grow,.dl{break-inside:avoid}
+  .colhead-box,.ghead,th{position:static}
+  .row>.hd,.colhead>.hd,.dl>.hd,.glbl,.gmetrics{position:static}
+  a.link{color:#000;text-decoration:underline}
+  details.note{border:1px solid #bbb}
+  details.note>summary{font-weight:700}
+}
+</style>
+</head>
+<body>
+<!-- ЗНАЧКИ «ИЗ ЧЕГО СОСТОИТ БИЗНЕС-ПЛАН» ==========================================
+     Категория материала = группа аналитического учёта 1С (НоменклатурнаяГруппаГрузов).
+     Значки монохромные и различаются ФОРМОЙ: цвет в этом интерфейсе уже занят —
+     статусом (--ok/--warn/--bad) и взаимодействием (--accent), красить ими материал
+     нельзя, иначе в строке Ганты два разных смысла одного цвета.
+     Соответствие «группа -> значок» живёт в MAT_OF (web/tabs.js), подписи там же. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- труба НКТ: тело трубы и муфта с резьбой на конце -->
+  <symbol id="mi-nkt" viewBox="0 0 24 24"><rect x="2.6" y="8.4" width="12.6" height="7.2" rx="1"/><rect x="15.2" y="6.2" width="6.2" height="11.6" rx="1.2"/><path d="M17.3 6.2v11.6M19.3 6.2v11.6"/></symbol>
+  <!-- труба большого диаметра: одно крупное кольцо (труба с торца) -->
+  <symbol id="mi-pipeL" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/></symbol>
+  <!-- труба малого диаметра: два кольца поменьше -->
+  <symbol id="mi-pipeS" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.8"/><circle cx="8" cy="12" r="2"/><circle cx="17.6" cy="12" r="3.4"/><circle cx="17.6" cy="12" r="1.3"/></symbol>
+  <!-- труба и штанга вместе: кольцо трубы и пруток -->
+  <symbol id="mi-pipe" viewBox="0 0 24 24"><circle cx="8.5" cy="12" r="6"/><circle cx="8.5" cy="12" r="2.8"/><rect x="16.4" y="4.6" width="3.6" height="14.8" rx="1.2"/></symbol>
+  <!-- штанга насосная: пруток с высадками -->
+  <symbol id="mi-rod" viewBox="0 0 24 24"><rect x="2.4" y="10.1" width="19.2" height="3.8" rx="1.2"/><path d="M7.4 8.4v7.2M16.6 8.4v7.2"/></symbol>
+  <!-- лом чёрных металлов: обломки -->
+  <symbol id="mi-scrap" viewBox="0 0 24 24"><path class="f" d="M2.6 19.4l3.6-6.2 5 2.6-1.4 3.6z"/><path class="f" d="M9.4 12.2l2.6-6 5.2 2-1.8 4.6z"/><path class="f" d="M14.6 19.4l4.6-4 2.2 4z"/></symbol>
+  <!-- лом цветных металлов: слитки -->
+  <symbol id="mi-color" viewBox="0 0 24 24"><path d="M8.2 6.6h7.6l2.2 4.2H6z"/><path d="M4.4 13h15.2l2.4 4.6H2z"/></symbol>
+  <!-- лом легированной стали: обломки с блеском -->
+  <symbol id="mi-alloy" viewBox="0 0 24 24"><path class="f" d="M2.8 19.6l4.2-7 5.6 2.8-1.6 4.2z"/><path class="f" d="M12.4 13.4l2.2-5 4.8 1.9-1.7 4.1z"/><path d="M19.4 2.6l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z"/></symbol>
+  <!-- кабель: две жилы. Бухта (кольцо в кольце) читалась как глаз -->
+  <symbol id="mi-cable" viewBox="0 0 24 24"><path d="M2 8.6c3.2-3.4 6.4 3.4 9.6 0s6.4 3.4 9.6 0"/><path d="M2 15.4c3.2-3.4 6.4 3.4 9.6 0s6.4 3.4 9.6 0"/></symbol>
+  <!-- трансформатор: сердечник с обмотками -->
+  <symbol id="mi-trafo" viewBox="0 0 24 24"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="1.2"/><path d="M9.2 4.6v14.8M14.8 4.6v14.8"/><path d="M9.2 8.4h5.6M9.2 12h5.6M9.2 15.6h5.6"/></symbol>
+  <!-- комплектующие с разбора: гайка и болт -->
+  <symbol id="mi-parts" viewBox="0 0 24 24"><path d="M8.6 3.4h5.6l2.8 4.8-2.8 4.8H8.6L5.8 8.2z"/><circle cx="11.4" cy="8.2" r="2"/><rect x="5.4" y="15.2" width="9.6" height="3.6" rx="1"/><path d="M15.4 14.2v5.6"/></symbol>
+  <!-- ДХНО: бочка и капля (катализаторы, отработанные масла) -->
+  <symbol id="mi-dhno" viewBox="0 0 24 24"><rect x="3.4" y="4.6" width="11.2" height="14.8" rx="2"/><path d="M3.4 8.4h11.2M3.4 15.6h11.2"/><path d="M19.4 11.2c1.4 1.9 2.2 3.1 2.2 4.1a2.2 2.2 0 0 1-4.4 0c0-1 .8-2.2 2.2-4.1z"/></symbol>
+  <!-- прочее -->
+  <symbol id="mi-other" viewBox="0 0 24 24"><path d="M12 2.8l8.6 4.6v9.2L12 21.2l-8.6-4.6V7.4z"/><path d="M3.4 7.4L12 12l8.6-4.6M12 12v9.2"/></symbol>
+  <!-- группа учёта в 1С не заполнена -->
+  <symbol id="mi-none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke-dasharray="3 2.6"/></symbol>
+</defs></svg>
+<header>
+  <!-- ⚠️ HREF ЗДЕСЬ НЕТ НАРОЧНО, его проставляет скрипт и только если страница
+       открыта С СЕРВЕРА. Дашборд — самодостаточный файл на 62 МБ, его скачивают
+       и открывают с диска; у такого файла адреса сервера нет, и ссылка «на
+       страницу управления» вела бы в никуда. Мёртвая кнопка в шапке читается
+       как «отчёт сломался», поэтому у файла с диска значок остаётся картинкой. -->
+  <a class="logolink" id="homeLink">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <polygon points="50,6 94,88 6,88" fill="none" stroke="currentColor" stroke-width="7"/>
+      <polygon points="50,34 74,80 26,80" fill="currentColor"/>
+    </svg>
+  </a>
+  <div class="brand">МЕТОПТОРГ<small>Реализация · что, сколько и по какому бизнес-плану / серии продано</small></div>
+  <div class="hmeta">
+    <div>Период <b id="mPeriod">—</b></div>
+    <div id="mTotals"></div>
+  </div>
+  <div class="hact">
+    <button class="btn" id="wrapBtn" title="Подписи целиком: строка растёт в ширину (таблица прокручивается вбок), а не переносится по высоте">⇥ Подписи целиком</button>
+    <button class="btn" id="themeBtn" title="Тема">🌓 Тема</button>
+    <!-- ⚠️ HREF ставит скрипт и только с сервера — как у логотипа (см. ниже):
+         у файла, открытого с диска, адреса сервера нет. -->
+    <a class="btn" id="adminBtn" hidden title="Управление отчётом: пересборка, источники, история сборок — только для администраторов">⚙ Управление</a>
+  </div>
+</header>
+
+<!-- ⚠️ ПОРЯДОК ВКЛАДОК ЗАДАН ЗАКАЗЧИКОМ 13.08.2026 (совещание с ген- и
+     исполнительным директором): продажи -> весь оборот -> Ганта, затем разрезы
+     одной группой, затем работа с данными, выгрузка в 1С последней.
+     Группы сделаны ВИДИМЫМИ КЛАСТЕРАМИ, а не выпадающими списками: отчёт
+     смотрит руководство, и вкладка, спрятанная за раскрывашкой, для них просто
+     не существует. Кластер даёт порядок, ничего не пряча. -->
+<nav class="tabs" id="tabs">
+  <button data-t="series" class="active" title="Что ПРОДАНО по каждому бизнес-плану. Отчёт считается в ОДНОЙ единице, она выбирается вверху; планы, где в этой единице не продавали, из списка уходят.">Продажи по сериям</button>
+  <button data-t="series_all" title="ВЕСЬ оборот металла по бизнес-планам, включая непроданное. Единица здесь — уровень дерева: под проектом идут тонны, штуки, метры… Суммы разных единиц не складываются.">Весь оборот по сериям</button>
+  <button data-t="gantt">План-факт (Ганта)</button>
+  <!-- «Остатки» — перед дашбордом (заказчик 14.09.2026) -->
+  <button data-t="stock" title="Остатки в разрезе отчёта 1С: подразделение → группа аналитического учёта → номенклатура, по двум вариантам. Те же цифры, что на Ганте и в дереве движений — для сверки с 1С.">Остатки</button>
+  <button data-t="dash" title="Сигнальный экран: невывезенные объёмы по дивизионам и глубине просрочки; клик по сегменту открывает Ганту с уже выставленными фильтрами.">Дашборд</button>
+  <button data-t="summary" title="Экран для совещания: сколько не вывезено и не продано, с какой глубиной просрочки, в разрезе направлений, дивизионов и групп учёта.">Сводные</button>
+  <span class="tgrp" data-label="разрезы">
+    <button data-t="period">Периоды</button>
+    <button data-t="flows">Закупки / продажи</button>
+    <button data-t="moves">Движения</button>
+  </span>
+  <span class="tgrp" data-label="данные">
+    <button data-t="bpbuy" title="Закупка по бизнес-плану: что оприходовали по головной серии в разрезе нашей номенклатуры и складов, рядом плановая выручка версии расчёта.">Закупка по БП</button>
+    <button data-t="bpver" title="Версии расчётов из excel-файлов БП: экономист отмечает, какая верна, — её и используют алгоритмы (месяцы вывоза, план выручки).">Версии БП</button>
+    <!-- ⚠️ «Проверка данных» и «Обновление данных» ИЗ НАВИГАЦИИ УБРАНЫ
+         (заказчик 14.09.2026): это служебные вкладки, руководству они ни к
+         чему. Код вкладок жив, открываются по адресу #check и #update —
+         сверки нужны при разборе расхождений. -->
+  </span>
+  <button data-t="export1c">Выгрузка в 1С</button>
+</nav>
+
+<main id="app"></main>
+
+<script>
+/* ============================ ДАННЫЕ ============================ */
+const DATA = /*__DATA__*/{"meta":{},"S":[],"items":[],"checks":[],"edits":[],"internal":[]}/*__END__*/;
+window.DATA = DATA;
+</script>
+<script>
+/* ============================ УТИЛИТЫ ============================ */
+const $ = (s,r=document)=>r.querySelector(s);
+const el = (t,cls,html)=>{const e=document.createElement(t); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e;};
+/* ⚠️ КОЛИЧЕСТВО — ВСЕГДА ТРИ ЗНАКА. Раньше «12» и «12,5» стояли в колонке рядом
+   с «1 916,437»: разряды не выстраивались, и глаз читал числа разной точности как
+   разные величины. Теперь у любого количества ровно три знака, а счётчики (штук
+   бизнес-планов, строк, документов) идут через cnt() — там дроби не нужны. */
+/* ⚠️ Формат СВОЙ, а не toLocaleString: на дереве из 868 строк формат вызывается
+   девять тысяч раз и в браузере занимал 123 мс из 437 мс отрисовки вкладки.
+   Разделитель разрядов — тот же неразрывный пробел, что даёт ru-RU. */
+const NBSP = '\u00A0';
+function fmt(n){
+  if(n==null || isNaN(n)) return '';
+  /* считаем в ТЫСЯЧНЫХ целыми: вычитание дробей давало 13 918,662 там, где
+     округление даёт 13 918,663 */
+  const neg = n < 0;
+  const v = Math.round(Math.abs(n) * 1000);
+  const fr = v % 1000;
+  const d = String((v - fr) / 1000);
+  let out = '', c = 0;
+  for(let k = d.length-1; k >= 0; k--){
+    out = d[k] + out;
+    if(++c % 3 === 0 && k) out = NBSP + out;
+  }
+  return (neg?'-':'') + out + ',' + (fr<10?'00':fr<100?'0':'') + fr;
+}
+const fmt3 = fmt;
+/* счётчик: целое с разрядами, «8 363» */
+function cnt(n){
+  if(n==null || isNaN(n)) return '';
+  const d = String(Math.round(Math.abs(n)));
+  let out = '', c = 0;
+  for(let k = d.length-1; k >= 0; k--){
+    out = d[k] + out;
+    if(++c % 3 === 0 && k) out = NBSP + out;
+  }
+  return (n<0?'-':'') + out;
+}
+const esc = (s)=> (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const S = DATA.S||[];                       /* таблица строк (интернирование) */
+const str = i => (typeof i==='number' ? (S[i]||'') : (i||''));
+const META = DATA.meta||{};
+const ITEMS = DATA.items||[];
+
+const BADGE_RANK={'1С':0,'док':1,'переработка':2,'ручная':2,'площадка':3,'доля':3,'вероятно':4,'ввод':4,'нет':5};
+const BADGE_TITLE = META.badge_title||{};
+function badge(b){ b=b||'нет'; return '<span class="badge b-'+esc(b)+'" title="'+esc(BADGE_TITLE[b]||b)+'">'+esc(b)+'</span>'; }
+const worstBadge=(a,b)=> a==null?b : b==null?a : (BADGE_RANK[a]>=BADGE_RANK[b]?a:b);
+const REAL = r => r.series!=='БЕЗ СЕРИИ' && !String(r.series).startsWith('площадка:');
+
+function groupBy(arr,keyfn){ const m=new Map(); for(const x of arr){const k=keyfn(x); if(!m.has(k))m.set(k,[]); m.get(k).push(x);} return m; }
+function sum(arr,f){ let s=0; for(const x of arr)s+=f(x)||0; return s; }
+function worstOf(arr){ let b=null; for(const x of arr) b=worstBadge(b,x.badge); return b; }
+function baseSort(a,b){ if(a==='—')return 1; if(b==='—')return -1; return a.localeCompare(b,'ru'); }
+
+/* ============================ РОУТИНГ ============================ */
+const TABS={};
+/* ---- Общая доводка любой вкладки после отрисовки ----
+   Делается в одном месте, а не в девяти: вкладки строят разметку, а поведение
+   на узком экране одинаково для всех. */
+/* широкая таблица прокручивается вбок, а не ломает страницу на телефоне */
+function wrapWideTables(root){
+  root.querySelectorAll('.panel>table').forEach(t=>{
+    if(t.parentElement.classList.contains('tw-scroll')) return;
+    t.classList.add('sticky1');
+    const box=el('div','tw-scroll');
+    /* ⚠️ КНОПКА «ПОКАЗАТЬ ЕЩЁ» — ВНУТРЬ ПРОКРУТКИ, ПОД ТАБЛИЦУ (заказчик
+       14.09.2026: «кнопка не нажимается из-за накладки» на «Версиях БП»).
+       Контейнер липкий и ограничен по высоте: при прокрутке страницы он
+       съезжает вниз и накрывает всё, что стоит за ним в панели, — кнопка
+       оказывалась под последней строкой таблицы. Внутри контейнера она
+       всегда в конце списка и всегда доступна. */
+    const tail=[]; let nx=t.nextElementSibling;
+    while(nx && nx.classList.contains('gmore')){ tail.push(nx); nx=nx.nextElementSibling; }
+    t.parentNode.insertBefore(box,t); box.appendChild(t);
+    tail.forEach(b=>box.appendChild(b));
+  });
+}
+/* зона управления на узком экране сворачивается: на планшете она занимала три
+   ряда и отодвигала данные ниже первого экрана */
+function foldToolbars(root){
+  root.querySelectorAll('.toolbar').forEach(bar=>{
+    const prev=bar.previousElementSibling;
+    if(prev && prev.classList.contains('fold')) return;
+    const b=el('button','fold btn','⚙ Фильтры и поиск');
+    /* ⚠️ СОСТОЯНИЕ ПАНЕЛИ ЗАПОМИНАЕТСЯ. Панель прячется на экранах уже 1024 px,
+       и это ровно тот случай, когда заказчик не нашёл фильтр по оплате: он был
+       на месте и работал, но за свёрнутой кнопкой. Один раз открыл — открыто
+       и дальше. */
+    const OPEN='metoptorg.filters';
+    const setOpen=on=>{ bar.classList.toggle('open', on);
+      b.setAttribute('aria-expanded', on?'true':'false');
+      try{ localStorage.setItem(OPEN, on?'1':'0'); }catch(e){} };
+    let was='1';
+    try{ was = localStorage.getItem(OPEN); }catch(e){}
+    setOpen(was===null ? true : was==='1');   /* по умолчанию РАСКРЫТО */
+    b.addEventListener('click',()=>setOpen(!bar.classList.contains('open')));
+    /* Сколько фильтров сейчас применено — прямо на кнопке. Иначе свёрнутая
+       панель молчит о том, что список уже сужен, и цифры кажутся неверными. */
+    const count=()=>{
+      let n=0;
+      bar.querySelectorAll('select').forEach(sel=>{
+        if(sel.id==='gvar'||sel.id==='gsort'||/sort/i.test(sel.id)) return;
+        if(sel.value && sel.selectedIndex>0) n++;
+      });
+      bar.querySelectorAll('input[type=checkbox]').forEach(c=>{ if(c.checked) n++; });
+      bar.querySelectorAll('input[type=search],input.bpq').forEach(i=>{ if((i.value||'').trim()) n++; });
+      b.textContent = '⚙ Фильтры и поиск' + (n ? ' · применено '+n : '');
+      b.classList.toggle('on', n>0);
+    };
+    bar.addEventListener('change', count);
+    bar.addEventListener('input', count);
+    count();
+    bar.parentNode.insertBefore(b,bar);
+  });
+}
+/* ---------- ИТОГИ ОДНОЙ СТРОКОЙ ----------
+   Решение заказчика 13.08.2026 (совещание с ген- и исполнительным директором):
+   итог нужен вверху каждой вкладки, где есть что суммировать, но «очень
+   лаконично, без сдвига данных». Пять карточек занимали около 140 px, и на
+   ноутбуке таблица начиналась ниже сгиба — ради пяти чисел приходилось
+   прокручивать.
+   Переписываем УЖЕ СОБРАННЫЙ блок карточек, а не каждую вкладку по отдельности:
+   вкладок с итогами семь, и правило должно быть одно на всех, иначе они
+   разъедутся при следующей правке.
+   ⚠️ ПОЯСНЕНИЕ ПОД ЧИСЛОМ НЕ ВЫБРАСЫВАЕТСЯ, а уходит в подсказку: там живут
+   «86,3 % от купленного» и «не вывезено 13 196,283 т» — это не украшение.
+   Ведущая карточка (.lead) остаётся крупнее прочих: у каждой вкладки есть
+   главное число, и в ровной строке оно бы потерялось. */
+function slimCards(root){
+  root.querySelectorAll('.cards').forEach(box=>{
+    const cards = [...box.querySelectorAll(':scope > .card')];
+    if(!cards.length) return;
+    const parts = cards.map(c=>{
+      const k = c.querySelector('.k'), v = c.querySelector('.v'), s = c.querySelector('.s');
+      const kt = k ? k.textContent.trim() : '';
+      const st = s ? s.textContent.trim() : '';
+      const cls = [ 'si', c.classList.contains('lead') ? 'lead' : '',
+                    v && v.className ? v.className.replace('v','').trim() : '' ]
+                  .filter(Boolean).join(' ');
+      return '<span class="'+cls+'"'+(st?' title="'+st.replace(/"/g,'&quot;')+'"':'')+'>'
+           + '<i>'+kt+'</i>' + (v ? v.innerHTML : '') + '</span>';
+    });
+    box.classList.add('sumline');
+    box.innerHTML = parts.join('<b class="sep">·</b>');
+  });
+}
+function render(tab){
+  /* неизвестная вкладка (например старая ссылка #podr) -> на первую */
+  /* старые ссылки и закладки на убранную вкладку «Направление» (#bp) ведут на
+     «Серии (продано)»: то же дерево, направление осталось фильтром */
+  if(tab==='bp') tab='series';
+  if(!TABS[tab]) tab='series';
+  /* ⚠️ Режим единиц принадлежит ВКЛАДКЕ, а не сессии. «Серии (насквозь)»
+     фиксируют режим «все единицы», и без сброса он утекал на соседние вкладки:
+     зайдя оттуда на «Движения», экономист видел количества в родных единицах 1С
+     (5 450 кг в колонке рядом с тоннами), хотя вверху выбраны тонны. */
+  try{ MEASURE_FORCED = null; UNIT_LEVEL = null; }catch(e){}
+  $('#app').innerHTML='';
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.t===tab));
+  TABS[tab]($('#app'));
+  slimCards($('#app'));
+  wrapWideTables($('#app'));
+  foldToolbars($('#app'));
+  /* В КАКОЙ ЕДИНИЦЕ СМОТРИМ — плашкой наверху вкладки, а не только в панели
+     фильтров: панель на узком экране свёрнута, а числа в таблице подписи не
+     имеют, и «39 062,35» легко принять за тонны. Для тонн плашки нет — это
+     обычный режим, лишний шум ни к чему. */
+  if(typeof MEASURE !== 'undefined' && MEASURE !== 'т'
+     && typeof MEASURE_FORCED !== 'undefined' && !MEASURE_FORCED){
+    const b = el('div','measbar', 'Единица отчёта: <b>' + esc(mTitle(MEASURE))
+      + ' (' + esc(MEASURE) + ')</b>. Видны только бизнес-планы с этой единицей; '
+      + 'с тоннами эти суммы не сопоставимы и не складываются.');
+    $('#app').insertBefore(b, $('#app').firstChild);
+  }
+  if(typeof fitSticky==='function') fitSticky();
+  if(typeof applyDocFocus==='function') applyDocFocus();
+  history.replaceState(null,'','#'+tab);
+  /* вкладка сменилась — вернуться к началу, иначе открываешь новую страницу
+     на середине предыдущей */
+  window.scrollTo(0,0);
+}
+$('#tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b)render(b.dataset.t); });
+$('#themeBtn').addEventListener('click',()=>{ const r=document.documentElement;
+  r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; localStorage.mo_theme=r.dataset.theme; });
+if(localStorage.mo_theme) document.documentElement.dataset.theme=localStorage.mo_theme;
+
+/* ---------- ЗНАЧОК В ШАПКЕ — ВЫХОД НА СТРАНИЦУ УПРАВЛЕНИЯ ----------
+   ⚠️ Ссылка проставляется ТОЛЬКО когда отчёт открыт С СЕРВЕРА. Дашборд —
+   самодостаточный файл на 62 МБ: его скачивают и открывают с диска, и адреса
+   сервера у такого файла нет. Ссылка вела бы в никуда, а мёртвая кнопка в шапке
+   читается как «отчёт сломался». Без href значок остаётся обычной картинкой.
+   Адрес не зашит: берём корень ТОГО ЖЕ сервера, откуда пришла страница, — так
+   отчёт одинаково работает и на 8092, и где угодно ещё. */
+(function(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  /* корень теперь сам дашборд; управление — /admin, там браузер спросит
+     пароль администратора. Переход — кнопкой-шестерёнкой рядом с темой
+     (заказчик 14.09.2026), логотип ведёт туда же. */
+  const a = $('#homeLink');
+  if(a){ a.href = '/admin'; a.title = 'На страницу управления отчётом (только для администраторов)'; }
+  const g = $('#adminBtn');
+  if(g){ g.href = '/admin'; g.hidden = false; }
+})();
+
+/* «Текст целиком»: подписи переносятся, а не обрезаются многоточием.
+   Выбор запоминается — заказчик работает в одном режиме постоянно. */
+function applyWrap(on){
+  document.documentElement.classList.toggle('wide', !!on);
+  localStorage.mo_wrap = on ? '1' : '';
+  const b=$('#wrapBtn'); if(b) b.textContent = on ? '⇥ Подписи целиком' : '⇤ Подписи короче';
+  if(window.fitLabels) fitLabels();
+}
+/* класс называется wide; проверка на 'wrap' была опечаткой, из-за которой
+   кнопка всегда включала режим заново и переключиться было нельзя */
+$('#wrapBtn').addEventListener('click',()=>
+  applyWrap(!document.documentElement.classList.contains('wide')));
+/* по умолчанию — целиком; если однажды переключили в строку, выбор запоминается */
+applyWrap(localStorage.mo_wrap === undefined ? true : localStorage.mo_wrap === '1');
+
+/* высоты липких полос — в переменные: шапка переносится на узком экране, и
+   зашитые 49 px разъезжались с реальностью */
+function fitSticky(){
+  const h=document.querySelector('header'), n=document.querySelector('nav.tabs');
+  if(!h) return;
+  const hh=Math.round(h.getBoundingClientRect().height);
+  /* на узком экране полоса вкладок не липкая (см. @media) — тогда её высоту
+     прибавлять нельзя, иначе под шапкой останется пустая полоса, сквозь которую
+     видно уезжающие строки */
+  const navFix = n && getComputedStyle(n).position === 'sticky';
+  const nh = navFix ? Math.round(n.getBoundingClientRect().height) : 0;
+  const r=document.documentElement.style;
+  r.setProperty('--hh', hh+'px');
+  r.setProperty('--stick', (hh+nh)+'px');
+}
+window.addEventListener('resize', fitSticky);
+window.addEventListener('load', fitSticky);
+fitSticky();
+
+$('#mPeriod').textContent=(META.period_min||'')+' … '+(META.period_max||'');
+$('#mTotals').textContent = 'Продано: '+fmt(META.total_tonnes)+' т · с реальной серией: '
+  +fmt(META.real_series_tonnes)+' т ('+META.real_series_pct+' %)';
+</script>
+<!--__TABS_JS__-->
+<script>
+render((location.hash||'#bp').slice(1)||'bp');
+</script>
+</body>
+</html>

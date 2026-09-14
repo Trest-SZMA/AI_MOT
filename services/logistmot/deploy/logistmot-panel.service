@@ -1,0 +1,16 @@
+[Unit]
+Description=LogistMOT web panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=logistmot
+WorkingDirectory=/opt/logistmot
+ExecStart=/opt/logistmot/.venv/bin/python panel.py
+Restart=always
+RestartSec=15
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

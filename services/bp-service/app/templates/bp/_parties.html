@@ -1,0 +1,68 @@
+{% from "bp/_macros.html" import icon, money, save_btn with context %}
+<div class="card {% if not can_edit['parties'] %}locked{% endif %}" id="sec-parties">
+  <div class="sec-head">
+    <h2><span class="sec-num">3</span> Стороны сделки</h2>
+    <div class="sec-aside">
+      <span class="role-tag">Менеджер</span>
+      {% if not can_edit['parties'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
+    </div>
+  </div>
+  <form method="post" action="/bp/{{ bp['id'] }}/section/parties">
+    <div class="grid2">
+      <div><label>Продавец (поиск по 1С, от 2 букв)</label>
+        <input name="seller_name" list="dl_seller" value="{{ bp['seller_name'] or '' }}"
+               placeholder="начните вводить наименование" autocomplete="off"
+               data-api="/api/counterparties" data-hidden="seller_id">
+        <datalist id="dl_seller"></datalist>
+        <input type="hidden" name="seller_id" id="seller_id"
+               value="{{ bp['seller_id'] or '' }}"></div>
+      <div><label>Основной покупатель (завод / трейдер, поиск по 1С)</label>
+        <input name="buyer_name" list="dl_buyer" value="{{ bp['buyer_name'] or '' }}"
+               autocomplete="off" data-api="/api/counterparties" data-hidden="buyer_id"
+               data-tip="Идёт в документы и подставляется новым позициям по умолчанию. Если объём делится между несколькими покупателями, распределите его в плане продажи — сводка появится ниже.">
+        <datalist id="dl_buyer"></datalist>
+        <input type="hidden" name="buyer_id" id="buyer_id"
+               value="{{ bp['buyer_id'] or '' }}"></div>
+    </div>
+    {{ save_btn('parties') }}
+  </form>
+
+  {# Покупателей в сделке обычно несколько: объём делится в плане продажи,
+     а у позиций без разбивки покупатель задан в самой строке. Здесь оба
+     источника сведены — «с кем сделка» видно, не заходя в состав лота. #}
+  <h3 class="sub-head" data-tip="Объём закупки по покупателям активного варианта расчёта. Объём реализации меньше на засор — здесь он не смешивается, чтобы цифры не расходились с P&L.">
+    Кому уходит лот{% if buyers | length > 1 %}: {{ buyers | length }} покупателя{% endif %}</h3>
+  {% if buyers %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Покупатель</th><th class="num">Объём закупки, тн</th>
+      <th class="num">Доля</th><th class="num">Цена, руб/тн</th>
+      <th class="num">Позиций</th><th>Откуда</th></tr></thead>
+    <tbody>
+    {% for b in buyers %}
+    <tr>
+      <td>{% if b.buyer == 'не назначен' %}
+          <span class="warn-note">{{ icon('warn', 'icon-s') }} покупатель не назначен</span>
+          {% else %}<b>{{ b.buyer }}</b>{% endif %}
+        {% if b.buyer == bp['buyer_name'] %}<span class="role-tag">основной</span>{% endif %}</td>
+      <td class="num">{{ '%.3f' % b.volume }}</td>
+      <td class="num">{{ '%.0f' % b.share_pct }}%</td>
+      <td class="num">{% if b.price %}{{ '%.0f' % b.price }}
+          {% if b.no_price_volume > 0.001 %}<div class="muted">без цены {{ '%.1f' % b.no_price_volume }} тн</div>{% endif %}
+        {% else %}<span class="muted">цена не задана</span>{% endif %}</td>
+      <td class="num">{{ b.positions }}</td>
+      <td class="muted">{{ b.source }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">Разделить объём позиции между покупателями — в плане продажи
+    на вкладке <a href="/bp/{{ bp['id'] }}/lot">«Лот»</a>. Строки плана свои у
+    каждого варианта расчёта: в «ДСП» и «Лукойле» покупатели разные.</p>
+  {% else %}
+  <p class="info-line">Покупатели пока не заданы: укажите основного выше либо
+    распределите объём в плане продажи на вкладке
+    <a href="/bp/{{ bp['id'] }}/lot">«Лот»</a>.</p>
+  {% endif %}
+</div>

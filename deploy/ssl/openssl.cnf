@@ -1,0 +1,20 @@
+[req]
+distinguished_name = dn
+x509_extensions = v3
+prompt = no
+
+[dn]
+C  = RU
+O  = MetOptTorg
+CN = ubuntutest.ui.local
+
+[v3]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt
+
+[alt]
+DNS.1 = ubuntutest.ui.local
+DNS.2 = ubuntutest
+IP.1  = 192.168.6.157
