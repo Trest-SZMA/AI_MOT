@@ -3,11 +3,15 @@
 Монорепозиторий из девяти внутренних веб-сервисов компании и всего, что нужно,
 чтобы развернуть их на новом сервере одной командой и потом обновлять через git.
 
-**Формат развёртывания: systemd-службы + Python-venv на Ubuntu 24.04, без контейнеров.**
-Сервисы тесно связаны между собой через файловую систему и systemd-таймеры
-(см. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)); установка полностью
-автоматизирована скриптами в `deploy/`. Упаковка в Docker возможна как отдельный
-этап после переезда.
+**Два варианта развёртывания — на выбор ИТ-отдела, код и архив данных общие:**
+
+| | Как | Документация |
+|---|---|---|
+| **Docker Compose** (рекомендуется) | `docker-compose.yml` в корне, `deploy/docker/setup.sh`, `deploy/docker/import-data.sh` | [docs/DOCKER.md](docs/DOCKER.md) |
+| systemd + venv на Ubuntu 24.04 | `deploy/install.sh`, `deploy/import-data.sh`, `deploy/update.sh` | этот README ниже |
+
+Как сервисы связаны между собой и с 1С — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+порядок переезда с чеклистом — [docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Состав
 

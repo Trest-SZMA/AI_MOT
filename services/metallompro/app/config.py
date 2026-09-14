@@ -26,7 +26,9 @@ METALS_API_KEY = os.getenv("METALS_API_KEY", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
 # Пользователи «логин:пароль,логин:пароль» — равные права
-USERS_RAW = os.getenv("USERS", "pavel:metall2026,director:metall2026")
+# Задаётся ТОЛЬКО через окружение (/etc/metallompro.env или env/metallompro.env):
+# без переменной ни один пользователь не сможет войти.
+USERS_RAW = os.getenv("USERS", "")
 
 INBOX_1C = Path(os.getenv("INBOX_1C", DATA_DIR / "inbox_1c"))
 INBOX_1C.mkdir(parents=True, exist_ok=True)

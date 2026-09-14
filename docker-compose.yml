@@ -1,0 +1,223 @@
+# Сервисы МетОптТорг в Docker Compose.
+#   1. deploy/docker/setup.sh                 — .env, env/, data/, сертификат
+#   2. deploy/docker/import-data.sh <архив>   — данные и секреты со старого сервера
+#   3. docker compose up -d --build
+# Подробно: docs/DOCKER.md. Порты наружу те же, что были на старом сервере.
+name: ai_mot
+
+x-svc: &svc
+  restart: unless-stopped
+  networks: [ai_mot]
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+x-env: &env
+  TZ: ${TZ:-Asia/Yekaterinburg}
+  PYTHONUNBUFFERED: "1"
+
+services:
+
+  # ---------- инфраструктура ----------
+  postgres:
+    <<: *svc
+    image: postgres:16-alpine
+    container_name: ai_mot-postgres
+    environment:
+      TZ: ${TZ:-Asia/Yekaterinburg}
+      POSTGRES_USER: metallompro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env (deploy/docker/setup.sh)}
+      POSTGRES_DB: metallompro
+    volumes:
+      - ${DATA_ROOT:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metallompro -d metallompro"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  nginx:
+    <<: *svc
+    image: nginx:1.27-alpine
+    container_name: ai_mot-nginx
+    ports: ["8443:8443"]
+    volumes:
+      - ./deploy/docker/nginx-bp-service.conf:/etc/nginx/conf.d/bp-service.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on: [bp-service]
+
+  # Планировщик: ночная пересборка, бэкапы, еженедельная выгрузка, утренняя сводка.
+  scheduler:
+    <<: *svc
+    image: mcuadros/ofelia:v0.3.13
+    container_name: ai_mot-scheduler
+    command: daemon --config=/etc/ofelia.ini
+    environment: { TZ: "${TZ:-Asia/Yekaterinburg}" }
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deploy/docker/ofelia.ini:/etc/ofelia.ini:ro
+
+  # Мониторинг: состояние контейнеров + диск, уведомления в MAX при изменениях.
+  monitor:
+    <<: *svc
+    image: python:3.12-alpine
+    container_name: ai_mot-monitor
+    command: python /app/monitor.py --loop
+    env_file: ./env/monitor.env
+    environment: { <<: *env, HOST_NAME: "${HOST_IP:-ai_mot}" }
+    volumes:
+      - ./deploy/docker/monitor.py:/app/monitor.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DATA_ROOT:-./data}:/data:ro
+      - ${DATA_ROOT:-./data}/monitor:/state
+
+  # ---------- сервисы ----------
+  portal:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-portal } }
+    image: ai_mot/portal
+    container_name: ai_mot-portal
+    command: python portal.py
+    env_file: ./env/metoptorg-portal.env
+    environment: { <<: *env, PORTAL_HOST: 0.0.0.0, PORTAL_PORT: "8079" }
+    ports: ["8079:8079"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8079/ || exit 1"], interval: 30s, timeout: 5s, retries: 3 }
+    deploy: { resources: { limits: { memory: 256m } } }
+
+  fines:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: fines-service } }
+    image: ai_mot/fines
+    container_name: ai_mot-fines
+    command: uvicorn app:app --host 0.0.0.0 --port 8077
+    environment: { <<: *env, DATA_DIR: /data, PORTAL_URL: "http://${HOST_IP}:8079" }
+    volumes: ["${DATA_ROOT:-./data}/fines-service:/data"]
+    ports: ["8077:8077"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8077/ || exit 1"], interval: 30s, timeout: 5s, retries: 3 }
+
+  logistmot-bot:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: logistmot, LINKS: "bot.db" } }
+    image: ai_mot/logistmot
+    container_name: ai_mot-logistmot-bot
+    command: python bot.py
+    env_file: ./env/logistmot.env
+    environment: { <<: *env, PANEL_LINK: "http://${HOST_IP}:8080", PORTAL_URL: "http://${HOST_IP}:8079" }
+    volumes: ["${DATA_ROOT:-./data}/logistmot:/data"]
+
+  logistmot-panel:
+    <<: *svc
+    image: ai_mot/logistmot
+    container_name: ai_mot-logistmot-panel
+    command: python panel.py
+    env_file: ./env/logistmot.env
+    environment: { <<: *env, PANEL_HOST: 0.0.0.0, PANEL_PORT: "8080", PANEL_LINK: "http://${HOST_IP}:8080", PORTAL_URL: "http://${HOST_IP}:8079" }
+    volumes: ["${DATA_ROOT:-./data}/logistmot:/data"]
+    ports: ["8080:8080"]
+    depends_on: [logistmot-bot]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8080/ || exit 1"], interval: 30s, timeout: 5s, retries: 3 }
+
+  ostatki:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-ostatki, LINKS: "data out" } }
+    image: ai_mot/ostatki
+    container_name: ai_mot-ostatki
+    command: python3 server.py
+    env_file: ./env/metoptorg-ostatki.env
+    environment: { <<: *env, PYTHONHASHSEED: "0" }   # воспроизводимость расчёта
+    volumes: ["${DATA_ROOT:-./data}/metoptorg-ostatki:/data"]
+    ports: ["8090:8090"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8090/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+    deploy: { resources: { limits: { memory: 3g } } }
+
+  kp:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-kp } }
+    image: ai_mot/kp
+    container_name: ai_mot-kp
+    command: python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8091
+    env_file: ./env/metoptorg-kp.env
+    environment:
+      <<: *env
+      METOPTTORG_DATA_DIR: /data
+      DATABASE_URL: sqlite:////data/metopttorg.db
+      METOPTTORG_BACKUP_DIR: /data/backups
+      PORTAL_URL: "http://${HOST_IP}:8079"
+    volumes: ["${DATA_ROOT:-./data}/metoptorg-kp:/data"]
+    ports: ["8091:8091"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8091/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+
+  realizaciya:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-realizaciya, LINKS: "data out builds logs" } }
+    image: ai_mot/realizaciya
+    container_name: ai_mot-realizaciya
+    # ОДИН воркер: пересборка идёт фоновым потоком этого процесса
+    command: uvicorn server:app --host 0.0.0.0 --port 8092 --workers 1 --timeout-keep-alive 120
+    env_file: ./env/metoptorg-realizaciya.env
+    environment: { <<: *env, PYTHONHASHSEED: "0", METOPTORG_PORTAL_URL: "http://${HOST_IP}:8079" }
+    volumes: ["${DATA_ROOT:-./data}/metoptorg-realizaciya:/data"]
+    ports: ["8092:8092"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8092/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+    deploy: { resources: { limits: { memory: 3g } } }
+
+  bp-service:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: bp-service, LINKS: "bp.db attachments 1c output backups" } }
+    image: ai_mot/bp-service
+    container_name: ai_mot-bp-service
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8093 --workers 1
+    env_file: ./env/bp-service.env
+    environment: { <<: *env, BP_ALLOWED_NETWORKS: "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12" }
+    volumes: ["${DATA_ROOT:-./data}/bp-service:/data"]
+    ports: ["8093:8093"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8093/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+
+  parser-bp:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: parser-bp } }
+    image: ai_mot/parser-bp
+    container_name: ai_mot-parser-bp
+    command: python -m streamlit run app.py --server.address 0.0.0.0 --server.port 8094
+    env_file: ./env/parser-bp.env
+    environment:
+      <<: *env
+      HOME: /data
+      XDG_CONFIG_HOME: /data
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_SERVER_FILE_WATCHER_TYPE: none
+      STREAMLIT_SERVER_MAX_UPLOAD_SIZE: "500"
+      PARSER_BP_SERVER: "1"
+      PARSER_BP_PORTAL_URL: "http://${HOST_IP}:8079"
+    volumes:
+      - ${DATA_ROOT:-./data}/parser-bp:/data
+      # еженедельная выгрузка из Битрикса пишет прямо в data/ реализации
+      - ${DATA_ROOT:-./data}/metoptorg-realizaciya/data:/opt/metoptorg-realizaciya/data
+    ports: ["8094:8094"]
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8094/_stcore/health || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+    deploy: { resources: { limits: { memory: 1536m } } }
+
+  metallompro:
+    <<: *svc
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metallompro } }
+    image: ai_mot/metallompro
+    container_name: ai_mot-metallompro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8095 --workers 1
+    env_file: ./env/metallompro.env
+    environment:
+      <<: *env
+      DATA_DIR: /data
+      DATABASE_URL: "postgresql+psycopg2://metallompro:${POSTGRES_PASSWORD}@postgres:5432/metallompro"
+      NEIGHBOR_1C_DIR: /neighbor
+      NEIGHBOR_OSTATKI_URL: "http://ostatki:8090/data.json"
+    volumes:
+      - ${DATA_ROOT:-./data}/metallompro:/data
+      - ${DATA_ROOT:-./data}/metoptorg-realizaciya/data:/neighbor:ro
+    ports: ["8095:8095"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8095/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
+
+networks:
+  ai_mot: {}
