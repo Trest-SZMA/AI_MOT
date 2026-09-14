@@ -11,3 +11,5 @@ ai_mot_data_*
 env/
 data/
 certs/
+__pycache__/
+*.pyc
