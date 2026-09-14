@@ -76,7 +76,7 @@ for name in $(svc_names); do
     if [ "$u" = logistmot-bot.service ]; then
       echo
       warn "Бот ЛогистМОТ: убедитесь, что на СТАРОМ сервере он остановлен (systemctl stop logistmot-bot)."
-      read -r -p "Запустить бота здесь? [y/N] " a
+      a=n; read -r -p "Запустить бота здесь? [y/N] " a </dev/tty 2>/dev/null || true
       [ "${a,,}" = y ] && systemctl enable --now "$u" || { echo "  бот не запущен: systemctl start logistmot-bot когда будете готовы"; continue; }
     else
       systemctl enable --now "$u" >/dev/null

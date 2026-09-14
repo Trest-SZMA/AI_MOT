@@ -49,7 +49,7 @@ services:
   # Планировщик: ночная пересборка, бэкапы, еженедельная выгрузка, утренняя сводка.
   scheduler:
     <<: *svc
-    image: mcuadros/ofelia:v0.3.13
+    image: mcuadros/ofelia:0.3.22
     container_name: ai_mot-scheduler
     command: daemon --config=/etc/ofelia.ini
     environment: { TZ: "${TZ:-Asia/Yekaterinburg}" }

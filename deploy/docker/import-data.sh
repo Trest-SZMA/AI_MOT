@@ -14,6 +14,12 @@ ARCHIVE=${1:?укажите архив ai_mot_data_*.tar.gz}
 source .env
 DATA_ROOT=${DATA_ROOT:-./data}
 STAGE=$(mktemp -d /tmp/ai_mot_import.XXXX)
+# docker compose v2 (плагин) или старый standalone docker-compose
+if command docker compose version >/dev/null 2>&1; then COMPOSE_PLUGIN=1; else COMPOSE_PLUGIN=0; fi
+docker() {
+  if [ "${1:-}" = compose ] && [ "$COMPOSE_PLUGIN" = 0 ]; then shift; docker-compose "$@"
+  else command docker "$@"; fi
+}
 
 echo "==> распаковка"
 tar xzf "$ARCHIVE" -C "$STAGE"
@@ -58,7 +64,8 @@ rm -rf "$STAGE"
 echo "==> запуск"
 docker compose up -d --build
 echo
-read -r -p "Бот ЛогистМОТ остановлен на старом сервере? Запустить его здесь? [y/N] " a
+a=n
+read -r -p "Бот ЛогистМОТ остановлен на старом сервере? Запустить его здесь? [y/N] " a </dev/tty 2>/dev/null || true
 [ "${a,,}" = y ] || { docker compose stop logistmot-bot; echo "  бот остановлен: docker compose start logistmot-bot когда будете готовы"; }
 sleep 10
 docker compose ps

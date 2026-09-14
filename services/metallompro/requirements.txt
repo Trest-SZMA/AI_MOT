@@ -11,3 +11,4 @@ itsdangerous
 passlib
 bcrypt
 python-dotenv
+openpyxl

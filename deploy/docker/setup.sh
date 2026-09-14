@@ -25,7 +25,7 @@ mkdir -p env
 for ex in deploy/env/*.env.example; do
   name=$(basename "$ex" .example)
   [ "$name" = metoptorg-healthcheck.env ] && name=monitor.env
-  [ -f "env/$name" ] || { cp "$ex" "env/$name"; echo "env/$name — заполнить (или import-data.sh)"; }
+  [ -f "env/$name" ] || { cp "$ex" "env/$name"; echo "env/$name — раскомментировать и заполнить (или import-data.sh)"; }
 done
 chmod 600 env/*.env
 

@@ -60,7 +60,7 @@ install_service() {
     [ "$name" = logistmot ] && example="$REPO/deploy/env/logistmot.env.example"
     install -m 600 "$example" "$envf"
     MISSING_ENV+=("$envf")
-    echo "  создан пустой $envf — ЗАПОЛНИТЬ (или import-data.sh)"
+    echo "  создан $envf из шаблона — раскомментировать и заполнить (или import-data.sh)"
   fi
   if [ "$user" != root ]; then
     chown -R "$user:$user" "/opt/$name"
@@ -82,7 +82,7 @@ if [ -z "$ONLY" ] || [ "$ONLY" = metallompro ]; then
   if [ -z "$DBURL" ]; then
     PW=$(python3 -c "import secrets;print(secrets.token_urlsafe(18))")
     DBURL="postgresql+psycopg2://metallompro:$PW@127.0.0.1:5432/metallompro"
-    sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$DBURL|" "$ENVF"
+    sed -i "/^#\?DATABASE_URL=/d" "$ENVF"; echo "DATABASE_URL=$DBURL" >> "$ENVF"
     echo "  DATABASE_URL сгенерирован и записан в $ENVF"
   fi
   read -r DBUSER DBNAME < <(bash "$REPO/deploy/pg-ensure-role.sh" "$ENVF")
