@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, factsnap, forms, geo,
+from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, factsnap, forms, geo, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -6209,6 +6209,10 @@ def references(request: Request):
         # Матрица фактических затрат: тип сделки → статья → руб/тн.
         "cost_matrix": cost_matrix.all_rows(conn),
         "cost_matrix_from": cost_matrix.period_from(conn),
+        # Фактическая рентабельность по типам сделок (сборка «Реализации»).
+        "type_margins": type_margin.rows(conn),
+        "type_margin_closed_pct": type_margin.closed_pct(conn),
+        "neighbor_fact": os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json"),
         "cost_matrix_updated": (conn.execute(
             "SELECT MAX(updated_at) AS u FROM stat_cost_matrix").fetchone()
             or {"u": None})["u"],
@@ -6358,6 +6362,28 @@ def rebuild_cost_matrix(request: Request):
     return redirect("/references#ref-cost-matrix",
                     f"Матрица пересобрана: {result['rows']} строк "
                     f"из {result['observations']} наблюдений с {result['since']}.")
+
+
+@app.post("/references/type-margin/rebuild")
+def rebuild_type_margin(request: Request):
+    """Пересборка фактической рентабельности по типам из снимка «Реализации»."""
+    role = current_role(request)
+    if role not in ("economist", "director", "admin"):
+        return redirect("/references", "Пересобирать факт по типам может экономист.")
+    path = os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json")
+    if not os.path.isfile(path):
+        return redirect("/references#ref-type-margin",
+                        "Снимок «Реализации» недоступен: нет файла out/sales_data.json.")
+    conn = connect()
+    result = type_margin.build(conn, path)
+    log(conn, actor(request), None, "type_margin",
+        f"{result['typed']} типизированных из {result['closed']} закрытых сделок")
+    conn.commit()
+    conn.close()
+    return redirect("/references#ref-type-margin",
+                    f"Факт по типам пересобран: сделок с фактом {result['bps']}, закрытых "
+                    f"{result['closed']}, с определённым типом {result['typed']} "
+                    f"(сборка {result['generated']}).")
 
 
 @app.post("/references/bp-types/{type_id}")

@@ -583,6 +583,15 @@ def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
 
     margin_threshold = get_setting(conn, "margin_threshold", 10.0)
     ros = net_profit / revenue * 100.0 if revenue else 0.0
+    # Валовая маржа производства (после закупки и переменных) — то, что
+    # сравнимо с фактом регистра 1С «выручка − себестоимость продаж»; рядом —
+    # где план стоит в факте по сделкам этого типа («Реализация»).
+    gross_margin_pct = gross_production / revenue * 100.0 if revenue else 0.0
+    try:
+        from . import type_margin
+        type_fact = type_margin.assess(conn, _row_get(bp, "bp_type"), gross_margin_pct)
+    except Exception:                       # старая база без таблицы
+        type_fact = None
 
     # Построчная экономика: затраты считаются ПО КАЖДОЙ ПОЗИЦИИ и суммируются
     # в общий P&L. Статья затрат распределяется на позиции своей базы
@@ -665,6 +674,8 @@ def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
         "operating_margin_pct": operating_profit / revenue * 100.0 if revenue else 0.0,
         "margin_threshold": margin_threshold,
         "above_threshold": ros >= margin_threshold,
+        "gross_margin_pct": gross_margin_pct,
+        "type_fact": type_fact,
     }
 
 

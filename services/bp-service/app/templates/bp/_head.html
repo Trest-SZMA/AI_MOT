@@ -133,7 +133,7 @@
   <div class="kpi {{ 'good' if pnl['above_threshold'] else 'bad' }}" data-tip="Рентабельность продаж = чистая прибыль / выручка. Сделка проходит при ROS не ниже порога (настройка margin_threshold).">
     <div class="k-label">ROS</div>
     <div class="k-value"><span data-kpi="ros_pct" data-fmt="1">{{ '%.1f' % pnl['ros_pct'] }}</span><span class="k-unit">%</span></div>
-    <div class="k-sub">Порог {{ '%.0f' % pnl['margin_threshold'] }}%</div>
+    <div class="k-sub">Порог {{ '%.0f' % pnl['margin_threshold'] }}%{% if pnl['type_fact'] %} · факт по типу {{ '%.0f' % pnl['type_fact']['median'] }}% валовой{% endif %}</div>
   </div>
   <div class="kpi" data-tip="Операционная прибыль / выручка. Операционная прибыль = выручка − лот − прямые затраты (переменные + постоянные).">
     <div class="k-label">Опер. маржа</div>

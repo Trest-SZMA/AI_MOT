@@ -114,6 +114,54 @@
   </div>
 </details>
 
+<details class="card" id="ref-type-margin">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Фактическая рентабельность по типам сделок</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ type_margins | length }} строк</span>
+      {% if type_margins and type_margins[0]['generated_at'] %}
+      <span class="role-tag">сборка {{ type_margins[0]['generated_at'][:16] }}</span>
+      {% endif %}
+    </div>
+  </summary>
+  <p class="muted">Какую валовую маржу продаж (выручка − себестоимость продаж) на самом
+    деле дают сделки каждого типа — по всем бизнес-планам компании из ночной
+    сборки «Реализации», а не только по нашим. Берутся закрытые сделки: продано
+    не меньше {{ '%g' % type_margin_closed_pct }} % купленного (настройка
+    <code>type_margin_closed_pct</code>), тип — по доминирующей группе
+    аналитического учёта 1С (колонка «группы 1С» у типа сделки, порог
+    <code>bp_type_threshold_pct</code>). Показаны квартили: план сделки
+    сравнивается с этим диапазоном в P&L рядом с порогом ROS.</p>
+  {% if role in ('economist', 'director', 'admin') %}
+  <form method="post" action="/references/type-margin/rebuild" class="inline-form">
+    <button type="submit">{{ icon('refresh') }} Пересобрать по снимку «Реализации»</button>
+  </form>
+  {% endif %}
+  {% if type_margins %}
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Тип сделки</th><th class="num">Сделок</th><th class="num">Четверть ниже, %</th>
+      <th class="num">Медиана, %</th><th class="num">Четверть выше, %</th><th class="num">Выручка, млн</th></tr></thead>
+    <tbody>
+    {% for m in type_margins %}
+    <tr {% if not m['bp_type'] %}class="row-accent"{% endif %}>
+      <td><b>{{ m['name'] }}</b></td>
+      <td class="num">{{ m['n'] }}</td>
+      <td class="num">{{ '%.1f' % m['p25'] if m['p25'] is not none else '—' }}</td>
+      <td class="num">{{ '%.1f' % m['median'] }}</td>
+      <td class="num">{{ '%.1f' % m['p75'] if m['p75'] is not none else '—' }}</td>
+      <td class="num">{{ '%.0f' % (m['revenue'] / 1e6) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Ещё не собиралось: нужен снимок «Реализации» (ночная выгрузка или кнопка выше).</p>
+  {% endif %}
+</details>
+
 <details class="card" id="ref-cost-matrix">
   <summary>
     <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>

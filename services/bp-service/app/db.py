@@ -272,7 +272,17 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'bp_type_threshold_pct')")
     # Справочник типов сделки: наполняется типовыми значениями один раз,
     # дальше живёт своей жизнью (экономист правит названия и состав).
-    from . import bp_types, loading
+    # Группы аналитического учёта 1С по типам сделок — для фактической
+    # рентабельности из «Реализации» (15.09.2026).
+    if "fact_groups" not in {r[1] for r in conn.execute("PRAGMA table_info(ref_bp_types)")}:
+        conn.execute("ALTER TABLE ref_bp_types ADD COLUMN fact_groups TEXT")
+    conn.execute(
+        "INSERT INTO settings (key, value, comment) "
+        "SELECT 'type_margin_closed_pct', '80', 'Порог закрытости сделки для факта "
+        "рентабельности: продано не меньше N % купленного, %' "
+        "WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'type_margin_closed_pct')")
+    from . import bp_types, loading, type_margin
+    type_margin.seed_groups(conn)
     bp_types.seed(conn)
     loading.seed_categories(conn)
     # Уже заведённым сделкам тип проставляется один раз по составу лота:

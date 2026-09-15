@@ -231,10 +231,13 @@ def pull_fact(dry: bool = False) -> dict:
     conn = connect()
     try:
         st = factsnap.import_file(conn, FACT_JSON)
+        from app import type_margin
+        tm = type_margin.build(conn, FACT_JSON)
         conn.commit()
         print(f"  снимок «Реализации» {st['generated']}: БП в файле {st['bps_in_file']}, "
-              f"наших с фактом {st['matched']}")
-        return {"file": os.path.basename(FACT_JSON), **st}
+              f"наших с фактом {st['matched']}; факт по типам: {tm['typed']} из "
+              f"{tm['closed']} закрытых сделок")
+        return {"file": os.path.basename(FACT_JSON), **st, "type_margin": tm}
     except Exception as e:
         print(f"  ОШИБКА снимка факта: {type(e).__name__}: {e}")
         return {"file": os.path.basename(FACT_JSON), "error": f"{type(e).__name__}: {e}"}

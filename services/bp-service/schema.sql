@@ -572,6 +572,7 @@ CREATE TABLE IF NOT EXISTS ref_bp_types (
     cost_items     TEXT,                  -- характерные статьи затрат через «;»
     processes      TEXT,                  -- ожидаемые процессы переработки через «;»
     required_roles TEXT,                  -- чьё участие обязательно, через «;»
+    fact_groups    TEXT,                  -- группы аналитического учёта 1С этого типа, через «;» (для факта из «Реализации»)
     is_active      INTEGER NOT NULL DEFAULT 1
 );
 
@@ -1008,4 +1009,22 @@ CREATE TABLE IF NOT EXISTS bp_fact_snapshot (
     source_file   TEXT,
     taken_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (bp_id, generated_at)
+);
+
+-- Фактическая рентабельность по типам сделок — из ночной сборки «Реализации»
+-- (все ~1 000 БП компании, не только наши): валовая маржа продаж
+-- (выручка − себестоимость продаж) / выручка по закрытым сделкам (продано не
+-- меньше type_margin_closed_pct покупки), тип — по доминирующей группе
+-- аналитического учёта (ref_bp_types.fact_groups, порог bp_type_threshold_pct).
+-- Квартили, не среднее. Строка bp_type = '' — по всем сделкам.
+CREATE TABLE IF NOT EXISTS stat_type_margin (
+    bp_type       TEXT PRIMARY KEY,
+    n             INTEGER NOT NULL,
+    p25           REAL,
+    median        REAL,
+    p75           REAL,
+    revenue       REAL,                 -- суммарная выручка сделок выборки
+    closed_pct    REAL,                 -- порог «закрытости», %
+    generated_at  TEXT,                 -- дата сборки «Реализации»
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
