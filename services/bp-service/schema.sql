@@ -980,3 +980,32 @@ CREATE TABLE IF NOT EXISTS ref_deals (
     source_file   TEXT,
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Снимок факта реализации по сделке из сервиса «Реализация» (out/sales_data.json,
+-- пересобирается ночью из регистров 1С): куплено/продано, выручка и
+-- себестоимость продаж, разрез по номенклатуре, плановая выручка книги
+-- экономиста (треки «лук»/«дсп»). Снимки копятся по дате сборки —
+-- видно, как факт догоняет план. Ключ привязки — номер запроса (deal_no).
+CREATE TABLE IF NOT EXISTS bp_fact_snapshot (
+    id            INTEGER PRIMARY KEY,
+    bp_id         INTEGER NOT NULL REFERENCES business_plans(id) ON DELETE CASCADE,
+    deal_no       TEXT NOT NULL,
+    generated_at  TEXT NOT NULL,        -- meta.generated сборки «Реализации»
+    dump_dt       TEXT,                 -- дата выгрузки регистров 1С
+    series_name   TEXT,                 -- головная серия (проект) в 1С
+    bought_t      REAL,                 -- куплено, тн
+    sold_t        REAL,                 -- продано, тн
+    revenue       REAL,                 -- выручка без НДС, руб
+    cost_of_sales REAL,                 -- себестоимость продаж (закупка + переработка), руб
+    share_pct     REAL,                 -- доля лота по реестру сделок на момент сборки
+    plan_rev_luk  REAL,                 -- план выручки книги, трек «лук» (весь лот)
+    plan_rev_dsp  REAL,
+    plan_t_luk    REAL,
+    plan_t_dsp    REAL,
+    plan_ver_luk  TEXT,
+    plan_ver_dsp  TEXT,
+    items_json    TEXT,                 -- [{code, name, bought_t, sold_t, revenue, warehouses}]
+    source_file   TEXT,
+    taken_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (bp_id, generated_at)
+);

@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, forms, geo,
+from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, factsnap, forms, geo,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -4652,6 +4652,8 @@ def planfact_page(request: Request, bp_id: int):
         "bp": bp,
         "variant": variant, "variant_label": calc.VARIANTS.get(variant),
         "pf": calc.plan_fact(bp_v, items_v, costs_v, sched_rows, fact_rows, conn),
+        # Факт из 1С — снимок «Реализации» (ночная сборка), против нашего P&L на долю.
+        "snap": factsnap.compare(conn, bp_v, items_v, calc.pnl(bp_v, items_v, costs_v, conn)),
         # факт вносится и после согласования БП
         "can_edit": role in ("economist", "director", "admin"),
     }

@@ -46,6 +46,87 @@
   </div>
 </div>
 
+
+<div class="card" id="fact-snapshot">
+  <div class="sec-head"><h2>Факт из 1С по сделке</h2>
+    <div class="sec-aside">
+      {% if snap['snapshot'] %}<span class="role-tag">снимок «Реализации» {{ snap['snapshot']['generated_at'] }}</span>
+      {% else %}<span class="role-tag">снимка нет</span>{% endif %}
+    </div>
+  </div>
+  {% if not snap['snapshot'] %}
+  <p class="muted">
+    {%- if not snap['deal_no'] %}Номер запроса в названии источника не найден — сделку не к чему привязать.
+    {%- else %}Сделка № {{ snap['deal_no'] }} в ночной сборке «Реализации» пока не встречается:
+      либо по ней ещё нет движений в 1С, либо снимок не загружался.{% endif %}</p>
+  {% else %}
+  {% set pl = snap['plan'] %}{% set f = snap['fact'] %}{% set r = snap['ratios'] %}
+  <p class="muted">Серия 1С «{{ snap['snapshot']['series_name'] }}», регистры на
+    {{ snap['snapshot']['dump_dt'] }}. План — наш расчёт на долю {{ '%g' % pl['share_pct'] }} %;
+    факт — выручка и себестоимость продаж из регистра 1С, куплено/продано по серии.</p>
+  <div class="summary-grid">
+    <div class="summary-tile">
+      <div class="label">Куплено, тн: факт / план</div>
+      <div class="value">{{ '%.1f' % f['bought_t'] }} / {{ '%.1f' % pl['purchase_t'] }}</div>
+      <div class="muted">{{ '%.0f' % r['bought_pct'] if r['bought_pct'] is not none else '—' }} % плана</div>
+    </div>
+    <div class="summary-tile">
+      <div class="label">Продано, тн: факт / план</div>
+      <div class="value">{{ '%.1f' % f['sold_t'] }} / {{ '%.1f' % pl['sale_t'] }}</div>
+      <div class="muted">{{ '%.0f' % r['sold_pct'] if r['sold_pct'] is not none else '—' }} % плана</div>
+    </div>
+    <div class="summary-tile {{ 'good' if r['revenue_pct'] is not none and r['revenue_pct'] >= 100 else '' }}">
+      <div class="label">Выручка без НДС: факт / план</div>
+      <div class="value">{{ money(f['revenue']) }}</div>
+      <div class="muted">план {{ money(pl['revenue']) }} · <b>{{ '%.0f' % r['revenue_pct'] if r['revenue_pct'] is not none else '—' }} %</b></div>
+    </div>
+    <div class="summary-tile">
+      <div class="label">Цена реализации, руб/тн: факт / план</div>
+      <div class="value">{{ '%.0f' % f['revenue_per_t'] }} / {{ '%.0f' % pl['revenue_per_t'] }}</div>
+      <div class="muted">{{ '%.0f' % r['price_pct'] if r['price_pct'] is not none else '—' }} % плана</div>
+    </div>
+    <div class="summary-tile">
+      <div class="label">Себестоимость продаж, факт</div>
+      <div class="value">{{ money(f['cost_of_sales']) }}</div>
+      <div class="muted">валовая маржа {{ '%.1f' % f['gross_pct'] if f['gross_pct'] is not none else '—' }} % (закупка и переработка одной суммой)</div>
+    </div>
+    {% if pl['book_luk'] or pl['book_dsp'] %}
+    <div class="summary-tile">
+      <div class="label">Книга экономиста × доля</div>
+      <div class="value muted" style="font-size:14px">
+        {% if pl['book_luk'] %}лук {{ money(pl['book_luk']) }} ({{ '%.0f' % r['book_luk_pct'] if r['book_luk_pct'] is not none else '—' }} %){% endif %}
+        {% if pl['book_dsp'] %}<br>дсп {{ money(pl['book_dsp']) }} ({{ '%.0f' % r['book_dsp_pct'] if r['book_dsp_pct'] is not none else '—' }} %){% endif %}</div>
+      <div class="muted">{{ pl['book_ver_dsp'] or pl['book_ver_luk'] }}</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Номенклатура 1С</th><th class="num">Куплено, тн</th><th class="num">Продано, тн</th>
+      <th class="num">Выручка факт</th><th class="num">Руб/тн факт</th><th class="num">План, тн</th><th class="num">Руб/тн план</th></tr></thead>
+    <tbody>
+    {% for it in snap['items'] %}
+    <tr {% if it.get('plan_only') %}class="muted"{% endif %}>
+      <td>{{ it['name'] }}{% if it['code'] %} <span class="muted">{{ it['code'] }}</span>{% endif %}
+        {% if it['warehouses'] %}<div class="muted">{% for w in it['warehouses'] %}{{ w[0] }} {{ '%.1f' % w[1] }}{{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}</td>
+      <td class="num">{{ '%.1f' % it['bought_t'] }}</td>
+      <td class="num">{{ '%.1f' % it['sold_t'] }}</td>
+      <td class="num">{{ money(it['revenue']) }}</td>
+      <td class="num">{{ '%.0f' % it['price_per_t'] if it['price_per_t'] is not none else '—' }}</td>
+      <td class="num">{{ '%.1f' % it['plan_t'] if it['plan_t'] is not none else '—' }}</td>
+      <td class="num">{{ '%.0f' % it['plan_price'] if it['plan_price'] is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if snap['history']|length > 1 %}
+  <p class="muted">Прежние снимки:
+    {% for h in snap['history'][1:] %}{{ h['generated_at'][:10] }} — продано {{ '%.1f' % h['sold_t'] }} тн, выручка {{ money(h['revenue']) }}{{ '; ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+  {% endif %}
+</div>
+
 {% if can_edit %}
 {# Загрузка факта из 1С: файл разбирается и показывается сводом, запись —
    отдельным подтверждением (факт правит уже согласованный БП). #}

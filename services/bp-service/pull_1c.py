@@ -17,9 +17,10 @@
 Драйвер — python-tds: он передаёт пароль в UTF-16 по спецификации TDS, как
 драйвер Microsoft; pymssql с кириллицей в пароле получает отказ 18456.
 
-После таблиц 1С подхватывается реестр сделок Битрикса `DEAL_*.xlsx` из
-папки `BP_NEIGHBOR_DIR` (в контейнере — `/neighbor`, это `data/` «Реализации»,
-куда парсер Битрикса кладёт выгрузку): доля лота по каждому БП.
+После таблиц 1С подхватываются данные соседа — сервиса «Реализация», чей
+каталог смонтирован в контейнер как `BP_NEIGHBOR_DIR` (`/neighbor`):
+  data/DEAL_*.xlsx       реестр сделок Битрикса → доля лота по каждому БП;
+  out/sales_data.json    ночная сборка факта → снимок план/факт по каждому БП.
 
 Итог каждой выгрузки пишется в `1c/_last_pull.json` — его показывает
 страница «Справочники».
@@ -55,6 +56,8 @@ TABLES: list[tuple[str, str]] = [
 ]
 DEFAULT_FOLDER = "1c"
 NEIGHBOR_DIR = os.environ.get("BP_NEIGHBOR_DIR", "/neighbor")
+DEALS_DIR = os.path.join(NEIGHBOR_DIR, "data")
+FACT_JSON = os.path.join(NEIGHBOR_DIR, "out", "sales_data.json")
 STATUS_FILE = "_last_pull.json"
 _SAFE_TABLE = re.compile(r"^[\w .\-]+$")
 
@@ -193,9 +196,9 @@ def pull_deals(dry: bool = False) -> dict:
     """Реестр сделок Битрикса: самый свежий DEAL_*.xlsx из папки соседа → ref_deals,
     затем доля лота по всем БП. -> {file, rows, applied, error}."""
     from app import deals
-    path = deals.newest(NEIGHBOR_DIR) if os.path.isdir(NEIGHBOR_DIR) else None
+    path = deals.newest(DEALS_DIR) if os.path.isdir(DEALS_DIR) else None
     if path is None:
-        return {"file": None, "error": f"DEAL_*.xlsx не найден в {NEIGHBOR_DIR}"}
+        return {"file": None, "error": f"DEAL_*.xlsx не найден в {DEALS_DIR}"}
     if dry:
         return {"file": path.name, "rows": None, "applied": None}
     from app.db import connect, init_db
@@ -216,6 +219,29 @@ def pull_deals(dry: bool = False) -> dict:
         conn.close()
 
 
+def pull_fact(dry: bool = False) -> dict:
+    """Снимок факта реализации из сборки «Реализации» → bp_fact_snapshot."""
+    if not os.path.isfile(FACT_JSON):
+        return {"file": None, "error": f"нет файла {FACT_JSON}"}
+    if dry:
+        return {"file": os.path.basename(FACT_JSON)}
+    from app import factsnap
+    from app.db import connect, init_db
+    init_db()
+    conn = connect()
+    try:
+        st = factsnap.import_file(conn, FACT_JSON)
+        conn.commit()
+        print(f"  снимок «Реализации» {st['generated']}: БП в файле {st['bps_in_file']}, "
+              f"наших с фактом {st['matched']}")
+        return {"file": os.path.basename(FACT_JSON), **st}
+    except Exception as e:
+        print(f"  ОШИБКА снимка факта: {type(e).__name__}: {e}")
+        return {"file": os.path.basename(FACT_JSON), "error": f"{type(e).__name__}: {e}"}
+    finally:
+        conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="выгрузка 1С из MSSQL Extractor и импорт")
     ap.add_argument("--folder", default=DEFAULT_FOLDER, help="куда класть CSV (по умолчанию 1c/)")
@@ -228,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     status = pull(folder, set(a.only) if a.only else None, a.keep)
     status["imported"] = False
     status["deals"] = pull_deals(a.no_import)
+    status["fact"] = pull_fact(a.no_import)
     if not a.no_import and status["tables"]:
         from import_1c_csv import import_all
         try:
@@ -238,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ОШИБКА импорта: {type(e).__name__}: {e}")
     if status["deals"].get("error"):
         status["errors"].append("реестр сделок: " + status["deals"]["error"])
+    if status["fact"].get("error"):
+        status["errors"].append("снимок факта: " + status["fact"]["error"])
     status["finished_at"] = dt.datetime.now().isoformat(timespec="seconds")
     write_status(folder, status)
     if status["errors"]:

@@ -171,8 +171,9 @@ services:
     environment: { <<: *env, BP_ALLOWED_NETWORKS: "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12", BP_NEIGHBOR_DIR: /neighbor }
     volumes:
       - ${DATA_ROOT:-./data}/bp-service:/data
-      # реестр сделок Битрикса (DEAL_*.xlsx) и выгрузки реализации — только чтение
-      - ${DATA_ROOT:-./data}/metoptorg-realizaciya/data:/neighbor:ro
+      # сосед «Реализация», только чтение: data/DEAL_*.xlsx (доля лота),
+      # out/sales_data.json (ночной факт по сделкам → план/факт)
+      - ${DATA_ROOT:-./data}/metoptorg-realizaciya:/neighbor:ro
     ports: ["8093:8093"]
     healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8093/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
 
