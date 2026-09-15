@@ -30,6 +30,9 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(BASE, "web")
 
 HOST = os.environ.get("PORTAL_HOST", "0.0.0.0")
+# Откуда проверять живость сервисов. На одном хосте — 127.0.0.1; в Docker портал
+# сидит в своём контейнере, и соседей надо проверять по адресу хоста (PORTAL_PROBE_HOST).
+PROBE_HOST = os.environ.get("PORTAL_PROBE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORTAL_PORT", "8079"))
 USER = os.environ.get("PORTAL_USER", "")
 PASSWORD = os.environ.get("PORTAL_PASSWORD", "")
@@ -66,7 +69,7 @@ def probe(port, timeout=1.2):
     """Жив ли сервис. Только TCP-коннект: HTTP-запрос потребовал бы авторизации,
     а пароли сервисов порталу не принадлежат и знать он их не должен."""
     try:
-        with socket.create_connection(("127.0.0.1", int(port)), timeout=timeout):
+        with socket.create_connection((PROBE_HOST, int(port)), timeout=timeout):
             return True
     except Exception:
         return False
