@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, bp_types, calc, cost_matrix, fact_import, forms, geo,
+from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, forms, geo,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -1734,6 +1734,8 @@ def bp_base(request: Request, conn, bp_id: int, tab: str):
         "bp_type_list": bp_types.all_types(conn),
         "bp_type_row": bp_types.by_code(conn, bp["bp_type"]),
         "bp_type_detected": bp_types.detect(conn, items),
+        # Доля лота: наша часть сделки по реестру Битрикса или заданная вручную.
+        "lot_share": deals.describe(conn, bp),
         **readiness.build(bp_gaps(conn, bp, items, costs, pnl, variant), tab),
     }
     return ctx, bp, items, costs, variant
@@ -2241,6 +2243,48 @@ def set_bp_type(request: Request, bp_id: int, bp_type: str = Form("")):
         msg = (f"Тип сделки задан вручную: {bp_types.label(conn, code)}."
                if code else "Тип сделки снят.")
         log(conn, actor(request), bp_id, "bp_type_manual", code or "снят")
+    conn.commit()
+    conn.close()
+    return back(request, bp_id, msg)
+
+
+@app.post("/bp/{bp_id}/share")
+def set_lot_share(request: Request, bp_id: int, lot_share_pct: str = Form("")):
+    """Доля лота: число из шапки или возврат к реестру сделок («auto»).
+
+    Ручная доля не перетирается импортом реестра — экономист может знать о
+    договорённости с партнёром раньше, чем она появится в Битриксе.
+    """
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("header", role, bp["status"]):
+        conn.close()
+        return back(request, bp_id, "Нет прав на изменение шапки сделки.")
+    raw = (lot_share_pct or "").strip().replace(",", ".").replace("%", "")
+    if raw in ("", "auto"):
+        deals.set_manual(conn, bp_id, None)
+        info = deals.describe(conn, bp)
+        res = deals.apply_auto(conn, bp_id)
+        if res.get("found") and res.get("share_pct") is not None:
+            msg = f"Доля лота взята из реестра сделок: {res['share_pct']:g} % (сделка № {res['deal_no']})."
+        else:
+            msg = ("Сделка в реестре не найдена, доля не задана — считаем весь лот своим."
+                   if info["registry_rows"] else
+                   "Реестр сделок ещё не загружен — считаем весь лот своим.")
+        log(conn, actor(request), bp_id, "lot_share_auto", str(res.get("share_pct")))
+    else:
+        try:
+            pct = float(raw)
+        except ValueError:
+            conn.close()
+            return back(request, bp_id, "Доля лота должна быть числом процентов, например 50.")
+        if not 0 < pct <= 100:
+            conn.close()
+            return back(request, bp_id, "Доля лота — от 0 до 100 процентов.")
+        deals.set_manual(conn, bp_id, pct)
+        msg = f"Доля лота задана вручную: {pct:g} %."
+        log(conn, actor(request), bp_id, "lot_share_manual", f"{pct:g}")
     conn.commit()
     conn.close()
     return back(request, bp_id, msg)
@@ -3020,6 +3064,12 @@ async def upload_list(request: Request, bp_id: int, file: UploadFile,
     if detected.get("written") and detected.get("code"):
         log(conn, actor(request), bp_id, "bp_type_auto",
             f"{detected['code']}: {detected['reason']}")
+    # Доля лота из реестра сделок Битрикса — по номеру запроса в названии
+    # файла или перечня; ручная доля не перетирается.
+    share_res = deals.apply_auto(conn, bp_id)
+    if share_res.get("written"):
+        log(conn, actor(request), bp_id, "lot_share_auto",
+            f"{share_res.get('share_pct')} (сделка {share_res.get('deal_no')})")
     # Подписи берём до закрытия соединения: сообщение собирается ниже.
     type_label = bp_types.label(conn, detected.get("code"))
     kept_label = bp_types.label(conn, detected.get("kept"))
@@ -3027,6 +3077,9 @@ async def upload_list(request: Request, bp_id: int, file: UploadFile,
     conn.commit()
     conn.close()
     msg = f"Загружено позиций: {len(parsed)}, сопоставлено с 1С: {matched}."
+    if share_res.get("found") and share_res.get("share_pct") is not None:
+        msg += (f" Доля лота по реестру сделок: {share_res['share_pct']:g} %"
+                f"{' (в шапке задана вручную, оставлена)' if share_res.get('kept') else ''}.")
     if detected.get("code"):
         if detected.get("written"):
             msg += f" Тип сделки определён: {type_label} — {detected['reason']}"

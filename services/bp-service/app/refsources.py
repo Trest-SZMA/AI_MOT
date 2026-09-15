@@ -22,6 +22,7 @@ DERIVED = "считается сервисом"
 # раз в полгода.
 REGISTRY = [
     ("ref_nomenclature_1c", "Номенклатура 1С", EXPORT, "ref_nomenclature_1c", None, 30),
+    ("ref_deals", "Сделки Битрикса: доля лота", EXPORT, "ref_deals", None, 7),
     ("ref_nomen_groups", "Группы аналитического учёта", EXPORT, "ref_nomen_groups", None, 90),
     ("ref_counterparties", "Контрагенты", EXPORT, "ref_counterparties", None, 30),
     ("ref_warehouses", "Склады", EXPORT, "ref_warehouses", None, 90),

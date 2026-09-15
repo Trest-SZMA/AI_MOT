@@ -17,6 +17,10 @@
 Драйвер — python-tds: он передаёт пароль в UTF-16 по спецификации TDS, как
 драйвер Microsoft; pymssql с кириллицей в пароле получает отказ 18456.
 
+После таблиц 1С подхватывается реестр сделок Битрикса `DEAL_*.xlsx` из
+папки `BP_NEIGHBOR_DIR` (в контейнере — `/neighbor`, это `data/` «Реализации»,
+куда парсер Битрикса кладёт выгрузку): доля лота по каждому БП.
+
 Итог каждой выгрузки пишется в `1c/_last_pull.json` — его показывает
 страница «Справочники».
 """
@@ -50,6 +54,7 @@ TABLES: list[tuple[str, str]] = [
     ("ТС", "ТС"),
 ]
 DEFAULT_FOLDER = "1c"
+NEIGHBOR_DIR = os.environ.get("BP_NEIGHBOR_DIR", "/neighbor")
 STATUS_FILE = "_last_pull.json"
 _SAFE_TABLE = re.compile(r"^[\w .\-]+$")
 
@@ -184,6 +189,33 @@ def read_status(folder: str | Path) -> dict | None:
         return None
 
 
+def pull_deals(dry: bool = False) -> dict:
+    """Реестр сделок Битрикса: самый свежий DEAL_*.xlsx из папки соседа → ref_deals,
+    затем доля лота по всем БП. -> {file, rows, applied, error}."""
+    from app import deals
+    path = deals.newest(NEIGHBOR_DIR) if os.path.isdir(NEIGHBOR_DIR) else None
+    if path is None:
+        return {"file": None, "error": f"DEAL_*.xlsx не найден в {NEIGHBOR_DIR}"}
+    if dry:
+        return {"file": path.name, "rows": None, "applied": None}
+    from app.db import connect, init_db
+    init_db()
+    conn = connect()
+    try:
+        st = deals.import_file(conn, path)
+        applied = deals.apply_all(conn)
+        conn.commit()
+        print(f"  сделки Битрикса: {path.name}: {st['written']} с номером, "
+              f"{st['with_share']} с долей; доля проставлена у {applied['written']} БП")
+        return {"file": path.name, "rows": st["written"], "with_share": st["with_share"],
+                "applied": applied["written"]}
+    except Exception as e:
+        print(f"  ОШИБКА реестра сделок: {type(e).__name__}: {e}")
+        return {"file": path.name, "error": f"{type(e).__name__}: {e}"}
+    finally:
+        conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="выгрузка 1С из MSSQL Extractor и импорт")
     ap.add_argument("--folder", default=DEFAULT_FOLDER, help="куда класть CSV (по умолчанию 1c/)")
@@ -195,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Выгрузка из {settings()['host']}/{settings()['database']} в {folder.resolve()}")
     status = pull(folder, set(a.only) if a.only else None, a.keep)
     status["imported"] = False
+    status["deals"] = pull_deals(a.no_import)
     if not a.no_import and status["tables"]:
         from import_1c_csv import import_all
         try:
@@ -203,6 +236,8 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             status["errors"].append(f"импорт: {type(e).__name__}: {e}")
             print(f"ОШИБКА импорта: {type(e).__name__}: {e}")
+    if status["deals"].get("error"):
+        status["errors"].append("реестр сделок: " + status["deals"]["error"])
     status["finished_at"] = dt.datetime.now().isoformat(timespec="seconds")
     write_status(folder, status)
     if status["errors"]:

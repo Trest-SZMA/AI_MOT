@@ -7,6 +7,53 @@
       {% if not can_edit['header'] %}<span class="lock-tag">{{ icon('lock', 'icon-s') }} Только чтение</span>{% endif %}
     </div>
   </div>
+  <div class="bp-type bp-share" id="lot-share">
+    <form method="post" action="/bp/{{ bp['id'] }}/share" class="bp-type-form">
+      <div><label>Доля лота, %</label>
+        <input type="text" name="lot_share_pct" inputmode="decimal" size="6"
+               value="{{ '%g' % lot_share['pct'] if lot_share['pct'] is not none else '' }}"
+               placeholder="100" {% if not can_edit['header'] %}disabled{% endif %}
+               data-tip="Наша часть сделки. Половина лотов делится с партнёром
+               (УВМ) пополам: объёмы, выручка, закупка и капитал считаются на
+               долю. Берётся из реестра сделок Битрикса по номеру запроса;
+               введённое вручную реестром не перетирается. Пусто — вернуться
+               к реестру."></div>
+      {% if can_edit['header'] %}
+      <div class="bp-type-actions"><button type="submit">{{ icon('save') }} Задать долю</button></div>
+      {% endif %}
+    </form>
+    <div class="bp-type-note">
+      <span class="role-tag">
+        {%- if lot_share['source'] == 'manual' %}задана вручную
+        {%- elif lot_share['source'] == 'deal' %}из реестра сделок
+        {%- else %}весь лот наш{% endif -%}
+      </span>
+      {% if lot_share['deal'] %}
+      <div class="muted">Сделка № {{ lot_share['deal_no'] }}:
+        {{ lot_share['deal']['name'] }}{% if lot_share['deal']['stage'] %}, {{ lot_share['deal']['stage']|lower }}{% endif %}.
+        Доля Металлолом {{ '%g' % lot_share['deal']['share_pct'] if lot_share['deal']['share_pct'] is not none else '—' }} %,
+        УВМ {{ '%g' % lot_share['deal']['partner_pct'] if lot_share['deal']['partner_pct'] is not none else '—' }} %{% if lot_share['deal']['winner'] %},
+        КП выиграло {{ lot_share['deal']['winner'] }}{% endif %}.</div>
+      {% if lot_share['doubt'] %}
+      <div class="warn-note">{{ icon('warn', 'icon-s') }} В реестре доля помечена знаком вопроса — уточнить у менеджера.</div>
+      {% endif %}
+      {% if lot_share['differs'] %}
+      <div class="warn-note">{{ icon('warn', 'icon-s') }} В реестре сделок доля
+        {{ '%g' % lot_share['deal']['share_pct'] }} %, в шапке — {{ '%g' % lot_share['pct'] }} %.</div>
+      {% endif %}
+      {% elif lot_share['deal_no'] %}
+      <div class="muted">Сделка № {{ lot_share['deal_no'] }} в реестре Битрикса не найдена
+        {%- if not lot_share['registry_rows'] %} (реестр ещё не загружен){% endif %}.</div>
+      {% else %}
+      <div class="muted">Номер запроса в названии источника не найден — сделка к реестру не привязана.</div>
+      {% endif %}
+      {% if lot_share['effective'] < 100 %}
+      <div class="muted">Расчёт ведётся на {{ '%g' % lot_share['effective'] }} % лота:
+        объёмы позиций, выручка, стоимость лота и база капитала. Суммы статей,
+        введённые вручную, не делятся.</div>
+      {% endif %}
+    </div>
+  </div>
   <div class="bp-type">
     <form method="post" action="/bp/{{ bp['id'] }}/type" class="bp-type-form">
       <div><label>Тип сделки</label>

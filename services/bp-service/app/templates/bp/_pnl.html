@@ -28,7 +28,8 @@
     {% endfor %}
     <tr><td data-tip="Закупка лотом: цена руб/тн = стоимость лота / суммарный тоннаж позиций; стоимость распределяется на позиции пропорционально объёму. Стоимость лота задаётся в блоке «Лот» (порог закупки/итог аукциона)."><b>2. Себестоимость закупки (лот)</b></td>
         <td class="calc num">{{ '%.1f' % pnl['purchase_volume'] }}</td>
-        <td class="calc num">{{ money(pnl['lot_cost']) }}</td>
+        <td class="calc num">{{ money(pnl['lot_cost']) }}{% if pnl['lot_share_pct'] < 100 %}
+          <div class="muted">доля {{ '%g' % pnl['lot_share_pct'] }} %</div>{% endif %}</td>
         <td class="calc num">{{ '%.0f' % pnl['purchase_price_per_t'] }}</td></tr>
     <tr><td class="indent-1">закупка с НДС (по типам)</td><td></td>
         <td class="calc num">{{ money(pnl['purchase_cost_vat']) }}</td><td></td></tr>

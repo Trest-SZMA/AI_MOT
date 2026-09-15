@@ -176,6 +176,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("bp_type", "ALTER TABLE business_plans ADD COLUMN bp_type TEXT"),
         ("bp_type_source", "ALTER TABLE business_plans ADD COLUMN "
                            "bp_type_source TEXT"),
+        # Доля лота (15.09.2026): сделка может делиться с партнёром.
+        ("lot_share_pct", "ALTER TABLE business_plans ADD COLUMN lot_share_pct REAL"),
+        ("lot_share_source", "ALTER TABLE business_plans ADD COLUMN lot_share_source TEXT"),
+        ("deal_no", "ALTER TABLE business_plans ADD COLUMN deal_no TEXT"),
+        ("deal_partner_pct", "ALTER TABLE business_plans ADD COLUMN deal_partner_pct REAL"),
+        ("deal_winner", "ALTER TABLE business_plans ADD COLUMN deal_winner TEXT"),
+        ("deal_stage", "ALTER TABLE business_plans ADD COLUMN deal_stage TEXT"),
     ]:
         if col not in bp_cols:
             conn.execute(ddl)

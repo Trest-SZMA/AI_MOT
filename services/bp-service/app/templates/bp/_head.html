@@ -143,7 +143,7 @@
   <div class="kpi" data-tip="Стоимость закупки лота без НДС (порог закупки или итог аукциона). Цена закупки руб/тн = лот / суммарный тоннаж — распределяется на позиции пропорционально объёму.">
     <div class="k-label">Стоимость лота</div>
     <div class="k-value"><span data-kpi="lot_cost">{{ money(pnl['lot_cost']) }}</span> <span class="k-unit">руб</span></div>
-    <div class="k-sub"><span data-kpi="purchase_price_per_t" data-fmt="0">{{ '%.0f' % pnl['purchase_price_per_t'] }}</span> руб/тн закупки</div>
+    <div class="k-sub"><span data-kpi="purchase_price_per_t" data-fmt="0">{{ '%.0f' % pnl['purchase_price_per_t'] }}</span> руб/тн закупки{% if pnl['lot_share_pct'] < 100 %} · доля {{ '%g' % pnl['lot_share_pct'] }} %{% endif %}</div>
   </div>
   {# Лестница считается 30 пересчётами P&L, поэтому она есть только на
      вкладке «Экономика». На остальных вкладках плитка ведёт туда. #}

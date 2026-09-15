@@ -184,11 +184,26 @@ def item_rows(bp: sqlite3.Row, items: list[sqlite3.Row],
     # цена, отгрузка, засор). Строки свои у каждого варианта расчёта.
     sales = sales_by_item(bp, items, conn)
 
+    # Доля лота: сделка может делиться с партнёром (УВМ) — тогда мы покупаем
+    # и продаём только свою часть каждой позиции. Цена закупки руб/тн от доли
+    # не зависит (лот / полный тоннаж), объёмы и суммы — на долю.
+    share = lot_share(bp)
     rows = []
     for it in items:
         for line in split_item(it, sales.get(it["id"])):
+            if share != 1.0:
+                line = _to_dict(line)
+                line["volume_t"] = _f(line.get("volume_t")) * share
             rows.append(_item_row(line, bp, price, contamination, vat))
     return rows
+
+
+def lot_share(bp) -> float:
+    """Наша доля лота как множитель 0..1 (NULL / 0 / пусто = весь лот)."""
+    pct = _f(_row_get(bp, "lot_share_pct"))
+    if pct <= 0 or pct >= 100:
+        return 1.0
+    return pct / 100.0
 
 
 def sales_by_item(bp, items: list, conn: sqlite3.Connection) -> dict[int, list]:
@@ -327,6 +342,25 @@ def capital_schedule(base: float, annual_rate: float, months: float,
                          "span": span, "interest": balance * monthly * span})
         elapsed += span
     return schedule
+
+
+def share_costs(bp, costs: list) -> list:
+    """Статьи затрат на нашу долю лота: суммы в bp_costs (и модельные, и
+    введённые вручную) задаются на весь лот, как и книга экономиста, поэтому
+    при доле < 100 % каждая сумма делится так же, как выручка и закупка.
+    Повторного деления нет: у уже поделённых строк стоит признак _shared."""
+    share = lot_share(bp)
+    if share == 1.0 or not costs:
+        return costs
+    out = []
+    for c in costs:
+        if _row_get(c, "_shared"):
+            return costs
+        d = _to_dict(c)
+        d["amount"] = _f(d.get("amount")) * share
+        d["_shared"] = 1
+        out.append(d)
+    return out
 
 
 def _cost_sum(costs: list[sqlite3.Row], section: str) -> float:
@@ -472,6 +506,7 @@ def _cost_scope(rows: list[dict], cost, edges: dict[int, dict]) -> list[int]:
 def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
         conn: sqlite3.Connection) -> dict:
     """Отчёт о прибылях и убытках по утверждённой структуре."""
+    costs = share_costs(bp, costs)          # доля лота — и на статьи затрат
     rows = item_rows(bp, items, conn)
     vat = rate(bp, "vat_rate", conn, 20.0) / 100.0
     cap_rate = rate(bp, "capital_rate", conn, 25.0) / 100.0
@@ -490,7 +525,8 @@ def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
         by_type[t] = {"volume": sum(r["sale_volume_t"] for r in sel),
                       "revenue": sum(r["revenue"] for r in sel)}
 
-    lot_cost = _f(bp["lot_cost"])
+    share = lot_share(bp)
+    lot_cost = _f(bp["lot_cost"]) * share            # закупка — на нашу долю
     purchase_cost_vat = sum(r["purchase_cost_vat"] for r in rows)
     # Невозмещённый НДС: на затраты относится доля — параметр сценария БП
     # (1865 и 1674-базовый — 50%, 1674 «минус 1000» — 30%), по умолчанию
@@ -531,7 +567,8 @@ def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
 
     # База капитала: по умолчанию закупка с НДС; экономист может задать свою
     # (БП 1785: «стоимость закупа» без меди — медь оплачивает покупатель).
-    capital_base_v = _f(_row_get(bp, "capital_base")) or purchase_cost_vat
+    # База капитала задаётся на весь лот — как и его стоимость — и делится так же.
+    capital_base_v = _f(_row_get(bp, "capital_base")) * share or purchase_cost_vat
     # Отсрочка оплаты покупателем: деньги приходят через N месяцев после
     # отгрузки — капитал держится дольше срока вывоза.
     payment_delay = _f(_row_get(bp, "payment_delay_months"))
@@ -616,6 +653,7 @@ def pnl(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row],
         "removal_months": months,
         "payment_delay_months": payment_delay,
         "capital_base": capital_base_v,
+        "lot_share_pct": round(share * 100.0, 2),
         "capital_schedule": schedule,
         "capital_cost": capital_cost,
         "profit_before_tax": profit_before_tax,
@@ -644,6 +682,7 @@ def base_pnl(bp, items: list, costs: list, conn: sqlite3.Connection,
     {этап: {база: сумма}}. Без них логистика и переработка берутся из общей
     аллокации затрат на позиции.
     """
+    costs = share_costs(bp, costs)
     p = pnl(bp, items, costs, conn)
     stages = stages or {}
 
@@ -1124,6 +1163,7 @@ def plan_fact(bp: sqlite3.Row, items: list[sqlite3.Row], costs: list[sqlite3.Row
     # раскладывается по месяцам пропорционально плановой реализации, в
     # рублях и руб/тн; колонка ИТОГО сверяется с P&L сделки.
     sale_total = p["sale_volume"] or 0.0
+    costs = share_costs(bp, costs)
     section_sum = {s: sum(_f(c["amount"]) for c in costs if c["section"] == s)
                    for s in ("Переменные", "Персонал", "Постоянные",
                              "Административные", "Прочие")}

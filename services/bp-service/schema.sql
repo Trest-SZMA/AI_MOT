@@ -283,6 +283,16 @@ CREATE TABLE IF NOT EXISTS business_plans (
     recommendation    TEXT,
     economist_comment TEXT,
     clarify_notes     TEXT
+    -- Доля лота (шаг 2 разбора «Реализации», 15.09.2026): половина сделок
+    -- делится с партнёром (УВМ). План выручки, закупка и капитал считаются
+    -- на нашу долю. NULL = 100 %. Источник: 'deal' (реестр сделок Битрикса)
+    -- или 'manual' (задано в шапке и не перетирается импортом).
+    lot_share_pct     REAL,
+    lot_share_source  TEXT,
+    deal_no           TEXT,      -- «№ в текущем реестре» сделки Битрикса
+    deal_partner_pct  REAL,      -- доля УВМ
+    deal_winner       TEXT,      -- юрлицо, выигравшее КП (МОТ/УВМ/ИВЦ)
+    deal_stage        TEXT
 );
 
 -- Позиции лота: привязка к поставщику/подразделению/месту хранения.
@@ -950,3 +960,23 @@ CREATE TABLE IF NOT EXISTS stat_overheads (
     UNIQUE (period, division, item)
 );
 CREATE INDEX IF NOT EXISTS idx_stat_overheads_div ON stat_overheads(division);
+
+-- Реестр сделок Битрикса (DEAL_*.xlsx, та же выгрузка, что у «Реализации»):
+-- доля лота, партнёр, юрлицо-победитель, стадия. Ключ — «№ в текущем реестре»
+-- (номер запроса: 1570, 1865 …), по нему сделка привязывается к БП.
+CREATE TABLE IF NOT EXISTS ref_deals (
+    deal_no       TEXT PRIMARY KEY,
+    name          TEXT,
+    kind          TEXT,           -- «Тип» сделки (Лукойл, …)
+    stage         TEXT,
+    share_pct     REAL,           -- доля Металлолом, %
+    share_doubt   INTEGER NOT NULL DEFAULT 0,   -- в реестре стоял «?»
+    partner_pct   REAL,           -- доля УВМ, %
+    winner        TEXT,
+    lot_t         REAL,           -- объём лота из запроса, тн
+    contract_t    REAL,
+    owner         TEXT,           -- ответственный в Битриксе
+    created_at    TEXT,
+    source_file   TEXT,
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
