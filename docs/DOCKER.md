@@ -28,6 +28,21 @@ deploy/docker/tools/         entrypoint, ночная пересборка, бэ
 - 4 ГБ RAM минимум (realizaciya и ostatki ограничены 3 ГБ каждый), 40 ГБ диска.
 - Сеть с хоста: MSSQL `10.100.1.110:1433`, `botapi.max.ru`, `api.perplexity.ai`, `cbr.ru`, Битрикс, Docker Hub (для сборки образов).
 
+## Сеть: проверка MTU (важно в Proxmox/LXC)
+
+Если у хоста путь в интернет идёт через VLAN или туннель с MTU меньше 1500, часть HTTPS-сайтов
+(botapi.max.ru, cbr.ru, api.perplexity.ai) будет **молча зависать** — бот ЛогистМОТ не получает
+события, скрапер metallompro не работает. Проверка на хосте:
+
+```bash
+ping -c1 -M do -s 1472 8.8.8.8     # FAIL → MTU меньше 1500
+ping -c1 -M do -s 1400 8.8.8.8     # OK  → ставим 1400
+```
+
+Тогда: в Proxmox у контейнера Network → net0 → MTU = 1450 (постоянно), и в `.env`
+`DOCKER_MTU=1400`, затем `docker compose down && docker compose up -d` (сеть пересоздаётся).
+На сервере AI-MOT это уже сделано (путь = 1488).
+
 ## Установка
 
 ```bash
