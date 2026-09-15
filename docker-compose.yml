@@ -220,4 +220,9 @@ services:
     healthcheck: { test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8095/ || exit 1"], interval: 30s, timeout: 10s, retries: 3 }
 
 networks:
-  ai_mot: {}
+  ai_mot:
+    driver: bridge
+    driver_opts:
+      # MTU внутренней сети. Если у хоста путь в интернет с MTU < 1500 (VLAN/туннель),
+      # без этого HTTPS к части сайтов (MAX, cbr.ru) молча зависает. Задать в .env: DOCKER_MTU=1400
+      com.docker.network.driver.mtu: "${DOCKER_MTU:-1500}"
