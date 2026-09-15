@@ -54,6 +54,25 @@
       {% endif %}
     </div>
   </div>
+  <div class="bp-type bp-site" id="site">
+    <form method="post" action="/bp/{{ bp['id'] }}/site" class="bp-type-form">
+      <div><label>Площадка компании</label>
+        <select name="site" {% if not can_edit['header'] %}disabled{% endif %}
+                data-tip="Площадка из справочника «Цеха и базы» 1С: по ней берётся фактическая ставка распределяемых расходов (ФОТ, амортизация, аренда, охрана). По умолчанию определяется по регистру затрат — где по серии сделки проведено больше всего затрат.">
+          <option value="auto" {% if not site_info['current'] or site_info['current'] == 'auto' %}selected{% endif %}>По факту{% if site_info['detected']['site'] %}: {{ site_info['detected']['site'] }}{% endif %}</option>
+          {% for s in site_info['sites'] %}
+          <option value="{{ s }}" {% if site_info['current'] == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select></div>
+      {% if can_edit['header'] %}
+      <div class="bp-type-actions"><button type="submit">{{ icon('save') }} Задать площадку</button></div>
+      {% endif %}
+    </form>
+    <div class="bp-type-note">
+      <span class="role-tag">{{ 'задана вручную' if site_info['current'] and site_info['current'] != 'auto' else 'по факту' }}</span>
+      <div class="muted">{{ site_info['detected']['reason'] }}</div>
+    </div>
+  </div>
   <div class="bp-type">
     <form method="post" action="/bp/{{ bp['id'] }}/type" class="bp-type-form">
       <div><label>Тип сделки</label>

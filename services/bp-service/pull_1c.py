@@ -53,6 +53,9 @@ TABLES: list[tuple[str, str]] = [
     ("_Выручка_на_загрузку_", "Выручка на загрузку"),
     ("_Распределение_прочих_расходов_", "Распределение прочих расходов"),
     ("ТС", "ТС"),
+    ("Контрагенты", "Контрагенты"),
+    ("ГруппыАналитическогоУчетаНоменклатуры", "ГруппыАналитическогоУчетаНоменклатуры"),
+    ("УстановкаТранспортныхСтавокУчетМеталлоломаСтавки", "УстановкаТранспортныхСтавокУчетМеталлоломаСтавки"),
 ]
 DEFAULT_FOLDER = "1c"
 NEIGHBOR_DIR = os.environ.get("BP_NEIGHBOR_DIR", "/neighbor")
@@ -380,6 +383,13 @@ def pull_fact(dry: bool = False) -> dict:
             nc = norm_calib.build(conn)
             conn.commit()
             print(f"  калибровка нормативов: {nc['written']} фактов")
+        # Архив книг экономистов (парсер Битрикса) — «что закладывали» по всем сделкам.
+        from app import book_archive
+        ba_path = book_archive.newest(DEALS_DIR)
+        if ba_path is not None:
+            ba = book_archive.build(conn, ba_path, FACT_JSON)
+            conn.commit()
+            print(f"  архив книг: {ba['versions']} версий, {ba['deals']} сделок, типов {ba['types']}")
             print(f"  факт затрат: {fc['series']} серий, {fc['rows']} строк, "
                   f"{round(fc['amount'] / 1e6, 1)} млн; не сопоставлено статей: {len(fc['unmapped'])}; "
                   f"матрица: {cm['rows']} строк из {cm['observations']} наблюдений")

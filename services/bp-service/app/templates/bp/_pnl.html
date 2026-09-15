@@ -12,6 +12,10 @@
     <span class="metric">ROS <b class="{{ 'pos' if pnl['above_threshold'] else 'neg' }}">{{ '%.1f' % pnl['ros_pct'] }}%</b></span>
     <span class="metric">Порог {{ '%.0f' % pnl['margin_threshold'] }}% <b>{{ 'выше' if pnl['above_threshold'] else 'ниже' }}</b></span>
     <span class="metric" data-tip="Валовая маржа производства: (выручка − закупка − переменные) / выручка. Это то, что регистр 1С показывает как «выручка − себестоимость продаж», поэтому сравнимо с фактом по сделкам того же типа из «Реализации».">Валовая маржа <b>{{ '%.1f' % pnl['gross_margin_pct'] }}%</b></span>
+    {% if book_type_plan %}
+    <span class="metric" data-tip="Архив книг экономистов (парсер Битрикса), {{ book_type_plan['n'] }} сделок этого типа, последняя версия каждой: медиана доли затрат в выручке и валовой маржи плана. Столько закладывали до нас.">
+      В книгах закладывали: затраты <b>{{ '%.0f' % book_type_plan['costs_pct'] }}%</b> выручки, валовая {{ '%.0f' % book_type_plan['gross_pct'] }}%</span>
+    {% endif %}
     {% if pnl['type_fact'] %}
     <span class="metric {{ 'neg' if pnl['type_fact']['position'] == 'below_p25' else '' }}"
           data-tip="Факт по {{ pnl['type_fact']['n'] }} закрытым сделкам {{ 'всех типов' if pnl['type_fact']['by_all'] else 'этого типа' }} (сборка «Реализации» {{ pnl['type_fact']['generated_at'] }}): четверть сделок ниже {{ '%.0f' % pnl['type_fact']['p25'] if pnl['type_fact']['p25'] is not none else '—' }} %, медиана {{ '%.0f' % pnl['type_fact']['median'] }} %, четверть выше {{ '%.0f' % pnl['type_fact']['p75'] if pnl['type_fact']['p75'] is not none else '—' }} %.">

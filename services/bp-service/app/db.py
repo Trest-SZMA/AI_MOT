@@ -183,6 +183,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("deal_partner_pct", "ALTER TABLE business_plans ADD COLUMN deal_partner_pct REAL"),
         ("deal_winner", "ALTER TABLE business_plans ADD COLUMN deal_winner TEXT"),
         ("deal_stage", "ALTER TABLE business_plans ADD COLUMN deal_stage TEXT"),
+        ("site", "ALTER TABLE business_plans ADD COLUMN site TEXT"),
+        ("site_source", "ALTER TABLE business_plans ADD COLUMN site_source TEXT"),
     ]:
         if col not in bp_cols:
             conn.execute(ddl)

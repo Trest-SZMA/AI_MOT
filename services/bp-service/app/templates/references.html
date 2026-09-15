@@ -197,38 +197,52 @@
       {% endif %}
     </div>
   </summary>
-  <p class="muted">Какую валовую маржу продаж (выручка − себестоимость продаж) на самом
-    деле дают сделки каждого типа — по всем бизнес-планам компании из ночной
-    сборки «Реализации», а не только по нашим. Берутся закрытые сделки: продано
-    не меньше {{ '%g' % type_margin_closed_pct }} % купленного (настройка
-    <code>type_margin_closed_pct</code>), тип — по доминирующей группе
-    аналитического учёта 1С (колонка «группы 1С» у типа сделки, порог
-    <code>bp_type_threshold_pct</code>). Показаны квартили: план сделки
-    сравнивается с этим диапазоном в P&L рядом с порогом ROS.</p>
+  <p class="muted">Слева — что закладывали экономисты: архив книг из Битрикса
+    (парсер, {{ type_plans[''] and type_plans['']['n'] or 0 }} сделок, последняя версия каждой):
+    затраты как остаток «выручка − закупка − прибыль», доля затрат в выручке, валовая
+    маржа и прибыль плана. Справа — что получилось: валовая маржа продаж
+    (выручка − себестоимость продаж) по закрытым сделкам из ночной сборки
+    «Реализации» (продано не меньше {{ '%g' % type_margin_closed_pct }} % купленного,
+    настройка <code>type_margin_closed_pct</code>). Тип — по доминирующей группе
+    аналитического учёта 1С (порог <code>bp_type_threshold_pct</code>). Квартили,
+    не среднее; план сделки сравнивается с фактом в P&L рядом с порогом ROS.</p>
   {% if role in ('economist', 'director', 'admin') %}
   <form method="post" action="/references/type-margin/rebuild" class="inline-form">
-    <button type="submit">{{ icon('refresh') }} Пересобрать по снимку «Реализации»</button>
+    <button type="submit">{{ icon('refresh') }} Пересобрать факт по снимку</button>
+  </form>
+  <form method="post" action="/references/book-archive/rebuild" class="inline-form">
+    <button type="submit">{{ icon('refresh') }} Пересобрать план по архиву книг</button>
   </form>
   {% endif %}
   {% if type_margins %}
   <div class="table-scroll table-gap">
   <table>
-    <thead><tr><th>Тип сделки</th><th class="num">Сделок</th><th class="num">Четверть ниже, %</th>
-      <th class="num">Медиана, %</th><th class="num">Четверть выше, %</th><th class="num">Выручка, млн</th></tr></thead>
+    <thead><tr><th rowspan="2">Тип сделки</th>
+      <th colspan="4" class="num">Закладывали (архив книг)</th>
+      <th colspan="4" class="num">Получилось (регистр продаж 1С)</th></tr>
+      <tr><th class="num">Сделок</th><th class="num">Затраты, руб/т</th><th class="num">Затраты, % выр.</th><th class="num">Валовая, %</th>
+      <th class="num">Сделок</th><th class="num">Четверть ниже, %</th><th class="num">Валовая, медиана %</th><th class="num">Четверть выше, %</th></tr></thead>
     <tbody>
     {% for m in type_margins %}
+    {% set tp = type_plans.get(m['bp_type']) %}
     <tr {% if not m['bp_type'] %}class="row-accent"{% endif %}>
       <td><b>{{ m['name'] }}</b></td>
+      <td class="num">{{ tp['n'] if tp else '—' }}</td>
+      <td class="num">{{ '%.0f' % tp['costs_per_t'] if tp else '—' }}</td>
+      <td class="num">{{ '%.1f' % tp['costs_pct'] if tp else '—' }}</td>
+      <td class="num">{{ '%.1f' % tp['gross_pct'] if tp else '—' }}</td>
       <td class="num">{{ m['n'] }}</td>
       <td class="num">{{ '%.1f' % m['p25'] if m['p25'] is not none else '—' }}</td>
-      <td class="num">{{ '%.1f' % m['median'] }}</td>
+      <td class="num"><b>{{ '%.1f' % m['median'] }}</b>{% if tp %} <span class="{{ 'pos' if m['median'] >= tp['gross_pct'] else 'neg' }}">({{ '%+.1f' % (m['median'] - tp['gross_pct']) }})</span>{% endif %}</td>
       <td class="num">{{ '%.1f' % m['p75'] if m['p75'] is not none else '—' }}</td>
-      <td class="num">{{ '%.0f' % (m['revenue'] / 1e6) }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  <p class="muted">Валовая плана = (выручка − закупка) / выручка книги; валовая факта =
+    (выручка − себестоимость продаж) / выручка 1С, где себестоимость включает закупку
+    и переработку. Разница в скобках — факт минус план.</p>
   {% else %}
   <p class="muted">Ещё не собиралось: нужен снимок «Реализации» (ночная выгрузка или кнопка выше).</p>
   {% endif %}

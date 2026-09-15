@@ -177,6 +177,7 @@ def import_file(conn: sqlite3.Connection, csv_path: str | Path,
     idx = _series_index(snapshot_path, conn) if snapshot_path and Path(snapshot_path).is_file() else {}
     closed_pct = get_setting(conn, "type_margin_closed_pct", 80.0)
     agg: dict[tuple[str, str], list] = defaultdict(lambda: [0.0, 0, None, None])
+    by_div: dict[tuple[str, str], list] = defaultdict(lambda: [0.0, 0])
     with open(csv_path, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             series = (r.get("Серия") or "").strip()
@@ -188,12 +189,21 @@ def import_file(conn: sqlite3.Connection, csv_path: str | Path,
             except ValueError:
                 continue
             period = (r.get("Период") or "")[:10]
+            div = (r.get("Подразделение") or "").strip()
+            if div:
+                by_div[(series, div)][0] += amount
+                by_div[(series, div)][1] += 1
             a = agg[(series, item_1c)]
             a[0] += amount
             a[1] += 1
             a[2] = period if a[2] is None or period < a[2] else a[2]
             a[3] = period if a[3] is None or period > a[3] else a[3]
     conn.execute("DELETE FROM stat_fact_costs")
+    conn.execute("DELETE FROM stat_fact_costs_div")
+    for (series, div), (amount, n) in by_div.items():
+        if abs(amount) >= 0.005:
+            conn.execute("INSERT INTO stat_fact_costs_div (series, deal_no, division, amount, rows_n) "
+                         "VALUES (?, ?, ?, ?, ?)", (series, request_no_of_series(series), div, round(amount, 2), n))
     st = {"series": len({k[0] for k in agg}), "rows": 0, "unmapped": set(),
           "with_tons": 0, "amount": 0.0}
     for (series, item_1c), (amount, n, pmin, pmax) in agg.items():
@@ -430,3 +440,77 @@ def _snapshot_months(snapshot_path) -> int:
     except (OSError, ValueError):
         pass
     return 0
+
+
+# ── Площадки: аналитическая база из «Цеха и базы» 1С ────────────────
+
+def site_of_division(conn: sqlite3.Connection) -> dict[str, str]:
+    """подразделение 1С → площадка (analytic_base из ref_prod_units)."""
+    try:
+        return {r["name"]: r["analytic_base"] for r in conn.execute(
+            "SELECT name, analytic_base FROM ref_prod_units "
+            "WHERE analytic_base IS NOT NULL AND analytic_base <> ''")}
+    except sqlite3.Error:
+        return {}
+
+
+def sites(conn: sqlite3.Connection) -> list[str]:
+    try:
+        return [r[0] for r in conn.execute(
+            "SELECT DISTINCT analytic_base FROM ref_prod_units "
+            "WHERE analytic_base IS NOT NULL AND analytic_base <> '' ORDER BY 1")]
+    except sqlite3.Error:
+        return []
+
+
+def site_overhead_rates(conn: sqlite3.Connection, months: int = 12) -> list[dict]:
+    """Ставка распределяемых руб/т по ПЛОЩАДКАМ: подразделения одной
+    аналитической базы (база, цех, транспортный отдел, службы) складываются;
+    знаменатель — тоннаж по отвесным тех же подразделений за то же окно.
+    Так «Усинск (База + Цех)» = База Усинск + Усинск + транспортные отделы
+    + бухгалтерия + служба главного инженера площадки."""
+    per_div = base_overhead_rates(conn, None, months)      # окно и исключения оттуда
+    if not per_div:
+        return []
+    first, last = per_div[0]["period"]
+    smap = site_of_division(conn)
+    agg: dict[str, dict] = {}
+    for r in conn.execute(
+            "SELECT division, item_1c, SUM(amount) AS amount FROM stat_overhead_div "
+            "WHERE month >= ? AND month <= ? GROUP BY division, item_1c", (first, last)):
+        if any(x.lower() in r["item_1c"].lower() for x in OVERHEAD_EXCLUDE):
+            continue
+        site = smap.get(r["division"])
+        if not site:
+            continue
+        d = agg.setdefault(site, {"site": site, "amount": 0.0, "tons": 0.0, "divisions": set(),
+                                  "items": defaultdict(float), "period": (first, last),
+                                  "months": months})
+        d["amount"] += float(r["amount"])
+        d["divisions"].add(r["division"])
+        d["items"][r["item_1c"]] += float(r["amount"])
+    for r in conn.execute(
+            "SELECT division, SUM(tons) AS t FROM stat_division_tons "
+            "WHERE month >= ? AND month <= ? GROUP BY division", (first, last)):
+        site = smap.get(r["division"])
+        if site in agg:
+            agg[site]["tons"] += float(r["t"])
+    out = []
+    for d in agg.values():
+        if d["tons"] < 100:
+            continue
+        d["rate_per_t"] = round(d["amount"] / d["tons"], 2)
+        d["tons"] = round(d["tons"], 1)
+        d["divisions"] = sorted(d["divisions"])
+        d["items"] = sorted(d["items"].items(), key=lambda kv: -kv[1])   # полный список
+        out.append(d)
+    return sorted(out, key=lambda d: -d["amount"])
+
+
+def site_shares(conn: sqlite3.Connection, site: str, months: int = 12) -> dict[str, float]:
+    """Доли статей 1С в распределяемых площадки — для разнесения по статьям сервиса."""
+    for d in site_overhead_rates(conn, months):
+        if d["site"] == site:
+            total = sum(a for _, a in d["items"]) or 1.0
+            return {name: a / total for name, a in d["items"]}
+    return {}

@@ -116,6 +116,58 @@
   </form>
   {% endif %}
 
+  {# Фактический слой: ставки факта 1С × тоннаж сделки на долю. Считается на
+     лету и меняется вместе с тоннажом, долей, типом и площадкой сделки;
+     ставки обновляются ночью. Третий слой рядом с книгой и нормативами. #}
+  <div class="card-sub" id="fact-layer">
+    <div class="sec-head"><h3>Затраты по факту 1С</h3>
+      <div class="sec-aside">
+        {% if fact_layer['total'] %}
+        <span class="role-tag">{{ money(fact_layer['total']) }} руб</span>
+        {% set vol = pnl['purchase_volume'] or 0 %}
+        <span class="role-tag">{{ '{:,.0f}'.format(fact_layer['total'] / vol if vol else 0).replace(',', ' ') }} руб/тн</span>
+        {% else %}<span class="role-tag">факта нет</span>{% endif %}
+      </div>
+    </div>
+    <p class="muted">Каждая статья = фактическая ставка руб/тн × {{ '%.1f' % fact_layer['tons'] }} тн
+      (тоннаж сделки на долю {{ '%g' % fact_layer['share_pct'] }} %). Ставки по серии — медиана
+      по закрытым сделкам типа «{{ fact_layer['bp_type'] or '—' }}» из регистра затрат 1С;
+      распределяемые — площадка
+      {% if fact_layer['site'] %}<b>{{ fact_layer['site'] }}</b> ({{ fact_layer['site_reason'] }}){% else %}не определена{% endif %}.
+      Суммы пересчитываются при любом изменении сделки; в расчёт попадают только кнопкой.</p>
+    {% if fact_layer['missing'] %}
+    <p class="warn-note">{{ icon('warn', 'icon-s') }} {{ fact_layer['missing'] | join('; ') }}</p>
+    {% endif %}
+    {% if fact_layer['lines'] %}
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Статья</th><th class="num">Ставка, руб/тн</th><th class="num">Сумма</th><th class="num">В расчёте сейчас</th><th>Источник</th></tr></thead>
+      <tbody>
+      {% for l in fact_layer['lines'] %}
+      {% set cur = (costs | selectattr('section', 'equalto', l['section']) | selectattr('item', 'equalto', l['item']) | map(attribute='amount') | sum) %}
+      <tr>
+        <td><span class="muted">{{ l['section'] }}</span> · {{ l['item'] }}</td>
+        <td class="num">{{ '%.0f' % l['rate'] }}</td>
+        <td class="num"><b>{{ money(l['amount']) }}</b></td>
+        <td class="num">{{ money(cur * (pnl['lot_share_pct'] / 100)) if l['item'] != 'Списание засора' else '—' }}</td>
+        <td class="muted">{{ l['source'] }} · {{ l['scope'] }} · {{ l['samples'] }} {{ 'мес' if 'площадки' in l['source'] else 'сдел.' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if can_edit['costs'] %}
+    <form method="post" class="model-write" action="/bp/{{ bp['id'] }}/costs/fact">
+      <input type="hidden" name="variant" value="{{ variant }}">
+      <button type="submit" class="secondary"
+        data-confirm="Суммы статей затрат варианта «{{ variant_label }}» будут заменены фактическими (ставки 1С × тоннаж). Прежние суммы останутся в предыдущей версии расчёта. Записать?"
+        data-tip="Заменить суммы статей на фактический слой. Статья «Списание засора» не пишется — в плане засор режет объём.">
+        {{ icon('save') }} Записать суммы по факту в расчёт</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+
   <div class="table-scroll tall">
   <table>
     <tbody>

@@ -262,8 +262,60 @@ def import_prod_divisions(conn, path: Path) -> int:
             (guid, name, _s(r["Код"]), _s(r["Родитель"]),
              _s(r["ФункциональноеПодразделение"]),
              _s(r["АналитическоеПодразделение"])))
+        # Та же выгрузка — в ref_prod_units («Цеха и базы» для площадок и
+        # ролей пунктов). Раньше грузилась отдельным ручным скриптом.
+        conn.execute(
+            "INSERT OR REPLACE INTO ref_prod_units (name, code, parent_name, "
+            "functional_base, analytic_base, guid, parent_guid) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, _s(r["Код"]) or "", _s(r["Родитель"]) or "",
+             _s(r["ФункциональноеПодразделение"]) or "",
+             _s(r["АналитическоеПодразделение"]) or "", guid,
+             _guid(r.get("РодительГуид"))))
         n += 1
     return n
+
+
+def import_counterparties(conn, path: Path) -> int:
+    """Контрагенты_*.csv → ref_counterparties (по GUID)."""
+    n = 0
+    for r in iter_rows(path):
+        guid = _guid(r.get("СсылкаГуид") or r.get("КонтрагентГуид"))
+        name = _s(r.get("Наименование")) or _s(r.get("Ссылка")) or _s(r.get("Контрагент"))
+        if not guid or not name or _bool(r.get("ПометкаУдаления")):
+            continue
+        conn.execute(
+            # Тип (Завод / Трейдер) экономист задаёт в сервисе — выгрузка его не знает
+            # и не должна затирать.
+            "INSERT INTO ref_counterparties (name, guid, ctype) VALUES (?, ?, '-') "
+            "ON CONFLICT(guid) DO UPDATE SET name = excluded.name",
+            (name, guid.lower()))
+        n += 1
+    return n
+
+
+def import_nomen_groups(conn, path: Path) -> int:
+    """ГруппыАналитическогоУчетаНоменклатуры_*.csv → ref_nomen_groups."""
+    n = 0
+    for r in iter_rows(path):
+        guid = _guid(r.get("ГруппыАналитическогоУчетаГуид") or r.get("СсылкаГуид"))
+        name = _s(r.get("ГруппыАналитическогоУчета")) or _s(r.get("Наименование")) or _s(r.get("Ссылка"))
+        if not guid or not name:
+            continue
+        conn.execute(
+            "INSERT INTO ref_nomen_groups (name, guid, parent_name, parent_guid) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(guid) DO UPDATE SET name = excluded.name, parent_name = excluded.parent_name, "
+            "parent_guid = excluded.parent_guid",
+            (name, guid.lower(), _s(r.get("Родитель")), (_guid(r.get("РодительГуид")) or "").lower() or None))
+        n += 1
+    return n
+
+
+def import_transport_rates(conn, path: Path) -> int:
+    """УстановкаТранспортныхСтавок…_*.csv → transport_rates (модуль rates)."""
+    from app import rates
+    parsed = rates.parse_file(path)
+    rows = parsed["rows"] if isinstance(parsed, dict) else parsed
+    return rates.replace_all(conn, rows, path.name)
 
 
 def import_vehicles(conn, path: Path) -> int:
@@ -721,7 +773,7 @@ def import_all(folder: str, author: str = "импорт 1С") -> None:
     run("Склады", [("ref_warehouses", import_warehouses)])
     run("СтатьиРасходов", [("ref_expense_items_1c", import_expense_items)])
     run("_Производственные_подразделения_",
-        [("ref_prod_divisions", import_prod_divisions)])
+        [("ref_prod_units", import_prod_divisions)])
 
     path = find_file(folder, "Отвесная")
     if path is None:
@@ -743,6 +795,10 @@ def import_all(folder: str, author: str = "импорт 1С") -> None:
     run("_Распределение_прочих_расходов_",
         [("stat_overheads", import_overhead_stats)])
     run("ТС", [("ref_vehicles", import_vehicles)])
+    run("Контрагенты", [("ref_counterparties", import_counterparties)])
+    run("ГруппыАналитическогоУчетаНоменклатуры", [("ref_nomen_groups", import_nomen_groups)])
+    run("УстановкаТранспортныхСтавокУчетМеталлоломаСтавки",
+        [("transport_rates", import_transport_rates)])
 
     # Фактическая загрузка рейсов — после парка техники: тип рейса
     # определяется по справочнику машин.

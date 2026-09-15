@@ -292,7 +292,12 @@ CREATE TABLE IF NOT EXISTS business_plans (
     deal_no           TEXT,      -- «№ в текущем реестре» сделки Битрикса
     deal_partner_pct  REAL,      -- доля УВМ
     deal_winner       TEXT,      -- юрлицо, выигравшее КП (МОТ/УВМ/ИВЦ)
-    deal_stage        TEXT
+    deal_stage        TEXT,
+    -- Площадка компании (аналитическая база из «Цеха и базы» 1С:
+    -- «Усинск (База + Цех)», «Юг»…): по ней берётся фактическая ставка
+    -- распределяемых расходов. 'auto' — определить по подразделению серии.
+    site              TEXT,
+    site_source       TEXT
 );
 
 -- Позиции лота: привязка к поставщику/подразделению/месту хранения.
@@ -1104,4 +1109,49 @@ CREATE TABLE IF NOT EXISTS stat_division_tons (
     trips       INTEGER NOT NULL,
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (division, month)
+);
+
+-- Регистр затрат по сериям в разрезе подразделений — чтобы определить
+-- площадку сделки по факту (где по серии больше всего затрат).
+CREATE TABLE IF NOT EXISTS stat_fact_costs_div (
+    series      TEXT NOT NULL,
+    deal_no     TEXT,
+    division    TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    rows_n      INTEGER NOT NULL,
+    PRIMARY KEY (series, division)
+);
+
+-- Архив книг экономистов из Битрикса (парсер metoptorg-bp-weekly,
+-- БП_версии_*.json): по каждой версии книги — выручка, закупка (Σ позиций),
+-- прибыль и затраты как остаток. «Что закладывали» по всей истории.
+CREATE TABLE IF NOT EXISTS stat_book_plan (
+    id          INTEGER PRIMARY KEY,
+    deal_no     TEXT NOT NULL,
+    bp_type     TEXT,
+    version     TEXT,
+    file        TEXT,
+    year        TEXT,
+    revenue     REAL NOT NULL,
+    purchase    REAL NOT NULL,
+    profit      REAL NOT NULL,
+    costs       REAL NOT NULL,          -- выручка − закупка − прибыль
+    volume_t    REAL NOT NULL,
+    costs_per_t REAL,
+    costs_pct   REAL,                   -- затраты / выручка, %
+    gross_pct   REAL,                   -- (выручка − закупка) / выручка, %
+    luk         INTEGER NOT NULL DEFAULT 0,
+    dsp         INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (deal_no, file, version)
+);
+
+-- Сводка «что закладывали» по типам сделок (медианы по последним версиям).
+CREATE TABLE IF NOT EXISTS stat_type_plan (
+    bp_type      TEXT PRIMARY KEY,     -- '' — все сделки
+    n            INTEGER NOT NULL,
+    costs_per_t  REAL,
+    costs_pct    REAL,
+    gross_pct    REAL,
+    profit_pct   REAL,
+    generated_at TEXT
 );

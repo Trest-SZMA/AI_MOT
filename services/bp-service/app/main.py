@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, factsnap, forms, geo, norm_calib, type_margin,
+from . import (auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -1736,6 +1736,9 @@ def bp_base(request: Request, conn, bp_id: int, tab: str):
         "bp_type_detected": bp_types.detect(conn, items),
         # Доля лота: наша часть сделки по реестру Битрикса или заданная вручную.
         "lot_share": deals.describe(conn, bp),
+        # Площадка компании (для распределяемых по факту): вручную или по регистру.
+        "site_info": {"sites": fact_costs.sites(conn), "current": bp["site"],
+                      "detected": fact_model.detect_site(conn, bp)},
         **readiness.build(bp_gaps(conn, bp, items, costs, pnl, variant), tab),
     }
     return ctx, bp, items, costs, variant
@@ -1972,6 +1975,11 @@ def bp_economics(request: Request, bp_id: int):
     ctx.update({
         "pnl_rows": build_pnl_rows(ctx["pnl"], items_v),
         "cost_model": cost_model,
+        # Фактический слой: ставки факта × тоннаж сделки — рядом с моделью по
+        # нормативам и с суммами в статьях (три слоя: книга / нормативы / факт).
+        "fact_layer": fact_model.evaluate(bp_v, items_v, conn),
+        "book_type_plan": book_archive.for_type(conn, bp["bp_type"]),
+        "book_versions": book_archive.for_deal(conn, deals.request_no(bp)),
         "cost_hints": cost_hints_for_items(items),
         # Ориентиры матрицы затрат по статьям — сколько эта статья стоила в
         # тонне у сделок такого же типа и по факту 1С. Только показываем.
@@ -2302,6 +2310,57 @@ def set_lot_share(request: Request, bp_id: int, lot_share_pct: str = Form("")):
     conn.commit()
     conn.close()
     return back(request, bp_id, msg)
+
+
+@app.post("/bp/{bp_id}/site")
+def set_site(request: Request, bp_id: int, site: str = Form("")):
+    """Площадка сделки: из справочника «Цеха и базы» 1С или «по факту»."""
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("header", role, bp["status"]):
+        conn.close()
+        return back(request, bp_id, "Нет прав на изменение шапки сделки.")
+    val = (site or "").strip()
+    if val and val != "auto" and val not in fact_costs.sites(conn):
+        conn.close()
+        return back(request, bp_id, "Такой площадки нет в справочнике «Цеха и базы».")
+    conn.execute("UPDATE business_plans SET site = ?, site_source = ? WHERE id = ?",
+                 (val or None, "manual" if val and val != "auto" else None, bp_id))
+    log(conn, actor(request), bp_id, "site", val or "по факту")
+    conn.commit()
+    conn.close()
+    if val and val != "auto":
+        return back(request, bp_id, f"Площадка задана: {val}.")
+    conn = connect()
+    d = fact_model.detect_site(conn, bp)
+    conn.close()
+    return back(request, bp_id, f"Площадка по факту: {d['site'] or 'не определена'} ({d['reason']}).")
+
+
+@app.post("/bp/{bp_id}/costs/fact")
+def costs_from_fact(request: Request, bp_id: int, variant: str = Form("bsp")):
+    """Записать в статьи затрат суммы фактического слоя: ставки факта × тоннаж
+    сделки на долю. Явная кнопка, как у модели по нормативам."""
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("costs", role, bp["status"]):
+        conn.close()
+        return back(request, bp_id, "Нет прав на изменение затрат.")
+    variant = variant if variant in ("bsp", "luk") else "bsp"
+    res = fact_model.write(conn, bp, items, variant, author=actor(request))
+    log(conn, actor(request), bp_id, "costs_fact",
+        f"{res.get('written', 0)} статей, {res.get('total', 0):,.0f} руб".replace(",", " "))
+    conn.commit()
+    conn.close()
+    if not res.get("articles"):
+        return redirect(f"/bp/{bp_id}/economics", "Факта для этой сделки нет: " + "; ".join(res.get("missing") or ["нет данных"]))
+    msg = (f"Записано по факту: {res['written']} статей на {res['total']:,.0f} руб "
+           f"({res['tons']:,.1f} тн на долю {res['share_pct']:g} %).").replace(",", " ")
+    if res.get("missing"):
+        msg += " Не учтено: " + "; ".join(res["missing"])
+    return redirect(f"/bp/{bp_id}/economics", msg)
 
 
 @app.post("/bp/{bp_id}/lot/apply-hints")
@@ -6275,6 +6334,7 @@ def references(request: Request):
             "FROM stat_fact_costs GROUP BY item_1c")},
         # Фактическая рентабельность по типам сделок (сборка «Реализации»).
         "type_margins": type_margin.rows(conn),
+        "type_plans": {r["bp_type"]: r for r in book_archive.type_rows(conn)},
         "type_margin_closed_pct": type_margin.closed_pct(conn),
         "neighbor_fact": os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json"),
         "cost_matrix_updated": (conn.execute(
@@ -6445,6 +6505,26 @@ def rebuild_cost_matrix(request: Request):
     return redirect("/references#ref-cost-matrix",
                     f"Матрица пересобрана: {result['rows']} строк "
                     f"из {result['observations']} наблюдений с {result['since']}.")
+
+
+@app.post("/references/book-archive/rebuild")
+def rebuild_book_archive(request: Request):
+    """Пересборка «что закладывали» из архива книг (парсер Битрикса)."""
+    role = current_role(request)
+    if role not in ("economist", "director", "admin"):
+        return redirect("/references", "Пересобирать архив книг может экономист.")
+    folder = os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "data")
+    path = book_archive.newest(folder)
+    if path is None:
+        return redirect("/references#ref-type-margin", "Архив книг не найден: нет БП_версии_*.json у соседа.")
+    snap = os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json")
+    conn = connect()
+    res = book_archive.build(conn, path, snap if os.path.isfile(snap) else None)
+    log(conn, actor(request), None, "book_archive", f"{res['versions']} версий, {res['deals']} сделок")
+    conn.commit()
+    conn.close()
+    return redirect("/references#ref-type-margin",
+                    f"Архив книг пересобран: {res['versions']} версий по {res['deals']} сделкам ({path.name}).")
 
 
 @app.post("/references/type-margin/rebuild")
