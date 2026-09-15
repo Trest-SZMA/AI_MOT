@@ -5,4 +5,5 @@ python-multipart>=0.0.9
 openpyxl>=3.1
 python-docx>=1.1
 Pillow>=10          # фотографии лота: миниатюры и дата съёмки из EXIF
-fpdf2>=2.8              # PDF бизнес-плана (app/docgen/bp_pdf.py)
+fpdf2>=2.8          # печатная форма БП в PDF (шрифты DejaVu в app/docgen/fonts)
+python-tds>=1.15    # ночная выгрузка 1С из MSSQL «Extractor» (pull_1c.py); чистый Python, пароль в UTF-16

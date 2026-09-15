@@ -74,7 +74,7 @@ services:
   # ---------- сервисы ----------
   portal:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-portal } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-portal } , network: host }
     image: ai_mot/portal
     container_name: ai_mot-portal
     command: python portal.py
@@ -86,7 +86,7 @@ services:
 
   fines:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: fines-service } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: fines-service } , network: host }
     image: ai_mot/fines
     container_name: ai_mot-fines
     command: uvicorn app:app --host 0.0.0.0 --port 8077
@@ -97,7 +97,7 @@ services:
 
   logistmot-bot:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: logistmot, LINKS: "bot.db" } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: logistmot, LINKS: "bot.db" } , network: host }
     image: ai_mot/logistmot
     container_name: ai_mot-logistmot-bot
     command: python bot.py
@@ -119,7 +119,7 @@ services:
 
   ostatki:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-ostatki, LINKS: "data out" } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-ostatki, LINKS: "data out" } , network: host }
     image: ai_mot/ostatki
     container_name: ai_mot-ostatki
     command: python3 server.py
@@ -132,7 +132,7 @@ services:
 
   kp:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-kp } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-kp } , network: host }
     image: ai_mot/kp
     container_name: ai_mot-kp
     command: python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8091
@@ -149,7 +149,7 @@ services:
 
   realizaciya:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-realizaciya, LINKS: "data out builds logs" } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metoptorg-realizaciya, LINKS: "data out builds logs" } , network: host }
     image: ai_mot/realizaciya
     container_name: ai_mot-realizaciya
     # ОДИН воркер: пересборка идёт фоновым потоком этого процесса
@@ -163,7 +163,7 @@ services:
 
   bp-service:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: bp-service, LINKS: "bp.db attachments 1c output backups" } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: bp-service, LINKS: "bp.db attachments 1c output backups" } , network: host }
     image: ai_mot/bp-service
     container_name: ai_mot-bp-service
     command: uvicorn app.main:app --host 0.0.0.0 --port 8093 --workers 1
@@ -175,7 +175,7 @@ services:
 
   parser-bp:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: parser-bp } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: parser-bp } , network: host }
     image: ai_mot/parser-bp
     container_name: ai_mot-parser-bp
     command: python -m streamlit run app.py --server.address 0.0.0.0 --server.port 8094
@@ -200,7 +200,7 @@ services:
 
   metallompro:
     <<: *svc
-    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metallompro } }
+    build: { context: ., dockerfile: deploy/docker/Dockerfile, args: { SERVICE: metallompro } , network: host }
     image: ai_mot/metallompro
     container_name: ai_mot-metallompro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8095 --workers 1

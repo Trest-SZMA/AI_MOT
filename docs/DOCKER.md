@@ -124,3 +124,27 @@ bp-service parser-bp metallompro nginx postgres scheduler monitor`.
 | Обновление | `git pull && deploy/update.sh` | `git pull && docker compose up -d --build` |
 
 Оба варианта используют один и тот же архив данных `deploy/export-data.sh` и один код.
+
+### bp-service: ночная выгрузка из 1С (Extractor)
+
+С 15.09.2026 `bp-service` сам забирает таблицы 1С из MSSQL «Extractor»
+(`pull_1c.py`, планировщик `bp-import-1c` в 03:00) — ручные CSV в `data/bp-service/1c`
+больше не нужны. В `env/bp-service.env` должны быть:
+
+```
+BP_SQL_USER=<пользователь Extractor, тот же, что у реализации>
+BP_SQL_PASSWORD=<пароль, тот же, что METOPTORG_SQL_PASSWORD у реализации>
+```
+
+Хост/база по умолчанию 10.100.1.110 / Extractor (`BP_SQL_HOST`, `BP_SQL_DATABASE`).
+Проверить руками: `docker exec ai_mot-bp-service python pull_1c.py --only ТС --no-import`.
+Итог последней выгрузки — на странице «Справочники» сервиса и в `data/bp-service/1c/_last_pull.json`.
+
+### Сборка образов и MTU
+
+`DOCKER_MTU` в `.env` действует только на внутреннюю сеть `ai_mot`. Сборка
+образов (`pip install`) идёт через сборочную сеть `docker0` с MTU 1500, и при
+MTU хоста 1450 запросы к pypi.org молча обрываются по таймауту (15.09.2026,
+`ReadTimeoutError ... pypi.org`). Поэтому у всех `build:` в compose стоит
+`network: host` — сборка ходит в интернет как сам хост. Если собираете вручную:
+`docker build --network host -f deploy/docker/Dockerfile --build-arg SERVICE=bp-service --build-arg LINKS="bp.db attachments 1c output backups" -t ai_mot/bp-service .`

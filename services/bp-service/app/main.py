@@ -30,7 +30,7 @@ from fastapi.templating import Jinja2Templates
 from . import (auth, bp_types, calc, cost_matrix, fact_import, forms, geo,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
-from .db import ATTACH_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
+from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
 from .docgen.bp_docx import build_bp_docx
 from .docgen.bp_pdf import build_bp_pdf
 from .docgen.bp_xlsx import build_bp_xlsx
@@ -6095,6 +6095,14 @@ def download(bp_id: int, filename: str):
     return FileResponse(path, filename=path.name)
 
 
+def last_1c_pull() -> dict | None:
+    """Итог последней ночной выгрузки из Extractor (пишет pull_1c.py в 1c/)."""
+    try:
+        return json.loads((BASE_DIR / "1c" / "_last_pull.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 # ─────────────────────────────────────── Справочники ────────────────
 @app.get("/references", response_class=HTMLResponse)
 def references(request: Request):
@@ -6158,6 +6166,7 @@ def references(request: Request):
         # Состояние справочников: когда обновлялся каждый и кто отвечает.
         "ref_state": refsources.state(conn),
         "ref_summary": refsources.summary(conn),
+        "last_pull": last_1c_pull(),
         "can_edit_sources": current_role(request) in ("economist", "director", "admin"),
         "settings": conn.execute("SELECT * FROM settings ORDER BY key").fetchall(),
         "norms": conn.execute(

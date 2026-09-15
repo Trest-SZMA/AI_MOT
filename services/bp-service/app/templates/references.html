@@ -186,6 +186,18 @@
     который не обновляли дольше своей нормы, помечен — иначе расчёт молча опирается
     на прошлогодние цифры, а спросить об этом не у кого. Норма и владелец
     правятся в строке.</p>
+  {% if last_pull %}
+  <p class="muted" id="last-pull">Ночная выгрузка из 1С (база «Extractor»):
+    {{ last_pull['finished_at']|replace('T', ' ') }},
+    таблиц {{ last_pull['tables']|length }},
+    строк {{ '{:,}'.format(last_pull['tables']|sum(attribute='rows'))|replace(',', ' ') }},
+    {{ last_pull['seconds'] }} с{% if not last_pull['imported'] %}, без импорта{% endif %}.
+    {% if last_pull['errors'] %}<span class="lock-tag">{{ icon('warn', 'icon-s') }} ошибки:
+      {{ last_pull['errors']|join('; ') }}</span>{% endif %}</p>
+  {% else %}
+  <p class="muted" id="last-pull">Ночная выгрузка из 1С ещё не выполнялась: справочники
+    обновлены файлами вручную.</p>
+  {% endif %}
   <div class="table-scroll tall table-gap">
   <table>
     <thead><tr><th>Справочник</th><th>Происхождение</th><th class="num">Строк</th>

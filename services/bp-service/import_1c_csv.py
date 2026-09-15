@@ -586,7 +586,8 @@ def import_overhead_stats(conn, path: Path) -> int:
     return n
 
 
-def import_all(folder: str) -> None:
+def import_all(folder: str, author: str = "импорт 1С") -> None:
+    """author — кто/что обновило справочники (отметка в реестре источников)."""
     folder = Path(folder)
     init_db()
     conn = connect()
@@ -606,7 +607,7 @@ def import_all(folder: str) -> None:
                 continue                  # функция сама вернула пары ниже
             summary.append((label, res))
             # Отметка в реестре справочников: из какого файла и когда.
-            refsources.mark(conn, label.split()[0], res, path.name, "импорт 1С")
+            refsources.mark(conn, label.split()[0], res, path.name, author)
         conn.commit()
 
     run("СерииНоменклатуры", [("ref_series", import_series)])
@@ -623,7 +624,7 @@ def import_all(folder: str) -> None:
         n_cont, n_tr = import_weighing_stats(conn, path)
         summary += [("stat_contamination", n_cont), ("stat_transport", n_tr)]
         for key, cnt in (("stat_contamination", n_cont), ("stat_transport", n_tr)):
-            refsources.mark(conn, key, cnt, path.name, "импорт 1С")
+            refsources.mark(conn, key, cnt, path.name, author)
         conn.commit()
 
     run("_Производственная_себестоимость_",
@@ -640,7 +641,7 @@ def import_all(folder: str) -> None:
     if path is not None:
         n_load = import_vehicle_load(conn, path)
         summary.append(("stat_vehicle_load", n_load))
-        refsources.mark(conn, "stat_vehicle_load", n_load, path.name, "импорт 1С")
+        refsources.mark(conn, "stat_vehicle_load", n_load, path.name, author)
         conn.commit()
 
     conn.commit()
