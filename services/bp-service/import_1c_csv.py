@@ -555,11 +555,13 @@ def import_overhead_stats(conn, path: Path) -> int:
 
     agg = defaultdict(lambda: [0, 0.0, None])   # (period, div, item) → [n, sum, acc]
     for r in iter_rows(path):
-        period = _s(r.get("Период"))[:7]        # YYYY-MM
+        period = (_s(r.get("Период")) or "")[:7]        # YYYY-MM
         if not period or period.startswith("0001"):
             continue
         div = _s(r.get("Подразделение"))
-        guid = _s(r.get("СсылкаГуид")).upper()
+        # В выгрузке из Extractor статья бывает пустой (NULL) — такая строка
+        # ложится в «Прочие расходы», а не роняет импорт.
+        guid = (_s(r.get("СсылкаГуид")) or "").upper()
         name, account = items.get(guid, ("Прочие расходы", None))
         # Конвенция файла: у строк «Сторно» (снятие с котловой статьи
         # «Прочие производственные расходы») сумма положительная, у парных
