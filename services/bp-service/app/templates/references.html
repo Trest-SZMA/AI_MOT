@@ -114,6 +114,78 @@
   </div>
 </details>
 
+<details class="card" id="ref-fact-costs">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Факт затрат по сделкам из 1С</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ fact_costs_summary['series'] or 0 }} серий</span>
+      {% if fact_costs_summary['amount'] %}
+      <span class="role-tag">{{ '%.0f' % (fact_costs_summary['amount'] / 1e6) }} млн</span>
+      {% endif %}
+      {% if fact_costs_summary['unmapped'] %}
+      <span class="lock-tag">{{ icon('warn', 'icon-s') }} не сопоставлено {{ fact_costs_summary['unmapped'] | length }}</span>
+      {% endif %}
+    </div>
+  </summary>
+  <p class="muted">Регистр 1С «Прочие расход (все)»: затраты по статьям с привязкой к
+    серии, то есть к сделке, с {{ cost_matrix_from }}. Это факт на нашу долю лота —
+    1С ведёт учёт только своей части. Каждая статья 1С сложена в статью
+    сервиса по таблице ниже; из неё собирается матрица затрат (источник
+    «факт 1С: регистр затрат») и сверка план/факт по статьям на странице
+    «План-факт». Соответствие правится в строке: пустые секция и статья —
+    статья не относится к экономике сделки; «только факт» — статья, которой
+    в плане нет (списание засора деньгами).
+    {% if fact_costs_summary['pmin'] %}Период {{ fact_costs_summary['pmin'] }} … {{ fact_costs_summary['pmax'] }},
+    обновлено {{ fact_costs_summary['updated'][:16] }}.{% endif %}</p>
+  {% if fact_costs_summary['unmapped'] %}
+  <p class="warn-note">{{ icon('warn', 'icon-s') }} Статьи 1С без соответствия:
+    {% for u in fact_costs_summary['unmapped'] %}{{ u['item_1c'] }} ({{ '%.0f' % (u['amount'] / 1e3) }} тыс.){{ '; ' if not loop.last }}{% endfor %}.
+    Добавьте строку в таблицу.</p>
+  {% endif %}
+  {% set can_map = role in ('economist', 'director', 'admin') %}
+  <div class="table-scroll tall table-gap">
+  <table>
+    <thead><tr><th>Статья 1С</th><th>Секция</th><th>Статья сервиса</th><th>Только факт</th>
+      <th class="num">Сумма с {{ cost_matrix_from[:4] }}, тыс.</th><th class="num">Серий</th>{% if can_map %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for m in cost_item_map %}
+    {% set u = cost_item_map_usage.get(m['item_1c']) %}
+    <tr>
+      <td>{{ m['item_1c'] }}{% if m['item_1c'].endswith(' ') %}<span class="muted"> (префикс)</span>{% endif %}
+        {% if can_map %}<form method="post" action="/references/cost-item-map" id="map_{{ loop.index }}"><input type="hidden" name="item_1c" value="{{ m['item_1c'] }}"></form>{% endif %}</td>
+      <td>{% if can_map %}<select form="map_{{ loop.index }}" name="section">
+          <option value="">— не относится —</option>
+          {% for sec in ['Переменные', 'Персонал', 'Постоянные', 'Административные', 'Прочие'] %}
+          <option value="{{ sec }}" {% if m['section'] == sec %}selected{% endif %}>{{ sec }}</option>
+          {% endfor %}</select>{% else %}{{ m['section'] or '—' }}{% endif %}</td>
+      <td>{% if can_map %}<input form="map_{{ loop.index }}" name="item" value="{{ m['item'] or '' }}" class="w-lg">{% else %}{{ m['item'] or '—' }}{% endif %}</td>
+      <td>{% if can_map %}<select form="map_{{ loop.index }}" name="is_fact_only">
+          <option value="0" {% if not m['is_fact_only'] %}selected{% endif %}>нет</option>
+          <option value="1" {% if m['is_fact_only'] %}selected{% endif %}>да</option></select>
+          {% else %}{{ 'да' if m['is_fact_only'] else 'нет' }}{% endif %}</td>
+      <td class="num">{{ '%.0f' % (u[0] / 1e3) if u else '—' }}</td>
+      <td class="num">{{ u[1] if u else '—' }}</td>
+      {% if can_map %}<td><button form="map_{{ loop.index }}" class="icon-action" title="Сохранить">{{ icon('save') }}</button></td>{% endif %}
+    </tr>
+    {% endfor %}
+    {% if can_map %}
+    <tr>
+      <td><form method="post" action="/references/cost-item-map" id="map_new"></form>
+        <input form="map_new" name="item_1c" placeholder="новая статья 1С" class="w-lg"></td>
+      <td><select form="map_new" name="section"><option value="">— не относится —</option>
+          {% for sec in ['Переменные', 'Персонал', 'Постоянные', 'Административные', 'Прочие'] %}<option value="{{ sec }}">{{ sec }}</option>{% endfor %}</select></td>
+      <td><input form="map_new" name="item" class="w-lg"></td>
+      <td><select form="map_new" name="is_fact_only"><option value="0">нет</option><option value="1">да</option></select></td>
+      <td class="num">—</td><td class="num">—</td>
+      <td><button form="map_new" class="icon-action" title="Добавить">{{ icon('save') }}</button></td>
+    </tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+</details>
+
 <details class="card" id="ref-type-margin">
   <summary>
     <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
@@ -499,20 +571,34 @@
       <h2>Нормативы затрат</h2>
       <div class="sec-aside">
       <span class="role-tag">Последняя загрузка: {{ norms_updated_at[:16] if norms_updated_at else 'не фиксировалась' }}</span>
+      {% set nf_warn = norm_facts.values() | selectattr('warn') | list | length %}
+      {% if nf_warn %}<span class="lock-tag">{{ icon('warn', 'icon-s') }} расходится с фактом {{ nf_warn }}</span>{% endif %}
       {% if role in ('economist', 'admin') %}
       <form class="inline-form" method="post" action="/references/norms/refresh">
       <button type="submit" class="btn-sm">{{ icon('refresh') }} Обновить</button>
       </form>
       {% endif %}
+      {% if role in ('economist', 'director', 'admin') %}
+      <form class="inline-form" method="post" action="/references/norms/calibrate">
+      <button type="submit" class="btn-sm">{{ icon('refresh') }} Сверить с фактом 1С</button>
+      </form>
+      {% endif %}
     </div>
     </summary>
+    <p class="muted">Нормативы заданы экономистом (книга 1935, листы Усинск и Ухта).
+      Колонка «Факт 1С» — то же значение, посчитанное из регистров: наём и кран
+      по закрытым сделкам, резка и пресс из производственной себестоимости.
+      Норматив не перезаписывается; расхождение больше {{ '%g' % norm_fact_deviation }} %
+      помечено — решает экономист.</p>
     <div class="table-scroll tall">
     <table>
       <thead><tr><th>База</th><th>Норматив</th><th class="num">Значение</th><th>Ед.</th>
+          <th class="num">Факт 1С</th><th>Откл.</th>
           {% if role in ('economist', 'admin') %}<th class="action-cell"></th>{% endif %}</tr></thead>
       <tbody>
       {% for n in norms %}
-      <tr>
+      {% set nf = norm_facts.get(n['key']) if not n['base'] else norm_facts.get(n['key'] ~ '@' ~ n['base']) %}
+      <tr {% if nf and nf['warn'] %}class="dev-row-open"{% endif %}>
         <td>{{ n['base'] or 'общий' }}</td>
         <td>{{ n['label'] or n['key'] }}</td>
         <td class="num">
@@ -523,6 +609,9 @@
           {% else %}{{ n['value'] }}{% endif %}
         </td>
         <td>{{ n['unit'] or '' }}</td>
+        <td class="num">{% if nf %}<span data-tip="{{ nf['basis'] }}; {{ nf['samples'] }} набл., {{ nf['source'] }}, с {{ nf['period_from'] }}. Сравнивается с {{ '%.2f' % nf['norm_value'] }} {{ nf['unit'] }} по нормативу.">
+            {{ '%.2f' % nf['fact_value'] }} {{ nf['unit'] }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if nf and nf['deviation_pct'] is not none %}<span class="{{ 'neg' if nf['warn'] else 'muted' }}">{{ '%+.0f' % nf['deviation_pct'] }} %</span>{% endif %}</td>
         {% if role in ('economist', 'admin') %}
         <td class="action-cell"><button form="norm_{{ n['id'] }}" class="icon-action" title="Сохранить">{{ icon('save') }}</button></td>
         {% endif %}
@@ -544,6 +633,28 @@
       {% endif %}
     </div>
     </summary>
+    {% if overhead_bases %}
+    <p class="muted">Ставка по базам из регистра затрат 1С: статьи без серии
+      (ФОТ, амортизация, аренда, охрана, ремонт) по подразделению за последние
+      12 месяцев, делённые на тоннаж базы из снимка «Реализации». Корпоративные
+      подразделения (финотдел, администрация, продажи) в ставку не входят —
+      они ниже операционной прибыли.</p>
+    <div class="table-scroll table-gap">
+    <table>
+      <thead><tr><th>База</th><th class="num">Расходы, млн</th><th class="num">Месяцев</th><th class="num">Тоннаж, тн</th><th class="num">Руб/тн</th><th>Крупнейшие статьи</th></tr></thead>
+      <tbody>
+      {% for b in overhead_bases %}
+      <tr><td><b>{{ b['division'] }}</b></td>
+        <td class="num">{{ '%.1f' % (b['amount'] / 1e6) }}</td>
+        <td class="num">{{ b['months'] }}</td>
+        <td class="num">{{ '%.0f' % b['tons'] }}</td>
+        <td class="num"><b>{{ '%.0f' % b['rate_per_t'] if b['rate_per_t'] else '—' }}</b></td>
+        <td class="muted">{% for it, a in b['items'][:4] %}{{ it[:48] }} {{ '%.1f' % (a / 1e6) }}{{ '; ' if not loop.last }}{% endfor %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
     {% if overhead['items'] %}
     <p class="muted">Косвенные расходы, разнесённые по подразделениям в 1С
       (документ переразноски), делятся на объём операций периода — так

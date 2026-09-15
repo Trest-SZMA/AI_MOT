@@ -281,8 +281,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "SELECT 'type_margin_closed_pct', '80', 'Порог закрытости сделки для факта "
         "рентабельности: продано не меньше N % купленного, %' "
         "WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'type_margin_closed_pct')")
-    from . import bp_types, loading, type_margin
+    if "rate_mat" not in {r[1] for r in conn.execute("PRAGMA table_info(stat_processing)")}:
+        conn.execute("ALTER TABLE stat_processing ADD COLUMN rate_mat REAL")
+    from . import bp_types, fact_costs, loading, type_margin
     type_margin.seed_groups(conn)
+    fact_costs.seed_map(conn)
     bp_types.seed(conn)
     loading.seed_categories(conn)
     # Уже заведённым сделкам тип проставляется один раз по составу лота:

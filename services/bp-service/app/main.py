@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, bp_types, deals, calc, cost_matrix, fact_import, factsnap, forms, geo, type_margin,
+from . import (auth, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, factsnap, forms, geo, norm_calib, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -1871,7 +1871,13 @@ def bp_lot(request: Request, bp_id: int):
     # она осталась бы на все 1950 строк и одна весила бы три мегабайта.
     by_id = {it["id"]: it for it in items}
     page_ids = dict.fromkeys(e["row"]["id"] for e in page["rows"])
+    # Засор в факте 1С — деньги («Списание засора при продаже/перемещении»),
+    # у нас — только объём. Показываем фактический руб/т по типу сделки рядом
+    # с полем засора, чтобы план продажи и деньги в сверке не расходились.
+    contam_hint = cost_matrix.hint(conn, bp["bp_type"], "Переменные", "Списание засора")
     ctx.update({
+        "contam_hint": contam_hint,
+        "cost_matrix_from": cost_matrix.period_from(conn),
         "pnl_rows": page["rows"],
         "items_grp": items_grp,
         "items_grp_modes": ITEM_GROUP_MODES,
@@ -1976,6 +1982,14 @@ def bp_economics(request: Request, bp_id: int):
                         | {(c["section"], c["article"]):
                            cost_matrix.hint(conn, bp["bp_type"], c["section"],
                                             c["article"])
+                           for c in cost_model["components"]},
+        # Пара «факт регистра 1С» / «что закладывали в расчётах» по статье:
+        # разница между ними — то, чему директор просил учиться.
+        "matrix_pairs": {(c["section"], c["item"]):
+                         cost_matrix.hint_pair(conn, bp["bp_type"], c["section"], c["item"])
+                         for c in costs}
+                        | {(c["section"], c["article"]):
+                           cost_matrix.hint_pair(conn, bp["bp_type"], c["section"], c["article"])
                            for c in cost_model["components"]},
         "cost_matrix_from": cost_matrix.period_from(conn),
         "rate_hints": rates.hints_for_edges(conn, rate_edges),
@@ -4632,6 +4646,46 @@ async def schedule_save(request: Request, bp_id: int):
 
 
 # ─────────────────────────────────────── План-факт (заготовка) ──────
+def cost_plan_fact(conn, bp, costs) -> dict:
+    """Статьи затрат: план сервиса (на долю лота) / факт регистра 1С по серии.
+
+    Факт — из stat_fact_costs по номеру запроса сделки; статьи 1С уже сложены
+    в статьи сервиса по ref_cost_item_map. Статьи «только факт» (списание
+    засора) и не сопоставленные показываются отдельно — плана по ним нет.
+    """
+    from . import fact_costs
+    deal_no = deals.request_no(bp)
+    fact_rows = fact_costs.for_deal(conn, deal_no) if deal_no else []
+    plan: dict[tuple, float] = {}
+    for c in calc.share_costs(bp, costs):
+        key = (c["section"], c["item"])
+        plan[key] = plan.get(key, 0.0) + calc._f(c["amount"])
+    fact: dict[tuple, dict] = {}
+    extra = []
+    for r in fact_rows:
+        if r["section"] is None:
+            extra.append({**r, "kind": "не относится к сделке"})
+        elif r["is_fact_only"]:
+            extra.append({**r, "kind": "только в факте"})
+        else:
+            fact[(r["section"], r["item"])] = r
+    rows = []
+    for key in sorted(set(plan) | set(fact), key=lambda k: (k[0] or "", k[1] or "")):
+        p = plan.get(key, 0.0)
+        f = fact.get(key)
+        fa = float(f["amount"]) if f else 0.0
+        rows.append({"section": key[0], "item": key[1], "plan": p, "fact": fa,
+                     "diff": fa - p, "pct": (fa / p * 100.0 if p else None),
+                     "items_1c": f["items_1c"] if f else [],
+                     "period": (f["period_min"], f["period_max"]) if f else None})
+    tot_plan = sum(r["plan"] for r in rows)
+    tot_fact = sum(r["fact"] for r in rows)
+    return {"deal_no": deal_no, "has_fact": bool(fact_rows), "rows": rows, "extra": extra,
+            "total_plan": tot_plan, "total_fact": tot_fact,
+            "total_pct": (tot_fact / tot_plan * 100.0 if tot_plan else None),
+            "extra_total": sum(float(e["amount"]) for e in extra)}
+
+
 @app.get("/bp/{bp_id}/planfact", response_class=HTMLResponse)
 def planfact_page(request: Request, bp_id: int):
     conn = connect()
@@ -4654,6 +4708,9 @@ def planfact_page(request: Request, bp_id: int):
         "pf": calc.plan_fact(bp_v, items_v, costs_v, sched_rows, fact_rows, conn),
         # Факт из 1С — снимок «Реализации» (ночная сборка), против нашего P&L на долю.
         "snap": factsnap.compare(conn, bp_v, items_v, calc.pnl(bp_v, items_v, costs_v, conn)),
+        # План по статьям (на долю) против факта регистра затрат 1С по серии.
+        "cost_pf": cost_plan_fact(conn, bp_v, costs_v),
+        "pnl_share": round(calc.lot_share(bp_v) * 100.0, 2),
         # факт вносится и после согласования БП
         "can_edit": role in ("economist", "director", "admin"),
     }
@@ -6209,6 +6266,13 @@ def references(request: Request):
         # Матрица фактических затрат: тип сделки → статья → руб/тн.
         "cost_matrix": cost_matrix.all_rows(conn),
         "cost_matrix_from": cost_matrix.period_from(conn),
+        # Факт затрат по сделкам из регистра 1С и справочник соответствия статей.
+        "fact_costs_summary": fact_costs.summary(conn),
+        "cost_item_map": conn.execute(
+            "SELECT * FROM ref_cost_item_map ORDER BY section IS NULL, section, item, item_1c").fetchall(),
+        "cost_item_map_usage": {r["item_1c"]: (r["amount"], r["n"]) for r in conn.execute(
+            "SELECT item_1c, SUM(amount) AS amount, COUNT(DISTINCT series) AS n "
+            "FROM stat_fact_costs GROUP BY item_1c")},
         # Фактическая рентабельность по типам сделок (сборка «Реализации»).
         "type_margins": type_margin.rows(conn),
         "type_margin_closed_pct": type_margin.closed_pct(conn),
@@ -6230,6 +6294,8 @@ def references(request: Request):
         "settings": conn.execute("SELECT * FROM settings ORDER BY key").fetchall(),
         "norms": conn.execute(
             "SELECT * FROM cost_norms ORDER BY base IS NOT NULL, base, label").fetchall(),
+        "norm_facts": norm_calib.for_norms(conn),
+        "norm_fact_deviation": norm_calib.DEVIATION_PCT,
         "norms_updated_at": (conn.execute(
             "SELECT value FROM settings WHERE key = 'norms_updated_at'").fetchone()
             or {"value": None})["value"],
@@ -6253,9 +6319,26 @@ def references(request: Request):
             "ORDER BY base_name, kind DESC, name").fetchall(),
         # Обоснование ставки распределяемых расходов фактическими данными 1С.
         "overhead": norms.overhead_rate(conn),
+        "overhead_bases": fact_costs.base_overhead_rates(
+            conn, os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json")),
     }
     conn.close()
     return templates.TemplateResponse(request, "references.html", ctx)
+
+
+@app.post("/references/norms/calibrate")
+def calibrate_norms(request: Request):
+    """Пересчитать фактические значения нормативов из загруженных регистров."""
+    role = current_role(request)
+    if role not in ("economist", "director", "admin"):
+        return redirect("/references", "Калибровку запускает экономист.")
+    conn = connect()
+    res = norm_calib.build(conn)
+    log(conn, actor(request), None, "norm_calib", f"{res['written']} фактов")
+    conn.commit()
+    conn.close()
+    return redirect("/references#ref-norms",
+                    f"Факт по нормативам пересчитан: {res['written']} значений с {res['since']}.")
 
 
 @app.post("/references/norms/refresh")
@@ -6384,6 +6467,41 @@ def rebuild_type_margin(request: Request):
                     f"Факт по типам пересобран: сделок с фактом {result['bps']}, закрытых "
                     f"{result['closed']}, с определённым типом {result['typed']} "
                     f"(сборка {result['generated']}).")
+
+
+@app.post("/references/cost-item-map")
+def update_cost_item_map(request: Request, item_1c: str = Form(...), section: str = Form(""),
+                         item: str = Form(""), is_fact_only: str = Form("0")):
+    """Соответствие статьи 1С статье сервиса. Пустая секция и статья —
+    статья не относится к экономике сделки. После правки матрица
+    пересобирается ночью; кнопка пересборки — в карточке матрицы."""
+    role = current_role(request)
+    if role not in ("economist", "director", "admin"):
+        return redirect("/references", "Править соответствие статей может экономист.")
+    conn = connect()
+    key = item_1c.strip()
+    if not key:
+        conn.close()
+        return redirect("/references#ref-fact-costs", "Статья 1С не может быть пустой.")
+    sec, it = section.strip() or None, item.strip() or None
+    if (sec is None) != (it is None):
+        conn.close()
+        return redirect("/references#ref-fact-costs",
+                        "Секция и статья задаются вместе; обе пустые — статья не относится к сделке.")
+    conn.execute(
+        "INSERT INTO ref_cost_item_map (item_1c, section, item, is_fact_only, note, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(item_1c) DO UPDATE SET "
+        "section = excluded.section, item = excluded.item, is_fact_only = excluded.is_fact_only, "
+        "note = excluded.note, updated_at = excluded.updated_at",
+        (key, sec, it, 1 if is_fact_only == "1" else 0, f"правка: {actor(request)}"))
+    # Перепривязать уже загруженный факт, чтобы не ждать ночи.
+    conn.execute("UPDATE stat_fact_costs SET section = ?, item = ? WHERE item_1c = ? "
+                 "OR (item_1c LIKE ? || '%' AND NOT EXISTS (SELECT 1 FROM ref_cost_item_map m "
+                 "WHERE m.item_1c = stat_fact_costs.item_1c))", (sec, it, key, key))
+    log(conn, actor(request), None, "cost_item_map", f"{key} -> {sec} / {it}")
+    conn.commit()
+    conn.close()
+    return redirect("/references#ref-fact-costs", f"Соответствие для «{key}» сохранено.")
 
 
 @app.post("/references/bp-types/{type_id}")

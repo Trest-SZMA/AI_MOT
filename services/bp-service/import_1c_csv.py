@@ -407,8 +407,8 @@ def import_processing_stats(conn, path: Path) -> int:
     units = {str(g).lower(): u for g, u in conn.execute(
         "SELECT guid, unit FROM ref_nomenclature_1c WHERE guid IS NOT NULL "
         "AND unit IS NOT NULL")}
-    agg = defaultdict(lambda: [0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-    # (work, div, group, unit) → [n, qty, fot, prr, gsm, amort, labor]
+    agg = defaultdict(lambda: [0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    # (work, div, group, unit) → [n, qty, fot, prr, gsm, amort, labor, mat]
     for r in iter_rows(path):
         work = _s(r["ВидРабот"])
         if not work:
@@ -425,16 +425,19 @@ def import_processing_stats(conn, path: Path) -> int:
         a[4] += _f(r["СуммаГСМ"])
         a[5] += _f(r["СуммаАмортизации"])
         a[6] += _f(r["Трудозатраты"])
+        # Материалы — кислород, пропан, бензин на резку: то, что у нас
+        # нормируется как «заправка газом и кислородом».
+        a[7] += _f(r.get("МатериалыСтоимость"))
     conn.execute("DELETE FROM stat_processing")
     n = 0
-    for (work, div, grp, unit), (cnt, qty, fot, prr, gsm, am, lab) in sorted(agg.items()):
+    for (work, div, grp, unit), (cnt, qty, fot, prr, gsm, am, lab, mat) in sorted(agg.items()):
         conn.execute(
             "INSERT INTO stat_processing (work_type, division, cargo_group, "
             "samples, total_qty, rate_fot, rate_prr, rate_gsm, rate_amort, "
-            "labor_per_t, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "labor_per_t, unit, rate_mat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (work, div, grp, cnt, round(qty, 2), round(fot / qty, 2),
              round(prr / qty, 2), round(gsm / qty, 2), round(am / qty, 2),
-             round(lab / qty, 4), unit or None))
+             round(lab / qty, 4), unit or None, round(mat / qty, 2)))
         n += 1
     return n
 
@@ -534,6 +537,82 @@ def import_sale_stats(conn, path: Path) -> int:
     return n
 
 
+def import_sales_register(conn, path: Path) -> int:
+    """_Продажи_регистр__*.csv (агрегат регистра «Выручка и себестоимость
+    продаж») → stat_sale_price и stat_sale_price_hist.
+
+    Заменяет «Выручку на загрузку» (119 строк) как источник ориентира цены:
+    регистр даёт продажи по номенклатуре, подразделению, покупателю и
+    месяцу — 10 тысяч строк с 2025 года. Группа аналитического учёта
+    берётся из справочника номенклатуры по имени; строки без группы (услуги,
+    хранение) и штучные позиции не входят. Единица — тонны: количество
+    больше 3 000 у одной строки-месяца считаем килограммами.
+    """
+    groups, units = {}, {}
+    try:
+        for r in conn.execute("SELECT name, cargo_group, unit FROM ref_nomenclature_1c "
+                              "WHERE cargo_group IS NOT NULL AND cargo_group <> ''"):
+            groups[normalize(r["name"])] = r["cargo_group"]
+            units[normalize(r["name"])] = (r["unit"] or "").strip().lower()
+    except sqlite3.Error:
+        groups = {}
+    _kg_re = re.compile(r"\(кг\)|\bкг\b", re.IGNORECASE)
+    agg = defaultdict(lambda: [0, 0.0, 0.0])
+    hist = defaultdict(lambda: [0, 0.0, 0.0])
+    skipped = 0
+    for r in iter_rows(path):
+        name = _s(r.get("Номенклатура")) or ""
+        grp = groups.get(normalize(name))
+        if not grp:
+            skipped += 1
+            continue
+        qty = _f(r.get("Количество"))
+        rev = _f(r.get("ВыручкаБезНДС"))
+        if qty <= 0 or rev <= 0:
+            continue
+        unit = units.get(normalize(name), "")
+        if unit and unit not in ("т", "тн", "тонн", "тонна"):
+            skipped += 1                     # штуки, метры — не цена за тонну
+            continue
+        # В справочнике единица «т» стоит и у позиций «(кг)» — по имени и по
+        # цене за единицу видно, что это килограммы.
+        if _kg_re.search(name) or (rev / qty < 1500 and qty > 1000):
+            qty /= 1000.0
+        if rev / qty < 3000:                 # руб/т меньше 3 000 — не металл
+            continue
+        div = _s(r.get("Подразделение")) or ""
+        a = agg[(grp, div)]
+        a[0] += int(_f(r.get("Строк")) or 1)
+        a[1] += qty
+        a[2] += rev
+        period = (_s(r.get("Месяц")) or "")[:7]
+        if len(period) == 7:
+            h = hist[(grp, div, _s(r.get("Покупатель")) or "", period)]
+            h[0] += int(_f(r.get("Строк")) or 1)
+            h[1] += qty
+            h[2] += rev
+    if not agg:
+        print("  продажи (регистр): ни одной строки с группой — таблицы не тронуты")
+        return 0
+    conn.execute("DELETE FROM stat_sale_price")
+    n = 0
+    for (grp, div), (cnt, qty, rev) in sorted(agg.items()):
+        conn.execute(
+            "INSERT INTO stat_sale_price (cargo_group, division, samples, "
+            "total_qty_t, total_revenue, rub_per_t) VALUES (?, ?, ?, ?, ?, ?)",
+            (grp, div, cnt, round(qty, 3), round(rev, 2), round(rev / qty, 2)))
+        n += 1
+    conn.execute("DELETE FROM stat_sale_price_hist")
+    for (grp, div, buyer, period), (cnt, qty, rev) in sorted(hist.items()):
+        conn.execute(
+            "INSERT INTO stat_sale_price_hist (cargo_group, division, buyer, "
+            "period, samples, total_qty_t, total_revenue, rub_per_t) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (grp, div, buyer, period, cnt, round(qty, 3), round(rev, 2), round(rev / qty, 2)))
+    print(f"  продажи (регистр): без группы пропущено строк {skipped}")
+    return n
+
+
 # ── Оркестровка ─────────────────────────────────────────────────────
 
 def import_overhead_stats(conn, path: Path) -> int:
@@ -588,6 +667,31 @@ def import_overhead_stats(conn, path: Path) -> int:
     return n
 
 
+def import_division_tons(conn, path: Path) -> int:
+    """Отвесная → stat_division_tons: тоннаж по подразделению и месяцу
+    разгрузки (вес по ТТН; больше 500 — это килограммы). Знаменатель для
+    ставки распределяемых расходов подразделения (регистр затрат 1С)."""
+    agg = defaultdict(lambda: [0.0, 0])
+    for r in iter_rows(path):
+        month = (_date(r.get("ДатаРазгрузки")) or _date(r.get("ДатаПогрузки")) or "")[:7]
+        div = _s(r.get("Подразделение"))
+        if not month or not div:
+            continue
+        w = _f(r.get("ВесПоТТН"))
+        if w <= 0:
+            continue
+        if w > 500:
+            w /= 1000.0
+        a = agg[(div, month)]
+        a[0] += w
+        a[1] += 1
+    conn.execute("DELETE FROM stat_division_tons")
+    for (div, month), (t, n) in agg.items():
+        conn.execute("INSERT INTO stat_division_tons (division, month, tons, trips, updated_at) "
+                     "VALUES (?, ?, ?, ?, datetime('now'))", (div, month, round(t, 3), n))
+    return len(agg)
+
+
 def import_all(folder: str, author: str = "импорт 1С") -> None:
     """author — кто/что обновило справочники (отметка в реестре источников)."""
     folder = Path(folder)
@@ -633,6 +737,9 @@ def import_all(folder: str, author: str = "импорт 1С") -> None:
         [("stat_processing", import_processing_stats)])
     run("Закупки", [("stat_purchase_price", import_purchase_stats)])
     run("_Выручка_на_загрузку_", [("stat_sale_price", import_sale_stats)])
+    # Регистр продаж (агрегат из Extractor) — с 15.09.2026 главный источник
+    # цены реализации; если файл есть, он перекрывает «Выручку на загрузку».
+    run("_Продажи_регистр_", [("stat_sale_price", import_sales_register)])
     run("_Распределение_прочих_расходов_",
         [("stat_overheads", import_overhead_stats)])
     run("ТС", [("ref_vehicles", import_vehicles)])
@@ -644,6 +751,9 @@ def import_all(folder: str, author: str = "импорт 1С") -> None:
         n_load = import_vehicle_load(conn, path)
         summary.append(("stat_vehicle_load", n_load))
         refsources.mark(conn, "stat_vehicle_load", n_load, path.name, author)
+        n_div = import_division_tons(conn, path)
+        summary.append(("stat_division_tons", n_div))
+        refsources.mark(conn, "stat_division_tons", n_div, path.name, author)
         conn.commit()
 
     conn.commit()

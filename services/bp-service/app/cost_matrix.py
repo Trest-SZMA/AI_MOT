@@ -6,9 +6,13 @@
 тем, что закладывали в расчёты, и тем, что показал факт, само по себе
 информация, и смешивать их нельзя:
 
-  «расчёты»  — статьи затрат бизнес-планов сервиса, делённые на тоннаж лота;
-  «факт 1С»  — ставки из выгрузок: переработка (производственная
-               себестоимость), транспорт (отвесная), распределяемые расходы.
+  «расчёты»  — статьи затрат бизнес-планов сервиса, делённые на тоннаж лота
+               («что закладывали»);
+  «факт 1С: регистр затрат» — с 15.09.2026 главный источник: регистр
+               «Прочие расход (все)» по сериям (сделкам), руб/т проданного
+               по закрытым сделкам (app/fact_costs.py);
+  «факт 1С»  — прежние узкие выгрузки: переработка, транспорт (отвесная),
+               распределяемые — оставлены для сравнения.
 
 Медиана, а не среднее: одна сделка с наёмным транспортом через полстраны
 сдвигает среднее так, что нормативом им пользоваться нельзя.
@@ -179,6 +183,13 @@ def build(conn: sqlite3.Connection) -> dict:
     """Пересборка матрицы. Возвращает сводку: сколько строк и наблюдений."""
     since = period_from(conn)
     rows = _collect_bp(conn, since) + _collect_1c(conn)
+    # Главный источник с 15.09.2026: регистр затрат 1С по сериям (на нашу долю,
+    # по закрытым сделкам). Старые источники остаются рядом для сравнения.
+    from . import fact_costs
+    try:
+        rows += fact_costs.observations(conn, since)
+    except sqlite3.Error:
+        pass
 
     agg: dict[tuple, list] = defaultdict(list)
     notes: dict[tuple, set] = defaultdict(set)
@@ -223,8 +234,23 @@ def hint(conn: sqlite3.Connection, bp_type: str | None, section: str,
     """Ориентир по статье: сначала свой тип, затем общий по всем сделкам."""
     return conn.execute(
         "SELECT * FROM stat_cost_matrix WHERE section = ? AND item = ? "
-        "AND bp_type IN (?, '') ORDER BY bp_type = '' , samples DESC LIMIT 1",
-        (section, item, bp_type or "")).fetchone()
+        "AND bp_type IN (?, '') ORDER BY bp_type = '', source <> ?, samples DESC LIMIT 1",
+        (section, item, bp_type or "", "факт 1С: регистр затрат")).fetchone()
+
+
+def hint_pair(conn: sqlite3.Connection, bp_type: str | None, section: str,
+              item: str) -> dict:
+    """Факт регистра и «что закладывали» (расчёты) рядом — для карточки:
+    разница между ними и есть обучение (указание директора)."""
+    fact = conn.execute(
+        "SELECT * FROM stat_cost_matrix WHERE section = ? AND item = ? AND source = ? "
+        "AND bp_type IN (?, '') ORDER BY bp_type = '', samples DESC LIMIT 1",
+        (section, item, "факт 1С: регистр затрат", bp_type or "")).fetchone()
+    plan = conn.execute(
+        "SELECT * FROM stat_cost_matrix WHERE section = ? AND item = ? AND source = ? "
+        "AND bp_type IN (?, '') ORDER BY bp_type = '', samples DESC LIMIT 1",
+        (section, item, SOURCE_BP, bp_type or "")).fetchone()
+    return {"fact": fact, "plan": plan}
 
 
 def all_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:

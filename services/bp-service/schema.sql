@@ -886,6 +886,7 @@ CREATE TABLE IF NOT EXISTS stat_processing (
     rate_prr    REAL,                    -- ПРР, руб/ед
     rate_gsm    REAL,                    -- ГСМ, руб/ед
     rate_amort  REAL,                    -- амортизация, руб/ед
+    rate_mat    REAL,                    -- материалы (кислород, пропан, бензин), руб/ед
     labor_per_t REAL,                    -- трудозатраты, ч/ед
     unit        TEXT,                    -- единица выпуска из справочника 1С
                                          -- (т/шт/кг/м): без неё ставки разных
@@ -1027,4 +1028,80 @@ CREATE TABLE IF NOT EXISTS stat_type_margin (
     closed_pct    REAL,                 -- порог «закрытости», %
     generated_at  TEXT,                 -- дата сборки «Реализации»
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Фактические затраты по сделкам из регистра 1С «Прочие расход (все)»
+-- (Extractor): только строки с серией (= сделкой) с cost_matrix_from.
+-- Статья 1С сложена в статью сервиса по справочнику ref_cost_item_map.
+-- Тоннаж и тип сделки — из снимка «Реализации» по имени серии.
+CREATE TABLE IF NOT EXISTS stat_fact_costs (
+    id            INTEGER PRIMARY KEY,
+    series        TEXT NOT NULL,        -- серия 1С (имя, как в регистре)
+    deal_no       TEXT,                 -- номер запроса (первые цифры серии)
+    bp_type       TEXT,                 -- тип сделки по группам снимка; NULL — не определён
+    direction     TEXT,                 -- направление (dir снимка)
+    item_1c       TEXT NOT NULL,        -- статья 1С
+    section       TEXT,                 -- секция P&L сервиса
+    item          TEXT,                 -- статья сервиса; NULL — не сопоставлена
+    amount        REAL NOT NULL,        -- руб без НДС
+    rows_n        INTEGER NOT NULL,     -- строк регистра
+    period_min    TEXT,
+    period_max    TEXT,
+    bought_t      REAL,                 -- куплено по серии (снимок), тн
+    sold_t        REAL,                 -- продано по серии, тн
+    closed        INTEGER NOT NULL DEFAULT 0,  -- продано >= type_margin_closed_pct
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (series, item_1c)
+);
+
+-- Соответствие статей 1С статьям сервиса (правится на «Справочниках»).
+-- section/item NULL = статья не относится к сделке (дивиденды, проценты).
+CREATE TABLE IF NOT EXISTS ref_cost_item_map (
+    item_1c   TEXT PRIMARY KEY,
+    section   TEXT,
+    item      TEXT,
+    note      TEXT,
+    is_fact_only INTEGER NOT NULL DEFAULT 0,   -- статьи, которых нет в плане (засор деньгами)
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Калибровка нормативов фактом (15.09.2026): у норматива появляется
+-- фактическое значение из регистров 1С с датой и источником. Норматив
+-- не перезаписывается — экономист видит расхождение и решает сам.
+CREATE TABLE IF NOT EXISTS norm_fact (
+    key         TEXT PRIMARY KEY,        -- ключ cost_norms.key
+    fact_value  REAL NOT NULL,
+    unit        TEXT,
+    samples     INTEGER,                 -- наблюдений (строк / сделок / документов)
+    basis       TEXT,                    -- как посчитано, словами
+    source      TEXT,                    -- таблица-источник
+    period_from TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Распределяемые расходы по подразделениям из регистра 1С «Прочие расход
+-- (все)»: строки БЕЗ серии (ФОТ, амортизация, аренда, охрана, ремонт …) по
+-- подразделению и месяцу. Из них и тоннажа базы (снимок «Реализации»)
+-- считается фактическая ставка руб/т базы — калибровка base_overhead_per_t.
+CREATE TABLE IF NOT EXISTS stat_overhead_div (
+    id          INTEGER PRIMARY KEY,
+    division    TEXT NOT NULL,          -- подразделение 1С
+    month       TEXT NOT NULL,          -- ГГГГ-ММ
+    item_1c     TEXT NOT NULL,
+    amount      REAL NOT NULL,          -- руб без НДС
+    rows_n      INTEGER NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (division, month, item_1c)
+);
+
+-- Тоннаж через подразделение по месяцам из «Отвесной» (вес по ТТН) —
+-- знаменатель для ставки распределяемых по подразделению: те же имена,
+-- что в регистре затрат.
+CREATE TABLE IF NOT EXISTS stat_division_tons (
+    division    TEXT NOT NULL,
+    month       TEXT NOT NULL,
+    tons        REAL NOT NULL,
+    trips       INTEGER NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (division, month)
 );

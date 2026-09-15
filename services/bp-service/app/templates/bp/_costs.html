@@ -140,17 +140,28 @@
           </div>
           {% endif %}
           {% set mh = matrix_hints.get((section, article)) %}
+          {% set mp = matrix_pairs.get((section, article)) or {} %}
           {% if mh %}
           <div class="matrix-hint" data-tip="Медиана по {{ mh['samples'] }}
                наблюдениям c {{ cost_matrix_from }}, коридор
                {{ money(mh['p_min']) }}–{{ money(mh['p_max']) }} руб/тн.
                Источник: {{ mh['source'] }}.">
+            {% if mp.get('fact') %}
+            факт 1С <b>{{ money(mp['fact']['rub_per_t']) }}</b> руб/тн
+            <span class="muted">· {{ mp['fact']['samples'] }} сдел.{% if mp['fact']['bp_type'] == '' %} всех типов{% endif %}</span>
+            {% else %}
             накоплено <b>{{ money(mh['rub_per_t']) }}</b> руб/тн
             <span class="muted">· {{ mh['source'] }} · {{ mh['samples'] }} набл.</span>
+            {% endif %}
+            {% if mp.get('plan') and mp.get('fact') %}
+            <span class="muted" data-tip="Медиана по статьям затрат наших расчётов: столько закладывали в книгах. Разница с фактом 1С — материал для обучения.">
+              · закладывали {{ money(mp['plan']['rub_per_t']) }}</span>
+            {% endif %}
             {% set model_sum = cost_model['articles'].get(article, 0) %}
             {% if sale_volume and model_sum %}
+              {% set ref = mp['fact']['rub_per_t'] if mp.get('fact') else mh['rub_per_t'] %}
               {% set fact = model_sum / sale_volume %}
-              {% set diff = (fact - mh['rub_per_t']) / mh['rub_per_t'] * 100 if mh['rub_per_t'] else 0 %}
+              {% set diff = (fact - ref) / ref * 100 if ref else 0 %}
               {% if diff | abs >= 30 %}
               <span class="warn-note">{{ icon('warn', 'icon-s') }}
                 по модели {{ money(fact) }} руб/тн, это {{ '%+.0f' % diff }}%</span>
@@ -271,16 +282,27 @@
                у сделок такого же типа и по факту 1С. Ничего не подставляет —
                человек видит, насколько его сумма расходится с накопленным. #}
             {% set mh = matrix_hints.get((c['section'], c['item'])) %}
+            {% set mp = matrix_pairs.get((c['section'], c['item'])) or {} %}
             {% if mh %}
             <div class="matrix-hint" data-tip="Медиана по {{ mh['samples'] }}
                  наблюдениям c {{ cost_matrix_from }}, коридор
                  {{ money(mh['p_min']) }}–{{ money(mh['p_max']) }} руб/тн.
                  Источник: {{ mh['source'] }}. Ориентир, не подстановка.">
+              {% if mp.get('fact') %}
+              факт 1С <b>{{ money(mp['fact']['rub_per_t']) }}</b> руб/тн
+              <span class="muted">· {{ mp['fact']['samples'] }} сдел.{% if mp['fact']['bp_type'] == '' %} всех типов{% endif %}</span>
+              {% else %}
               накоплено <b>{{ money(mh['rub_per_t']) }}</b> руб/тн
               <span class="muted">· {{ mh['source'] }} · {{ mh['samples'] }} набл.</span>
+              {% endif %}
+              {% if mp.get('plan') and mp.get('fact') %}
+              <span class="muted" data-tip="Медиана по статьям затрат наших расчётов: столько закладывали в книгах. Разница с фактом 1С — материал для обучения.">
+                · закладывали {{ money(mp['plan']['rub_per_t']) }}</span>
+              {% endif %}
               {% if sale_volume and c['amount'] %}
+                {% set ref = mp['fact']['rub_per_t'] if mp.get('fact') else mh['rub_per_t'] %}
                 {% set fact = c['amount'] / sale_volume %}
-                {% set diff = (fact - mh['rub_per_t']) / mh['rub_per_t'] * 100 if mh['rub_per_t'] else 0 %}
+                {% set diff = (fact - ref) / ref * 100 if ref else 0 %}
                 {% if diff | abs >= 30 %}
                 <span class="warn-note">{{ icon('warn', 'icon-s') }}
                   у нас {{ money(fact) }} руб/тн, это {{ '%+.0f' % diff }}%</span>

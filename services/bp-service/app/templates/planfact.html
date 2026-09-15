@@ -127,11 +127,69 @@
   {% endif %}
 </div>
 
+<div class="card" id="cost-plan-fact">
+  <div class="sec-head"><h2>Затраты по статьям: план и факт 1С</h2>
+    <div class="sec-aside">
+      {% if cost_pf['has_fact'] %}<span class="role-tag">регистр затрат, сделка № {{ cost_pf['deal_no'] }}</span>
+      {% else %}<span class="role-tag">факта нет</span>{% endif %}
+    </div>
+  </div>
+  {% if not cost_pf['has_fact'] %}
+  <p class="muted">
+    {%- if not cost_pf['deal_no'] %}Номер запроса в названии источника не найден — затраты не к чему привязать.
+    {%- else %}По сделке № {{ cost_pf['deal_no'] }} в регистре затрат 1С нет строк с этой серией:
+      либо затраты ещё не проведены, либо ночная выгрузка не выполнялась.{% endif %}</p>
+  {% else %}
+  <p class="muted">План — статьи затрат этого расчёта на долю лота ({{ '%g' % pnl_share if pnl_share else 100 }} %).
+    Факт — регистр «Прочие расход (все)» из 1С по серии сделки, статьи 1С сложены в статьи
+    сервиса по справочнику соответствия. Суммы без НДС.</p>
+  <div class="summary-grid">
+    <div class="summary-tile"><div class="label">Затраты: план</div><div class="value">{{ money(cost_pf['total_plan']) }}</div></div>
+    <div class="summary-tile {{ 'good' if cost_pf['total_pct'] is not none and cost_pf['total_pct'] <= 100 else 'bad' }}">
+      <div class="label">Затраты: факт</div><div class="value">{{ money(cost_pf['total_fact']) }}</div>
+      <div class="muted">{{ '%.0f' % cost_pf['total_pct'] if cost_pf['total_pct'] is not none else '—' }} % плана</div></div>
+    <div class="summary-tile"><div class="label">Только в факте</div><div class="value">{{ money(cost_pf['extra_total']) }}</div>
+      <div class="muted">засор деньгами, учётные статьи</div></div>
+  </div>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Статья</th><th class="num">План</th><th class="num">Факт 1С</th><th class="num">Отклонение</th><th class="num">% плана</th><th>Статьи 1С</th></tr></thead>
+    <tbody>
+    {% for r in cost_pf['rows'] %}
+    <tr>
+      <td><span class="muted">{{ r['section'] }}</span> · {{ r['item'] }}</td>
+      <td class="num">{{ money(r['plan']) }}</td>
+      <td class="num">{{ money(r['fact']) }}</td>
+      <td class="num {{ 'neg' if r['diff'] > 0 else 'pos' }}">{{ '{:+,.0f}'.format(r['diff']).replace(',', ' ') }}</td>
+      <td class="num">{{ '%.0f' % r['pct'] if r['pct'] is not none else '—' }}</td>
+      <td class="muted">{{ r['items_1c'] | join('; ') }}</td>
+    </tr>
+    {% endfor %}
+    {% for e in cost_pf['extra'] %}
+    <tr class="muted">
+      <td>{{ e['item'] or '—' }} <span class="role-tag">{{ e['kind'] }}</span></td>
+      <td class="num">—</td>
+      <td class="num">{{ money(e['amount']) }}</td>
+      <td class="num">—</td><td class="num">—</td>
+      <td>{{ e['items_1c'] | join('; ') }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</div>
+
 {% if can_edit %}
-{# Загрузка факта из 1С: файл разбирается и показывается сводом, запись —
-   отдельным подтверждением (факт правит уже согласованный БП). #}
-<div class="card">
-  <div class="sec-head"><h2>Загрузить факт из 1С</h2></div>
+{# Загрузка факта файлом — запасной путь: с 15.09.2026 факт приходит ночью
+   снимком «Реализации» и регистром затрат. Оставлена свёрнутой на случай,
+   когда серии в 1С ещё нет, а факт уже надо показать. #}
+<details class="card">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Загрузить факт файлом (запасной путь)</h2>
+    <div class="sec-aside"><span class="role-tag">обычно не нужно: факт приходит из 1С ночью</span></div>
+  </summary>
   <form method="post" action="/bp/{{ bp['id'] }}/planfact/import"
         enctype="multipart/form-data" class="row-form">
     <div><label for="factfile">Выгрузка реализации (xlsx, xlsm или csv)</label>
@@ -143,7 +201,7 @@
   <div class="muted">Нужны колонки с объёмом и выручкой; период — дата,
     «01.2026» или номер месяца сделки. Колонка «№ БП» необязательна: без неё
     берутся все строки файла. Ничего не запишется, пока вы не подтвердите свод.</div>
-</div>
+</details>
 {% endif %}
 
 <form method="post" action="/bp/{{ bp['id'] }}/planfact">

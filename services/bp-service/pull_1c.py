@@ -58,6 +58,7 @@ DEFAULT_FOLDER = "1c"
 NEIGHBOR_DIR = os.environ.get("BP_NEIGHBOR_DIR", "/neighbor")
 DEALS_DIR = os.path.join(NEIGHBOR_DIR, "data")
 FACT_JSON = os.path.join(NEIGHBOR_DIR, "out", "sales_data.json")
+FOLDER_FOR_FACT = DEFAULT_FOLDER          # переопределяется в main() из --folder
 STATUS_FILE = "_last_pull.json"
 _SAFE_TABLE = re.compile(r"^[\w .\-]+$")
 
@@ -136,6 +137,103 @@ def dump_table(cur, prefix: str, table: str, folder: Path, stamp: str, log=print
     return path, n
 
 
+def dump_fact_costs(cur, folder: Path, stamp: str, since: str, log=print) -> tuple[Path, int]:
+    """Регистр «Прочие расход (все)»: только строки с серией с даты since и
+    только нужные колонки — полный регистр 823 тыс. строк и 56 колонок для
+    матрицы не нужен."""
+    from app.fact_costs import COLUMNS, FILE_PREFIX
+    path = folder / f"{FILE_PREFIX}_{stamp}.csv"
+    tmp = path.with_suffix(".csv.part")
+    cols_sql = ", ".join(f"[{c}]" for c in COLUMNS)
+    cur.execute(f"SELECT {cols_sql} FROM [dbo].[Прочие расход (все)] "
+                f"WHERE [Серия] <> '' AND [Серия] IS NOT NULL AND [Период] >= %s", (since,))
+    n = 0
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh, quoting=csv.QUOTE_ALL, lineterminator="\n")
+        w.writerow(COLUMNS)
+        while True:
+            batch = cur.fetchmany(5000)
+            if not batch:
+                break
+            w.writerows([fmt(v) for v in row] for row in batch)
+            n += len(batch)
+    os.replace(tmp, path)
+    return path, n
+
+
+def dump_overheads(cur, folder: Path, stamp: str, since: str, log=print) -> tuple[Path, int]:
+    """Статьи БЕЗ серии, агрегат по подразделению, месяцу и статье (25 тыс.
+    строк вместо 500 тыс.) — для ставки распределяемых по базам."""
+    from app.fact_costs import OVERHEAD_PREFIX
+    path = folder / f"{OVERHEAD_PREFIX}_{stamp}.csv"
+    tmp = path.with_suffix(".csv.part")
+    cur.execute("SELECT [Подразделение], LEFT(CONVERT(varchar, [Период], 120), 7) AS m, "
+                "[СтатьяРасходов], SUM(TRY_CAST([СуммаБезНДС] AS float)), COUNT(*) "
+                "FROM [dbo].[Прочие расход (все)] WHERE ([Серия] = '' OR [Серия] IS NULL) "
+                "AND [Период] >= %s GROUP BY [Подразделение], LEFT(CONVERT(varchar, [Период], 120), 7), "
+                "[СтатьяРасходов]", (since,))
+    n = 0
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh, quoting=csv.QUOTE_ALL, lineterminator="\n")
+        w.writerow(["Подразделение", "Месяц", "СтатьяРасходов", "Сумма", "Строк"])
+        while True:
+            batch = cur.fetchmany(5000)
+            if not batch:
+                break
+            w.writerows([fmt(v) for v in row] for row in batch)
+            n += len(batch)
+    os.replace(tmp, path)
+    return path, n
+
+
+SALES_PREFIX = "_Продажи_регистр_"
+
+
+def dump_sales(cur, folder: Path, stamp: str, since: str, log=print) -> tuple[Path, int]:
+    """Регистр «ВыручкаИСебестоимостьПродаж» — агрегат по месяцу, номенклатуре,
+    подразделению, покупателю и серии (10 тыс. строк вместо 250 тыс.): ориентир
+    цены реализации по факту и цена по сделке для план/факта."""
+    path = folder / f"{SALES_PREFIX}_{stamp}.csv"
+    tmp = path.with_suffix(".csv.part")
+    cur.execute(
+        "SELECT LEFT(CONVERT(varchar, [Период], 120), 7), "
+        "LEFT([АналитикаУчетаНоменклатуры], CHARINDEX(';', [АналитикаУчетаНоменклатуры] + ';') - 1), "
+        "[Подразделение], "
+        "LEFT([АналитикаУчетаПоПартнерам], CHARINDEX(';', [АналитикаУчетаПоПартнерам] + ';') - 1), "
+        "[Серия], SUM([Количество]), SUM([СуммаВыручкиБезНДС]), SUM([СтоимостьБезНДС]), COUNT(*) "
+        "FROM [dbo].[ВыручкаИСебестоимостьПродаж] WHERE [Период] >= %s AND [Количество] > 0 "
+        "AND [ХозяйственнаяОперация] IN ('Реализация', 'Реализация (товары в пути)', 'Реализация в розницу') "
+        "GROUP BY LEFT(CONVERT(varchar, [Период], 120), 7), "
+        "LEFT([АналитикаУчетаНоменклатуры], CHARINDEX(';', [АналитикаУчетаНоменклатуры] + ';') - 1), "
+        "[Подразделение], LEFT([АналитикаУчетаПоПартнерам], CHARINDEX(';', [АналитикаУчетаПоПартнерам] + ';') - 1), "
+        "[Серия]", (since,))
+    n = 0
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh, quoting=csv.QUOTE_ALL, lineterminator="\n")
+        w.writerow(["Месяц", "Номенклатура", "Подразделение", "Покупатель", "Серия",
+                    "Количество", "ВыручкаБезНДС", "СебестоимостьБезНДС", "Строк"])
+        while True:
+            batch = cur.fetchmany(5000)
+            if not batch:
+                break
+            w.writerows([fmt(v) for v in row] for row in batch)
+            n += len(batch)
+    os.replace(tmp, path)
+    return path, n
+
+
+def _matrix_since() -> str:
+    """С какой даты берём регистр затрат — настройка cost_matrix_from сервиса."""
+    from app import cost_matrix
+    from app.db import connect as db_connect, init_db
+    init_db()
+    c = db_connect()
+    try:
+        return cost_matrix.period_from(c)
+    finally:
+        c.close()
+
+
 def drop_older(folder: Path, prefix: str, keep: int, log=print) -> None:
     """Оставить `keep` последних выгрузок префикса — файлы Отвесной весят десятки МБ."""
     files = sorted(folder.glob(prefix + "_*.csv"))
@@ -174,6 +272,40 @@ def pull(folder: Path, only: set[str] | None = None, keep: int = 2, log=print) -
             except Exception as e:
                 status["errors"].append(f"{table}: {type(e).__name__}: {e}")
                 log(f"  ОШИБКА {table}: {type(e).__name__}: {e}")
+        # Регистр затрат по сериям — для матрицы фактических затрат.
+        if not only or "затраты" in only:
+            t1 = time.time()
+            try:
+                path, n = dump_fact_costs(cur, folder, stamp, _matrix_since(), log)
+                from app.fact_costs import FILE_PREFIX
+                drop_older(folder, FILE_PREFIX, keep, log)
+                status["tables"].append({"prefix": FILE_PREFIX, "table": "Прочие расход (все) [серии]",
+                                         "file": path.name, "rows": n, "seconds": round(time.time() - t1, 1)})
+                log(f"  {'Прочие расход (все) [серии]':34s} {n:8d} строк -> {path.name}")
+            except Exception as e:
+                status["errors"].append(f"регистр затрат: {type(e).__name__}: {e}")
+                log(f"  ОШИБКА регистр затрат: {type(e).__name__}: {e}")
+            t1 = time.time()
+            try:
+                path, n = dump_overheads(cur, folder, stamp, _matrix_since(), log)
+                from app.fact_costs import OVERHEAD_PREFIX
+                drop_older(folder, OVERHEAD_PREFIX, keep, log)
+                status["tables"].append({"prefix": OVERHEAD_PREFIX, "table": "Прочие расход (все) [без серии]",
+                                         "file": path.name, "rows": n, "seconds": round(time.time() - t1, 1)})
+                log(f"  {'Прочие расход (все) [без серии]':34s} {n:8d} строк -> {path.name}")
+            except Exception as e:
+                status["errors"].append(f"распределяемые: {type(e).__name__}: {e}")
+                log(f"  ОШИБКА распределяемые: {type(e).__name__}: {e}")
+            t1 = time.time()
+            try:
+                path, n = dump_sales(cur, folder, stamp, _matrix_since(), log)
+                drop_older(folder, SALES_PREFIX, keep, log)
+                status["tables"].append({"prefix": SALES_PREFIX, "table": "ВыручкаИСебестоимостьПродаж [агрегат]",
+                                         "file": path.name, "rows": n, "seconds": round(time.time() - t1, 1)})
+                log(f"  {'Продажи (регистр) [агрегат]':34s} {n:8d} строк -> {path.name}")
+            except Exception as e:
+                status["errors"].append(f"продажи: {type(e).__name__}: {e}")
+                log(f"  ОШИБКА продажи: {type(e).__name__}: {e}")
     status["seconds"] = round(time.time() - t0, 1)
     return status
 
@@ -234,6 +366,25 @@ def pull_fact(dry: bool = False) -> dict:
         from app import type_margin
         tm = type_margin.build(conn, FACT_JSON)
         conn.commit()
+        # Факт затрат по сделкам (регистр 1С) → матрица затрат.
+        from app import fact_costs, cost_matrix
+        fc_path = fact_costs.newest_file(Path(FOLDER_FOR_FACT))
+        if fc_path is not None:
+            fc = fact_costs.import_file(conn, fc_path, FACT_JSON)
+            oh_path = fact_costs.newest_overhead_file(Path(FOLDER_FOR_FACT))
+            if oh_path is not None:
+                oh = fact_costs.import_overhead_file(conn, oh_path)
+                print(f"  распределяемые без серии: {oh['rows']} строк, {round(oh['amount'] / 1e6)} млн")
+            cm = cost_matrix.build(conn)
+            from app import norm_calib
+            nc = norm_calib.build(conn)
+            conn.commit()
+            print(f"  калибровка нормативов: {nc['written']} фактов")
+            print(f"  факт затрат: {fc['series']} серий, {fc['rows']} строк, "
+                  f"{round(fc['amount'] / 1e6, 1)} млн; не сопоставлено статей: {len(fc['unmapped'])}; "
+                  f"матрица: {cm['rows']} строк из {cm['observations']} наблюдений")
+            st["fact_costs"] = {"series": fc["series"], "rows": fc["rows"], "unmapped": fc["unmapped"],
+                                "matrix_rows": cm["rows"]}
         print(f"  снимок «Реализации» {st['generated']}: БП в файле {st['bps_in_file']}, "
               f"наших с фактом {st['matched']}; факт по типам: {tm['typed']} из "
               f"{tm['closed']} закрытых сделок")
@@ -253,11 +404,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--keep", type=int, default=2, help="сколько прежних выгрузок оставлять")
     a = ap.parse_args(argv)
     folder = Path(a.folder)
+    global FOLDER_FOR_FACT
+    FOLDER_FOR_FACT = str(folder)
     print(f"Выгрузка из {settings()['host']}/{settings()['database']} в {folder.resolve()}")
     status = pull(folder, set(a.only) if a.only else None, a.keep)
     status["imported"] = False
-    status["deals"] = pull_deals(a.no_import)
-    status["fact"] = pull_fact(a.no_import)
+    # Порядок важен: сначала справочники и статистика из таблиц 1С (в том
+    # числе тоннаж подразделений по отвесным, ставки переработки), потом
+    # реестр сделок и снимок факта — матрица и калибровка считаются в конце
+    # и опираются на всё загруженное.
     if not a.no_import and status["tables"]:
         from import_1c_csv import import_all
         try:
@@ -266,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             status["errors"].append(f"импорт: {type(e).__name__}: {e}")
             print(f"ОШИБКА импорта: {type(e).__name__}: {e}")
+    status["deals"] = pull_deals(a.no_import)
+    status["fact"] = pull_fact(a.no_import)
     if status["deals"].get("error"):
         status["errors"].append("реестр сделок: " + status["deals"]["error"])
     if status["fact"].get("error"):

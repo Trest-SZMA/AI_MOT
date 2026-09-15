@@ -151,7 +151,12 @@
       <div><label>Шаг аукциона, руб</label>
         <input name="auction_step" value="{{ bp['auction_step'] or '' }}"></div>
       <div><label>Засор чёрного лома, %</label>
-        <input name="contamination_pct" value="{{ bp['contamination_pct'] or '' }}"></div>
+        <input name="contamination_pct" value="{{ bp['contamination_pct'] or '' }}">
+        {% if contam_hint %}
+        <div class="matrix-hint" data-tip="В 1С засор списывается деньгами (статьи «Списание засора при продаже / при перемещении»). Медиана по {{ contam_hint['samples'] }} закрытым сделкам {{ 'этого типа' if contam_hint['bp_type'] else 'всех типов' }} с {{ cost_matrix_from }}, руб на тонну проданного. В плане засор режет объём — сверка на «План-факте» покажет обе стороны.">
+          факт 1С <b>{{ '%.0f' % contam_hint['rub_per_t'] }}</b> руб/тн деньгами
+          <span class="muted">· {{ contam_hint['samples'] }} сдел.</span></div>
+        {% endif %}</div>
       <div><label>Срок вывоза / расчёта капитала, мес</label>
         <input name="removal_months" value="{{ bp['removal_months'] or '' }}"></div>
       <div><label>Месяц начала вывоза</label>
