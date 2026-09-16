@@ -1211,6 +1211,7 @@ CREATE TABLE IF NOT EXISTS stat_deal_audit (
     site              TEXT,
     year              TEXT,
     closed            INTEGER NOT NULL DEFAULT 0,
+    tons_ok           INTEGER,             -- тоннаж книги к купленному в допуске (доля лота)
     bought_t          REAL,
     sold_t            REAL,
     fact_rev          REAL,

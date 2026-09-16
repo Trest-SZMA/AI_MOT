@@ -35,6 +35,8 @@ check("сделка: модель по номенклатуре", (row["model_le
 check("сделка: ошибки посчитаны", row["plan_price_err"] is not None and row["model_price_err"] is not None and row["plan_profit_err"] is not None)
 bad = c.execute("SELECT COUNT(*) FROM stat_deal_audit WHERE series_full = 0 AND fact_profit IS NOT NULL").fetchone()[0]
 check("прибыль факта только при полном факте затрат", bad == 0)
+mism = c.execute("SELECT COUNT(*) FROM stat_deal_audit WHERE plan_rev IS NOT NULL AND tons_ok = 0").fetchone()[0]
+check(f"несходящийся тоннаж помечен: {mism} сделок", mism > 0 and "тоннаж книги не сходится" in get("/audit"))
 none_series = c.execute("SELECT COUNT(*) FROM stat_deal_audit WHERE fact_series IS NULL AND series_full = 1").fetchone()[0]
 check("полный факт без затрат невозможен", none_series == 0)
 f = get("/audit?type=pipe&scope=closed")

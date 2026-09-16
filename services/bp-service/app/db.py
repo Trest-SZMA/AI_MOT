@@ -288,7 +288,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # Сверка книг с фактом — производная таблица, пересобирается ночью:
     # при смене состава колонок проще пересоздать, чем дописывать.
     audit_cols = {r[1] for r in conn.execute("PRAGMA table_info(stat_deal_audit)")}
-    if audit_cols and "series_full" not in audit_cols:
+    if audit_cols and not {"series_full", "tons_ok"} <= audit_cols:
         conn.execute("DROP TABLE stat_deal_audit")
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     from . import bp_types, fact_costs, loading, type_margin

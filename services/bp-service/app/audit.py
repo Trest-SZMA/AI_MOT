@@ -53,6 +53,9 @@ from .db import get_setting
 
 MIN_NEIGHBORS = 5
 FULL_ITEMS = 3          # статей по серии в регистре, чтобы считать факт затрат полным
+# Тоннаж книги к купленному по 1С: книга считает весь лот, 1С — нашу долю
+# (до 50 %); за пределами — выбрана не та версия книги или другая сделка.
+TONS_RATIO = (0.5, 2.5)
 DFLT_ORDER = {"luk": 0, "luk+dsp": 1, "dsp": 2, "other": 3, "": 9}
 _YEAR = re.compile(r"(20\d\d)")
 
@@ -232,6 +235,8 @@ def build(conn: sqlite3.Connection, snapshot_path: str | Path) -> dict:
         row["fact_profit"] = (f["rev"] - f["cos"] - sc - row["fact_overhead"]
                               if full and row["fact_overhead"] is not None else None)
         if b:
+            ratio = b["volume_t"] / f["bought"] if f["bought"] > 0 else None
+            row["tons_ok"] = int(ratio is not None and TONS_RATIO[0] <= ratio <= TONS_RATIO[1])
             row.update({
                 "plan_version": b["version"], "plan_file": b["file"], "plan_t": b["volume_t"],
                 "plan_rev": b["revenue"], "plan_purchase": b["purchase"], "plan_costs": b["costs"],
@@ -267,11 +272,14 @@ def build(conn: sqlite3.Connection, snapshot_path: str | Path) -> dict:
         cpt = _med([r["fact_series_pt"] for r in nb if r["series_full"] and r["fact_series_pt"]])
         oh = site_rate.get(row["site"])
         row["model_price"], row["model_costs_pt"], row["model_overhead_pt"] = price, cpt, oh
+        # Абсолютные суммы модели — на проданный тоннаж 1С (наша доля), закупка —
+        # по цене закупки книги за тонну: иначе книга на весь лот не сравнима
+        # с фактом на долю.
         if row.get("plan_t") and price is not None:
-            t = row["plan_t"]
+            t = row["sold_t"]
             row["model_rev"] = price * t
             row["model_costs"] = ((cpt or 0.0) + (oh or 0.0)) * t
-            row["model_profit"] = row["model_rev"] - row["plan_purchase"] - row["model_costs"]
+            row["model_profit"] = row["model_rev"] - row["plan_purchase"] / row["plan_t"] * t - row["model_costs"]
         # ошибки против факта: цена и затраты руб/т, прибыль в % выручки факта
         fact_costs_pt = ((row["fact_series"] or 0.0) + (row["fact_overhead"] or 0.0)) / row["sold_t"] \
             if row["series_full"] and row["fact_overhead"] is not None else None
@@ -287,7 +295,7 @@ def build(conn: sqlite3.Connection, snapshot_path: str | Path) -> dict:
                                    - row["fact_profit"] / row["fact_rev"] * 100.0
                                    if row.get("model_rev") and row["fact_profit"] is not None else None)
     conn.execute("DELETE FROM stat_deal_audit")
-    cols = ["deal_no", "name", "kind", "bp_type", "site", "year", "closed", "bought_t", "sold_t",
+    cols = ["deal_no", "name", "kind", "bp_type", "site", "year", "closed", "tons_ok", "bought_t", "sold_t",
             "fact_rev", "fact_cos", "fact_price", "fact_gross_pct", "fact_series", "fact_series_pt",
             "series_items", "series_full", "fact_overhead", "fact_costs_pt", "fact_profit", "plan_version", "plan_file", "plan_t",
             "plan_rev", "plan_purchase", "plan_costs", "plan_profit", "plan_price", "plan_costs_pt",
@@ -342,7 +350,7 @@ def summary(conn: sqlite3.Connection) -> list[dict]:
     факта (цена, затраты, прибыль) и медианы самих величин."""
     try:
         rs = [dict(r) for r in conn.execute(
-            "SELECT * FROM stat_deal_audit WHERE plan_rev IS NOT NULL AND closed = 1")]
+            "SELECT * FROM stat_deal_audit WHERE plan_rev IS NOT NULL AND closed = 1 AND tons_ok = 1")]
     except sqlite3.Error:
         return []
     by: dict[str, list[dict]] = defaultdict(list)
@@ -386,7 +394,8 @@ def years(conn: sqlite3.Connection) -> list[str]:
 XLSX_COLS = [
     ("deal_no", "№ запроса", None), ("name", "Контрагент", None), ("kind", "Вид", None),
     ("bp_type", "Тип", None), ("site", "Площадка", None), ("year", "Год", None),
-    ("closed", "Закрыта", None), ("series_full", "Факт затрат полный", None),
+    ("closed", "Закрыта", None), ("tons_ok", "Тоннаж книги сходится с фактом", None),
+    ("series_full", "Факт затрат полный", None),
     ("plan_version", "Версия книги", None),
     ("plan_t", "Книга: тоннаж, т", "0.0"), ("plan_rev", "Книга: выручка", "#,##0"),
     ("plan_purchase", "Книга: закупка", "#,##0"), ("plan_costs", "Книга: затраты", "#,##0"),
