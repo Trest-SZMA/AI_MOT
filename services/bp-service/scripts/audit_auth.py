@@ -13,7 +13,9 @@
 """
 import os, secrets, sqlite3, subprocess, sys
 
-BASE = "http://127.0.0.1:8011"
+# Адрес сервиса можно переопределить, когда 8011 занят другим
+# запуском: BP_CHECK_BASE=http://127.0.0.1:8012
+BASE = os.environ.get("BP_CHECK_BASE", "http://127.0.0.1:8011")
 ROOT = "/Users/macpavel/FASTBP/bp-service1"
 DB = ROOT + "/bp.db"
 BOOK = ROOT + "/attachments/БП-0014-2026/1738_25.11.25_v0_Лукойл_ЗС_7919тн.xlsx"

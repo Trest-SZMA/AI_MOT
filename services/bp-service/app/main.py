@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (assist, auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
+from . import (assist, audit, auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -666,6 +666,62 @@ def portfolio(request: Request):
     ctx = {**base_ctx(request, conn), "rows": rows, "totals": totals}
     conn.close()
     return templates.TemplateResponse(request, "portfolio.html", ctx)
+
+
+# ───────────────────────────────── Сверка книг с фактом ────────────
+
+def _neighbor_snapshot() -> str:
+    return os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json")
+
+
+@app.get("/audit", response_class=HTMLResponse)
+def audit_page(request: Request):
+    """По каждой сделке: книга экономиста, факт 1С и модель сервиса от факта;
+    сводка по типам — кто ближе к факту."""
+    conn = connect()
+    f = {"type": (request.query_params.get("type") or "").strip(),
+         "year": (request.query_params.get("year") or "").strip(),
+         "scope": (request.query_params.get("scope") or "").strip()}
+    rows = audit.rows(conn, f["type"] or None, f["year"] or None,
+                      closed_only=f["scope"] == "closed", with_book=f["scope"] != "all")
+    if f["scope"] == "costs":
+        rows = [r for r in rows if r["fact_profit"] is not None]
+    types = conn.execute("SELECT code, name FROM ref_bp_types WHERE is_active = 1 ORDER BY sort").fetchall()
+    stats = conn.execute(
+        "SELECT COUNT(*) AS deals, SUM(plan_rev IS NOT NULL) AS with_book, SUM(closed) AS closed, "
+        "SUM(fact_profit IS NOT NULL) AS with_costs FROM stat_deal_audit").fetchone()
+    ctx = {**base_ctx(request, conn), "rows": rows, "summary": audit.summary(conn),
+           "filters": f, "types": types, "years": audit.years(conn),
+           "type_names": {t["code"]: t["name"] for t in types} | {"mixed": "Смешанный"},
+           "stats": {k: (stats[k] or 0) for k in stats.keys()}}
+    conn.close()
+    return templates.TemplateResponse(request, "audit.html", ctx)
+
+
+@app.get("/audit.xlsx")
+def audit_xlsx(request: Request):
+    conn = connect()
+    path = audit.to_xlsx(conn, Path(ATTACH_DIR) / "_audit" / "Сверка_книг_с_фактом.xlsx")
+    conn.close()
+    return FileResponse(path, filename="Сверка_книг_с_фактом.xlsx",
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.post("/audit/rebuild")
+def audit_rebuild(request: Request):
+    role = current_role(request)
+    if role not in ("economist", "director", "admin"):
+        return redirect("/audit", "Пересобирать сверку может экономист.")
+    snap = _neighbor_snapshot()
+    if not os.path.isfile(snap):
+        return redirect("/audit", "Снимок «Реализации» недоступен: нет файла out/sales_data.json.")
+    conn = connect()
+    res = audit.build(conn, snap)
+    log(conn, actor(request), None, "audit", f"{res['deals']} сделок, с книгой {res['with_book']}")
+    conn.commit()
+    conn.close()
+    return redirect("/audit", f"Сверка пересобрана: {res['deals']} сделок, с книгой {res['with_book']}, "
+                              f"закрытых {res['closed']}, с полным фактом затрат {res['with_costs']}.")
 
 
 def _f(value) -> float:

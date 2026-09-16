@@ -394,6 +394,12 @@ def pull_fact(dry: bool = False) -> dict:
         oc = outcome.build(conn, FACT_JSON)
         conn.commit()
         print(f"  обучающая выборка результата: {oc['deals']} закрытых сделок")
+        # Сверка книг с фактом по каждой сделке — после архива, регистра и ставок.
+        from app import audit
+        au = audit.build(conn, FACT_JSON)
+        conn.commit()
+        print(f"  сверка книг с фактом: {au['deals']} сделок, с книгой {au['with_book']}, "
+              f"с полным фактом затрат {au['with_costs']}")
             print(f"  факт затрат: {fc['series']} серий, {fc['rows']} строк, "
                   f"{round(fc['amount'] / 1e6, 1)} млн; не сопоставлено статей: {len(fc['unmapped'])}; "
                   f"матрица: {cm['rows']} строк из {cm['observations']} наблюдений")

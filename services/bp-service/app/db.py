@@ -285,6 +285,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
         "WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'type_margin_closed_pct')")
     if "rate_mat" not in {r[1] for r in conn.execute("PRAGMA table_info(stat_processing)")}:
         conn.execute("ALTER TABLE stat_processing ADD COLUMN rate_mat REAL")
+    # Сверка книг с фактом — производная таблица, пересобирается ночью:
+    # при смене состава колонок проще пересоздать, чем дописывать.
+    audit_cols = {r[1] for r in conn.execute("PRAGMA table_info(stat_deal_audit)")}
+    if audit_cols and "series_full" not in audit_cols:
+        conn.execute("DROP TABLE stat_deal_audit")
+        conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     from . import bp_types, fact_costs, loading, type_margin
     type_margin.seed_groups(conn)
     fact_costs.seed_map(conn)

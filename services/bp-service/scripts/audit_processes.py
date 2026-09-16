@@ -1,6 +1,8 @@
 """Сквозная проверка процессов сервиса БП: импорт → правки → расчёт → выгрузки."""
 import subprocess, sys, urllib.parse, sqlite3, os
-BASE = "http://127.0.0.1:8011"
+# Адрес сервиса можно переопределить, когда 8011 занят другим
+# запуском: BP_CHECK_BASE=http://127.0.0.1:8012
+BASE = os.environ.get("BP_CHECK_BASE", "http://127.0.0.1:8011")
 DB = "/Users/macpavel/FASTBP/bp-service1/bp.db"
 ok = fail = 0
 log = []
@@ -130,7 +132,12 @@ bpl = calc.base_pnl(bv, iv, cv, conn, stages)
 check("базы: прибыль сходится с P&L",
       abs(sum(b["profit"] for b in bpl["bases"]) - p["profit_before_tax"]) < 1)
 check("базы: направления построены", len(bpl["directions"]) >= 2)
-check("логистика: рейсы посчитаны", all(t["trips"] > 0 for t in norms.trips_plan(iv, conn)))
+# Наши рейсы есть на наших этапах (вывоз цех→база, доставка покупателю)
+# и отсутствуют на самовывозе — с 20.08 таблица считает по ролям точек.
+_trips = norms.trips_plan(iv, conn)
+check("логистика: рейсы посчитаны",
+      bool(_trips) and all(t["trips"] > 0 for t in _trips
+                           if "не наши" not in t["stage"]))
 # Квартальный срез: суммы кварталов обязаны совпасть с помесячными.
 sched_rows = conn.execute("SELECT * FROM bp_schedule WHERE bp_id=?", (BP,)).fetchall()
 fact_rows = conn.execute("SELECT * FROM bp_fact WHERE bp_id=?", (BP,)).fetchall()

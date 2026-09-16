@@ -1199,3 +1199,54 @@ CREATE TABLE IF NOT EXISTS stat_outcome_train (
     costs_per_t   REAL,
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Сверка книг экономистов с фактом 1С по каждой сделке: книга (версия,
+-- отправленная заказчику), факт (снимок «Реализации» + регистр затрат +
+-- распределяемые площадки) и модель сервиса от факта; ошибки против факта.
+CREATE TABLE IF NOT EXISTS stat_deal_audit (
+    deal_no           TEXT PRIMARY KEY,
+    name              TEXT,
+    kind              TEXT,
+    bp_type           TEXT,
+    site              TEXT,
+    year              TEXT,
+    closed            INTEGER NOT NULL DEFAULT 0,
+    bought_t          REAL,
+    sold_t            REAL,
+    fact_rev          REAL,
+    fact_cos          REAL,                -- себестоимость продаж 1С
+    fact_price        REAL,                -- руб/т проданного
+    fact_gross_pct    REAL,
+    fact_series       REAL,                -- затраты по серии (регистр, с 2025 г.)
+    fact_series_pt    REAL,
+    series_items      INTEGER,             -- статей по серии в регистре
+    series_full       INTEGER NOT NULL DEFAULT 0, -- >= 3 статей: факт затрат полный
+    fact_overhead     REAL,                -- ставка площадки × продано
+    fact_costs_pt     REAL,
+    fact_profit       REAL,                -- выручка − себестоимость − серия − распределяемые
+    plan_version      TEXT,
+    plan_file         TEXT,
+    plan_t            REAL,
+    plan_rev          REAL,
+    plan_purchase     REAL,
+    plan_costs        REAL,
+    plan_profit       REAL,
+    plan_price        REAL,
+    plan_costs_pt     REAL,
+    plan_margin_pct   REAL,
+    model_level       TEXT,                -- уровень соседей модели
+    model_n           INTEGER,
+    model_price       REAL,
+    model_costs_pt    REAL,
+    model_overhead_pt REAL,
+    model_rev         REAL,
+    model_costs       REAL,
+    model_profit      REAL,
+    plan_price_err    REAL,                -- (план − факт) / факт, %
+    model_price_err   REAL,
+    plan_costs_err    REAL,
+    model_costs_err   REAL,                -- только по серии: распределяемые в модели и факте одинаковы
+    plan_profit_err   REAL,                -- рентабельность план − факт, п.п.
+    model_profit_err  REAL,
+    updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);

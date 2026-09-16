@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% macro icon(name, cls='') -%}
+  <svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro money(v) %}{% if v is none %}—{% else %}{{ '{:,.0f}'.format(v).replace(',', ' ') }}{% endif %}{% endmacro %}
+{% macro pct(v, d=1) %}{% if v is none %}—{% else %}{{ ('%.' ~ d ~ 'f') % v }}{% endif %}{% endmacro %}
+{% macro signed(v, unit='%') %}{% if v is none %}<span class="muted">—</span>{% else %}<span class="{{ 'neg' if (v < -10 or v > 10) else 'muted' }}">{{ '%+.0f' % v }}{{ unit }}</span>{% endif %}{% endmacro %}
+{% block content %}
+<style>
+  #audit-rows td.num, #audit-summary td.num { white-space: nowrap; }
+  #audit-rows td.num b { font-weight: 700; }
+  #audit-rows .source-name { display: inline-block; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+</style>
+<div class="page-head">
+  <div>
+    <h1>Сверка книг с фактом</h1>
+    <div class="muted">По каждой сделке три столбца: что закладывал экономист
+      (версия книги, отправленная заказчику), что получилось по 1С и как посчитал
+      бы сервис от факта. Обучающая выборка — {{ stats['deals'] }} сделок со снимком
+      «Реализации», из них с книгой {{ stats['with_book'] }}, закрытых {{ stats['closed'] }},
+      с полным фактом затрат {{ stats['with_costs'] }}.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="/audit.xlsx">{{ icon('download') }} Выгрузить xlsx</a>
+    {% if role in ('economist', 'director', 'admin') %}
+    <form method="post" action="/audit/rebuild" class="inline-form">
+      <button class="btn secondary" type="submit">{{ icon('refresh') }} Пересобрать</button>
+    </form>
+    {% endif %}
+    <a class="btn secondary" href="/references#ref-type-margin">{{ icon('arrow-left') }} Справочники</a>
+  </div>
+</div>
+
+<div class="card" id="audit-summary">
+  <div class="sec-head"><h2>Кто ближе к факту: экономист или модель</h2>
+    <div class="muted">Закрытые сделки с книгой. Ошибка — медиана |столбец − факт|
+      по сделкам; смещение — медиана со знаком (минус: занижали). Цена —
+      руб/т проданного; затраты книги — все статьи против факта «серия +
+      распределяемые площадки», затраты модели — только по серии, потому что
+      распределяемые в модели и в факте одна и та же ставка площадки;
+      рентабельность — прибыль к выручке, разница в процентных пунктах.
+      Факт затрат считается полным при трёх и более статьях по серии в регистре.</div></div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th rowspan="2">Тип</th><th class="num" rowspan="2">Сделок</th>
+      <th class="num" rowspan="2" data-tip="Сколько из них с полным фактом затрат по регистру (2025–2026).">С фактом затрат</th>
+      <th class="num" colspan="2">Рентабельность, %</th>
+      <th class="num" colspan="2">Цена: ошибка / смещение, %</th>
+      <th class="num" colspan="2">Затраты: ошибка / смещение, %</th>
+      <th class="num" colspan="2">Рентабельность: ошибка / смещение, п.п.</th>
+    </tr><tr>
+      <th class="num">книга</th><th class="num">факт</th>
+      <th class="num">экономист</th><th class="num">модель</th>
+      <th class="num">экономист</th><th class="num">модель</th>
+      <th class="num">экономист</th><th class="num">модель</th>
+    </tr></thead>
+    <tbody>
+    {% for s in summary %}
+    <tr class="{{ 'total' if not s['bp_type'] }}">
+      <td>{{ s['name'] }}</td>
+      <td class="num">{{ s['n'] }}</td>
+      <td class="num">{{ s['n_costs'] }}</td>
+      <td class="num">{{ pct(s['plan_margin']) }}</td>
+      <td class="num"><b>{{ pct(s['fact_margin']) }}</b></td>
+      <td class="num">{{ pct(s['plan_price_err'], 0) }} / {{ signed(s['plan_price_bias']) }}</td>
+      <td class="num">{{ pct(s['model_price_err'], 0) }} / {{ signed(s['model_price_bias']) }}</td>
+      <td class="num">{{ pct(s['plan_costs_err'], 0) }} / {{ signed(s['plan_costs_bias']) }}</td>
+      <td class="num">{{ pct(s['model_costs_err'], 0) }} / {{ signed(s['model_costs_bias']) }}</td>
+      <td class="num">{{ pct(s['plan_profit_err'], 0) }} / {{ signed(s['plan_profit_bias'], '') }}</td>
+      <td class="num">{{ pct(s['model_profit_err'], 0) }} / {{ signed(s['model_profit_bias'], '') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="muted">Сверка ещё не собрана: нужен снимок «Реализации» и архив книг. Нажмите «Пересобрать».</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<form method="get" action="/audit" class="filter-bar" id="audit-filter">
+  <label>Тип
+    <select name="type">
+      <option value="">любой</option>
+      {% for t in types %}
+      <option value="{{ t['code'] }}" {{ 'selected' if filters['type'] == t['code'] }}>{{ t['name'] }}</option>
+      {% endfor %}
+      <option value="mixed" {{ 'selected' if filters['type'] == 'mixed' }}>Смешанные</option>
+    </select></label>
+  <label>Год
+    <select name="year">
+      <option value="">любой</option>
+      {% for y in years %}
+      <option value="{{ y }}" {{ 'selected' if filters['year'] == y }}>{{ y }}</option>
+      {% endfor %}
+    </select></label>
+  <label>Сделки
+    <select name="scope">
+      <option value="" {{ 'selected' if not filters['scope'] }}>с книгой</option>
+      <option value="closed" {{ 'selected' if filters['scope'] == 'closed' }}>закрытые с книгой</option>
+      <option value="costs" {{ 'selected' if filters['scope'] == 'costs' }}>с полным фактом затрат</option>
+      <option value="all" {{ 'selected' if filters['scope'] == 'all' }}>все с фактом</option>
+    </select></label>
+  <button type="submit">{{ icon('search') }} Показать</button>
+  <span class="muted">{{ rows | length }} сделок</span>
+</form>
+
+<div class="card" id="audit-rows">
+  <div class="table-scroll tall">
+  <table>
+    <thead><tr>
+      <th rowspan="2">Сделка</th><th rowspan="2">Тип / площадка</th>
+      <th class="num" rowspan="2">Тоннаж<br><span class="muted">книга / продано</span></th>
+      <th class="num" colspan="3">Цена, руб/т</th>
+      <th class="num" colspan="3">Затраты, руб/т</th>
+      <th class="num" colspan="3">Рентабельность, %</th>
+      <th class="num" colspan="3">Прибыль, тыс. руб</th>
+    </tr><tr>
+      <th class="num">книга</th><th class="num">факт</th><th class="num">модель</th>
+      <th class="num">книга</th><th class="num">факт</th><th class="num">модель</th>
+      <th class="num">книга</th><th class="num">факт</th><th class="num">модель</th>
+      <th class="num">книга</th><th class="num">факт</th><th class="num">модель</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><b>{{ r['deal_no'] }}</b>{% if r['name'] %}<br><span class="muted source-name">{{ r['name'][:40] }}</span>{% endif %}
+        <br><span class="muted">{{ r['year'] or '' }}{% if r['closed'] %} · закрыта{% endif %}{% if not r['series_full'] %} · затраты 1С неполные{% endif %}</span></td>
+      <td>{{ type_names.get(r['bp_type'], r['bp_type'] or '—') }}<br><span class="muted">{{ r['site'] or '—' }}</span></td>
+      <td class="num">{{ pct(r['plan_t'], 0) }} / {{ pct(r['sold_t'], 0) }}</td>
+      <td class="num">{{ money(r['plan_price']) }}<br>{{ signed(r['plan_price_err']) }}</td>
+      <td class="num"><b>{{ money(r['fact_price']) }}</b></td>
+      <td class="num">{{ money(r['model_price']) }}<br>{{ signed(r['model_price_err']) }}</td>
+      <td class="num">{{ money(r['plan_costs_pt']) }}<br>{{ signed(r['plan_costs_err']) }}</td>
+      <td class="num"><b>{{ money(r['fact_costs_pt']) }}</b>{% if r['fact_series_pt'] is not none %}<br><span class="muted" data-tip="Затраты по серии из регистра, руб/т; остальное — распределяемые площадки.">серия {{ money(r['fact_series_pt']) }}</span>{% endif %}</td>
+      <td class="num">{{ money((r['model_costs_pt'] or 0) + (r['model_overhead_pt'] or 0)) if r['model_costs_pt'] is not none else '—' }}<br>{{ signed(r['model_costs_err']) }}</td>
+      <td class="num">{{ pct(r['plan_margin_pct']) }}</td>
+      <td class="num"><b>{% if r['fact_profit'] is not none %}{{ pct(r['fact_profit'] / r['fact_rev'] * 100) }}{% else %}—{% endif %}</b><br><span class="muted">валовая {{ pct(r['fact_gross_pct'], 0) }}</span></td>
+      <td class="num">{% if r['model_rev'] %}{{ pct(r['model_profit'] / r['model_rev'] * 100) }}{% else %}—{% endif %}</td>
+      <td class="num">{{ money(r['plan_profit'] / 1000 if r['plan_profit'] is not none else none) }}</td>
+      <td class="num"><b>{{ money(r['fact_profit'] / 1000 if r['fact_profit'] is not none else none) }}</b></td>
+      <td class="num">{{ money(r['model_profit'] / 1000 if r['model_profit'] is not none else none) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="15" class="muted">По этим условиям сделок нет.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="muted" style="margin-top:8px">Модель: цена — медиана факта той же номенклатуры 1С у других
+    сделок (год ±1), взвешенная по составу сделки; затраты по серии — медиана руб/т закрытых
+    сделок того же типа с полным фактом; распределяемые — ставка площадки за 12 закрытых
+    месяцев. Затраты по серии до 2025 г. в регистре нет, у таких сделок прибыль факта не считается.</div>
+</div>
+{% endblock %}
