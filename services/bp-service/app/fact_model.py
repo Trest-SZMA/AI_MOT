@@ -126,9 +126,21 @@ def site_by_address(conn: sqlite3.Connection, items: list) -> dict:
                  for r in conn.execute("SELECT site, match_words FROM ref_sites WHERE is_active = 1")]
     except sqlite3.Error:
         return {"site": None, "reason": "справочник площадок пуст"}
+    # Базовый пункт места отгрузки из реестра пунктов: в перечнях Лукойла
+    # адрес — «ЦДНГ-3», а площадка видна только по «Базовому логистическому
+    # пункту» (Советский), который парсер кладёт в shipping_points.
+    from .logistics import norm_name
+    base_of_point: dict[str, str] = {}
+    try:
+        for r in conn.execute("SELECT name_norm, base_point FROM shipping_points WHERE base_point IS NOT NULL"):
+            base_of_point[r["name_norm"]] = r["base_point"]
+    except sqlite3.Error:
+        pass
     tons: dict[str, float] = defaultdict(float)
     for it in items:
-        text = " ".join(str(_row_get(it, k) or "") for k in ("division", "warehouse", "supplier", "nomenclature")).lower()
+        parts = [str(_row_get(it, k) or "") for k in ("division", "warehouse", "supplier", "nomenclature")]
+        parts += [base_of_point.get(norm_name(x), "") for x in parts[:2] if x]
+        text = " ".join(parts).lower()
         vol = _f(_row_get(it, "volume_t")) or 0.001
         for site, words in rules:
             if any(w in text for w in words):

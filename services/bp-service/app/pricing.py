@@ -268,10 +268,39 @@ def nomen_price_hint(conn: sqlite3.Connection, nomen_1c: str | None,
     if not nomen_1c:
         return None
     from .matcher import normalize
+    key = normalize(nomen_1c)
+    used = nomen_1c
     try:
         rows = conn.execute(
             "SELECT period, samples, total_qty_t, total_revenue FROM stat_sale_price_nomen "
-            "WHERE nomen_norm = ? ORDER BY period DESC", (normalize(nomen_1c),)).fetchall()
+            "WHERE nomen_norm = ? ORDER BY period DESC", (key,)).fetchall()
+        if not rows:
+            # Закупочная номенклатура 1С часто не торгуется под своим именем:
+            # «Труба НКТ 73х5.5 б/у» продаётся как «… б/у (х)», «Металлолом 3А» —
+            # как «Лом 3А» (прогон перечней ЮНП 16.09.2026). Берём самую
+            # продаваемую номенклатуру регистра с тем же началом имени, для
+            # лома — «Лом <категория>».
+            cands = [key]
+            import re as _re
+            m = _re.search(r"\b(\d{1,2}\s?[аa]\d?)\b", key)
+            if m and ("лом" in key):
+                cands.append(normalize("Лом " + m.group(1).replace(" ", "")))
+            for cand in cands:
+                alt = conn.execute(
+                    "SELECT nomen, nomen_norm, SUM(total_qty_t) AS q FROM stat_sale_price_nomen "
+                    "WHERE nomen_norm = ? OR nomen_norm LIKE ? GROUP BY nomen_norm "
+                    "ORDER BY q DESC LIMIT 1", (cand, cand + " %")).fetchone()
+                if alt is None:
+                    alt = conn.execute(
+                        "SELECT nomen, nomen_norm, SUM(total_qty_t) AS q FROM stat_sale_price_nomen "
+                        "WHERE nomen_norm LIKE ? GROUP BY nomen_norm ORDER BY q DESC LIMIT 1",
+                        (cand + "%",)).fetchone()
+                if alt is not None:
+                    used = alt["nomen"]
+                    rows = conn.execute(
+                        "SELECT period, samples, total_qty_t, total_revenue FROM stat_sale_price_nomen "
+                        "WHERE nomen_norm = ? ORDER BY period DESC", (alt["nomen_norm"],)).fetchall()
+                    break
     except sqlite3.Error:
         return None
     if not rows:
@@ -302,4 +331,4 @@ def nomen_price_hint(conn: sqlite3.Connection, nomen_1c: str | None,
     if q_sum < min_qty_t or w_sum <= 0:
         return None
     return {"price": round(v_sum / w_sum, 2), "qty": round(q_sum, 1), "samples": n,
-            "period_from": p_from, "period_to": p_to, "nomen": nomen_1c}
+            "period_from": p_from, "period_to": p_to, "nomen": used}
