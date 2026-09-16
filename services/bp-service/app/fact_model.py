@@ -49,6 +49,40 @@ OVERHEAD_SPLIT = [
 OVERHEAD_OTHER = ("Постоянные", "Прочие производственные расходы")
 
 
+MOVE_ITEM = "Транспортные расходы на перемещение"
+
+
+def _transport_by_km(conn: sqlite3.Connection, bp, items: list, bp_type: str | None) -> dict:
+    """Транспорт по плечу: Σ тоннаж позиции на долю × ставка пояса (км позиции).
+    -> {amount, tons_km, trips, detail, scope}; tons_km — тоннаж с расстоянием."""
+    from . import transport_km
+    share = lot_share(bp)
+    group = transport_km.group_of_type(bp_type)
+    by_band: dict[tuple, list] = defaultdict(lambda: [0.0, 0.0, None])
+    amount = tons_km = 0.0
+    for it in items:
+        km = _f(_row_get(it, "distance_km"))
+        vol = _f(_row_get(it, "volume_t")) * share
+        if km <= 0 or vol <= 0:
+            continue
+        r = transport_km.rate(conn, group, km)
+        if not r:
+            continue
+        amount += vol * r["rub_per_t"]
+        tons_km += vol
+        b = by_band[r["band"]]
+        b[0] += vol
+        b[1] += vol * km
+        b[2] = r
+    parts, trips = [], 0
+    for band, (vol, vkm, r) in sorted(by_band.items()):
+        parts.append(f"{vol:,.0f} т × {r['rub_per_t']:,.0f} руб/т ({vkm / vol:,.0f} км, пояс {band[0]}–{band[1]}, "
+                     f"{r['trips']} рейсов{'' if r['exact'] else ', соседний пояс'})".replace(",", " "))
+        trips += r["trips"]
+    return {"amount": amount, "tons_km": tons_km, "trips": trips, "detail": "; ".join(parts),
+            "scope": f"груз «{group}», найм"}
+
+
 def deal_tons(bp, items: list) -> float:
     """Тоннаж сделки на нашу долю — база для всех ставок руб/т."""
     return sum(_f(it["volume_t"]) for it in items) * lot_share(bp)
@@ -215,8 +249,24 @@ def evaluate(bp, items: list, conn: sqlite3.Connection) -> dict:
 
     # 1. Статьи по серии — ставка матрицы × тоннаж.
     rates = _series_rates(conn, bp_type)
+    # Транспорт на перемещение (площадка продавца → база) зависит от плеча,
+    # а не от типа сделки: по позициям с расстоянием берётся ставка руб/т
+    # пояса дальности из рейсов «Отвесной» (лот 1888: 410 т за 1 300 км
+    # медиана типа оценивала в 61 тыс., плечо даёт 2,6 млн).
+    km_part = _transport_by_km(conn, bp, items, bp_type)
     for (section, item), r in rates.items():
         amount = float(r["rub_per_t"] or 0) * tons
+        if item == MOVE_ITEM and km_part["tons_km"] > 0:
+            rest = max(tons - km_part["tons_km"], 0.0)
+            amount = km_part["amount"] + float(r["rub_per_t"] or 0) * rest
+            articles[(section, item)] += amount
+            lines.append({"section": section, "item": item, "amount": round(amount, 2),
+                          "rate": round(amount / tons, 2) if tons else 0.0,
+                          "basis": f"плечо: {km_part['detail']}"
+                                   + (f"; {rest:,.0f} т без расстояния — медиана типа".replace(",", " ") if rest > 0.5 else ""),
+                          "samples": km_part["trips"], "scope": km_part["scope"],
+                          "source": "рейсы «Отвесной» по плечу"})
+            continue
         if amount <= 0.5:
             continue
         articles[(section, item)] += amount
@@ -224,6 +274,14 @@ def evaluate(bp, items: list, conn: sqlite3.Connection) -> dict:
                       "rate": float(r["rub_per_t"]), "basis": "тоннаж сделки на долю",
                       "samples": r["samples"], "scope": ("тип " + r["bp_type"]) if r["bp_type"] else "все типы",
                       "source": "регистр затрат по сериям"})
+    if MOVE_ITEM not in {k[1] for k in rates} and km_part["tons_km"] > 0:
+        # В матрице типа статьи нет (регистр её не разносил) — плечо всё равно считаем.
+        key = ("Переменные", MOVE_ITEM)
+        articles[key] += km_part["amount"]
+        lines.append({"section": key[0], "item": key[1], "amount": round(km_part["amount"], 2),
+                      "rate": round(km_part["amount"] / tons, 2) if tons else 0.0,
+                      "basis": f"плечо: {km_part['detail']}", "samples": km_part["trips"],
+                      "scope": km_part["scope"], "source": "рейсы «Отвесной» по плечу"})
 
     # 2. Распределяемые — ставка ПЛОЩАДКИ сделки × тоннаж, разложенная по статьям.
     overhead = None

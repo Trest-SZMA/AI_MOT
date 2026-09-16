@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (assist, audit, auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
+from . import (assist, audit, auth, book_archive, transport_km, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -6616,6 +6616,7 @@ def references(request: Request):
         "cost_matrix_from": cost_matrix.period_from(conn),
         # Факт затрат по сделкам из регистра 1С и справочник соответствия статей.
         "fact_costs_summary": fact_costs.summary(conn),
+        "transport_km": transport_km.rows(conn),
         "cost_item_map": conn.execute(
             "SELECT * FROM ref_cost_item_map ORDER BY section IS NULL, section, item, item_1c").fetchall(),
         "cost_item_map_usage": {r["item_1c"]: (r["amount"], r["n"]) for r in conn.execute(

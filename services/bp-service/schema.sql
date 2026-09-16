@@ -1251,3 +1251,21 @@ CREATE TABLE IF NOT EXISTS stat_deal_audit (
     model_profit_err  REAL,
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Ставка транспорта по плечу из рейсов «Отвесной» (наёмный автотранспорт):
+-- по поясам дальности и группам груза; rub_per_t выровнена неубывающей.
+CREATE TABLE IF NOT EXISTS stat_transport_km (
+    id            INTEGER PRIMARY KEY,
+    cargo_group   TEXT NOT NULL DEFAULT '',   -- лом / труба / кабель / '' (все)
+    km_from       INTEGER NOT NULL,
+    km_to         INTEGER NOT NULL,
+    trips         INTEGER NOT NULL,
+    rub_per_t     REAL NOT NULL,              -- выровненная ставка
+    rub_per_t_raw REAL NOT NULL,              -- медиана рейсов пояса
+    rub_per_tkm   REAL,
+    t_per_trip    REAL,
+    period_from   TEXT,
+    period_to     TEXT,
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (cargo_group, km_from)
+);

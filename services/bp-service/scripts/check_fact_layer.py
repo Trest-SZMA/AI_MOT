@@ -55,6 +55,26 @@ check("«Списание засора» в статьи не записано",
 check("суммы записаны", (total or 0) > 0)
 e=get(f"/bp/{bp_id}/economics")
 check("экономика после записи: подсказки и P&L без ошибок", "Traceback" not in e and "по факту:" in e)
+# транспорт по плечу: ставки из рейсов и расчёт по расстоянию позиций
+c=sqlite3.connect(DB); c.row_factory=sqlite3.Row
+tk_n = c.execute("SELECT COUNT(*) FROM stat_transport_km").fetchone()[0]
+check(f"ставки по плечу собраны: {tk_n} поясов", tk_n >= 10)
+rows = [dict(r) for r in c.execute("SELECT cargo_group, km_from, rub_per_t FROM stat_transport_km ORDER BY cargo_group, km_from")]
+ok_mono = True; last_g = None; last_v = 0
+for r in rows:
+    if r["cargo_group"] != last_g: last_g, last_v = r["cargo_group"], 0
+    ok_mono &= r["rub_per_t"] + 1e-6 >= last_v; last_v = r["rub_per_t"]
+check("ставки не убывают с расстоянием", ok_mono)
+c.execute("UPDATE bp_items SET distance_km = 1300 WHERE id = (SELECT MIN(id) FROM bp_items WHERE bp_id=?)", (bp_id,)); c.commit()
+from app import db as _db, fact_model
+conn=_db.connect(); bp=conn.execute("SELECT * FROM business_plans WHERE id=?", (bp_id,)).fetchone(); items=conn.execute("SELECT * FROM bp_items WHERE bp_id=?", (bp_id,)).fetchall()
+ln = next((l for l in fact_model.evaluate(bp, items, conn)["lines"] if l["item"] == fact_model.MOVE_ITEM), None); conn.close()
+check("перемещение считается по плечу позиции", ln is not None and "плечу" in ln["source"] and "1 300 км" in ln["basis"])
+e2 = get(f"/bp/{bp_id}/economics")
+check("экономика: плечо показано в источнике", "рейсы «Отвесной» по плечу" in e2 and "пояс 1200–2000" in e2)
+r2 = get("/references")
+check("справочники: карточка ставок по плечу", 'id="ref-transport-km"' in r2 and "все грузы" in r2)
+c.close()
 subprocess.run(["curl","-s","-o","/dev/null","-b",COOKIE,"-X","POST",BASE+"/logout"])
 # удаление копии с каскадом (как в check_registry)
 c=sqlite3.connect(DB); c.execute("PRAGMA foreign_keys=ON"); c.execute("DELETE FROM business_plans WHERE id=?", (bp_id,))

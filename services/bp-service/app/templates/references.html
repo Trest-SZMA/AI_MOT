@@ -186,6 +186,39 @@
   </div>
 </details>
 
+<details class="card" id="ref-transport-km">
+  <summary>
+    <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+    <h2>Транспорт по плечу: ставки из рейсов</h2>
+    <div class="sec-aside">
+      <span class="role-tag">{{ transport_km | length }} поясов</span>
+      {% if transport_km %}<span class="role-tag">{{ transport_km[0]['period_from'] }} … {{ transport_km[0]['period_to'] }}</span>{% endif %}
+    </div>
+  </summary>
+  <p class="muted">Рейсы наёмного автотранспорта из «Отвесной» (вес 5–40 т, есть километраж и
+    стоимость, последние 24 месяца): медиана руб/т по поясам дальности для лома, трубы,
+    кабеля и общая. Ставка выровнена так, чтобы не убывать с расстоянием: дешёвые дальние
+    рейсы — обратная загрузка по договорной цене, на неё с новой площадки рассчитывать
+    нельзя; сырая медиана показана рядом. Фактический слой считает по ней статью
+    «Транспортные расходы на перемещение» по расстоянию каждой позиции лота.</p>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Груз</th><th class="num">Плечо, км</th><th class="num">Рейсов</th><th class="num">Ставка, руб/т</th>
+      <th class="num">Медиана рейсов, руб/т</th><th class="num">руб/т·км</th><th class="num">т/рейс</th></tr></thead>
+    <tbody>
+    {% for r in transport_km %}
+    <tr><td>{{ r['cargo_group'] or 'все грузы' }}</td><td class="num">{{ r['km_from'] }}–{{ r['km_to'] }}</td>
+      <td class="num">{{ r['trips'] }}</td><td class="num"><b>{{ '%.0f' % r['rub_per_t'] }}</b></td>
+      <td class="num muted">{{ '%.0f' % r['rub_per_t_raw'] }}</td><td class="num">{{ '%.2f' % r['rub_per_tkm'] }}</td>
+      <td class="num">{{ '%.1f' % r['t_per_trip'] }}</td></tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">Ставки ещё не собраны: нужна выгрузка «Отвесная» (ночной импорт).</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+
 <details class="card" id="ref-type-margin">
   <summary>
     <svg class="icon ref-caret" aria-hidden="true"><use href="#i-chevron-right"></use></svg>

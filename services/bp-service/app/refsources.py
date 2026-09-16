@@ -33,6 +33,7 @@ REGISTRY = [
     ("stat_book_plan", "Архив книг экономистов: что закладывали", EXPORT, "stat_book_plan", None, 10),
     ("stat_outcome_train", "Обучающая выборка: закрытые сделки с фактом", DERIVED, "stat_outcome_train", None, 3),
     ("stat_deal_audit", "Сверка книг с фактом по сделкам", DERIVED, "stat_deal_audit", "updated_at", 3),
+    ("stat_transport_km", "Транспорт по плечу: ставки из рейсов", EXPORT, "stat_transport_km", "updated_at", 3),
     ("ref_nomen_groups", "Группы аналитического учёта", EXPORT, "ref_nomen_groups", None, 90),
     ("ref_counterparties", "Контрагенты", EXPORT, "ref_counterparties", None, 30),
     ("ref_warehouses", "Склады", EXPORT, "ref_warehouses", None, 90),

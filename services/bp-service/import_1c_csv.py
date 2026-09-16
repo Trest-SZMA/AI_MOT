@@ -792,6 +792,9 @@ def import_all(folder: str, author: str = "импорт 1С") -> None:
         print("ПРЕДУПРЕЖДЕНИЕ: файл Отвесная_*.csv не найден — пропуск")
     else:
         n_cont, n_tr = import_weighing_stats(conn, path)
+        from app import transport_km
+        tk = transport_km.build(conn, path)
+        print(f"  транспорт по плечу: {tk['rows']} поясов из {tk['trips']} рейсов")
         summary += [("stat_contamination", n_cont), ("stat_transport", n_tr)]
         for key, cnt in (("stat_contamination", n_cont), ("stat_transport", n_tr)):
             refsources.mark(conn, key, cnt, path.name, author)

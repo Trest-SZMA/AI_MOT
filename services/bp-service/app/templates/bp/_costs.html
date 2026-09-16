@@ -150,7 +150,7 @@
         <td class="num">{{ '%.0f' % l['rate'] }}</td>
         <td class="num"><b>{{ money(l['amount']) }}</b></td>
         <td class="num">{{ money(cur * (pnl['lot_share_pct'] / 100)) if l['item'] != 'Списание засора' else '—' }}</td>
-        <td class="muted">{{ l['source'] }} · {{ l['scope'] }} · {{ l['samples'] }} {{ 'мес' if 'площадки' in l['source'] else 'сдел.' }}</td>
+        <td class="muted">{{ l['source'] }} · {{ l['scope'] }} · {{ l['samples'] }} {{ 'мес' if 'площадки' in l['source'] else ('рейс.' if 'плечу' in l['source'] else 'сдел.') }}{% if 'плечу' in l['source'] %}<br><span class="muted">{{ l['basis'] }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
       </tbody>
