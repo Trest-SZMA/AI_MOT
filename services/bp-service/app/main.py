@@ -670,6 +670,14 @@ def portfolio(request: Request):
 
 # ───────────────────────────────── Сверка книг с фактом ────────────
 
+def _xls_to_xlsx_tmp(tmp_path: Path) -> Path:
+    """Временный .xls → временный .xlsx (исходный удаляется)."""
+    dst = tmp_path.with_suffix(".xlsx")
+    list_import.xls_to_xlsx(tmp_path, dst)
+    tmp_path.unlink(missing_ok=True)
+    return dst
+
+
 def _neighbor_snapshot() -> str:
     return os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json")
 
@@ -1540,14 +1548,20 @@ async def bp_import(request: Request, file: UploadFile):
     if role not in ("manager", "admin"):
         return redirect("/", "Импортировать БП может менеджер.")
     fname = upload_name(file.filename, "БП.xlsx")
-    if not fname.lower().endswith((".xlsx", ".xlsm")):
-        return redirect("/", "Поддерживается только xlsx/xlsm.")
+    if not fname.lower().endswith((".xlsx", ".xlsm", ".xls")):
+        return redirect("/", "Поддерживается только xlsx/xlsm/xls.")
 
     raw = await file.read()
     with tempfile.NamedTemporaryFile(suffix=Path(fname).suffix, delete=False) as tmp:
         tmp.write(raw)
         tmp_path = Path(tmp.name)
     try:
+        if tmp_path.suffix.lower() == ".xls":
+            try:
+                tmp_path = _xls_to_xlsx_tmp(tmp_path)
+            except Exception as e:
+                return redirect("/", f"Файл .xls не прочитан: {type(e).__name__}: {e}. "
+                                     "Сохраните его в Excel как xlsx и загрузите снова.")
         data = list_import.parse_old_bp(tmp_path)
         # Указания продавца («БП ДСП»/«БП Лукойл»/«ШУМЕЙКО») живут на листах
         # перечней той же книги — собрать, пока файл не удалён.
@@ -3324,9 +3338,9 @@ async def upload_list(request: Request, bp_id: int, file: UploadFile,
         conn.close()
         return back(request, bp_id, "Нет прав на изменение позиций.")
     fname = upload_name(file.filename, "спецификация.xlsx")
-    if not fname.lower().endswith((".xlsx", ".xlsm")):
+    if not fname.lower().endswith((".xlsx", ".xlsm", ".xls")):
         conn.close()
-        return back(request, bp_id, "Поддерживается только xlsx/xlsm.")
+        return back(request, bp_id, "Поддерживается только xlsx/xlsm/xls.")
 
     # Разбираем во временном файле — на диск как основание не сохраняем.
     raw = await file.read()
@@ -3334,6 +3348,14 @@ async def upload_list(request: Request, bp_id: int, file: UploadFile,
         tmp.write(raw)
         tmp_path = Path(tmp.name)
     try:
+        # Перечни Лукойла приходят и в старом .xls — переводим в xlsx на лету.
+        if tmp_path.suffix.lower() == ".xls":
+            try:
+                tmp_path = _xls_to_xlsx_tmp(tmp_path)
+            except Exception as e:
+                conn.close()
+                return back(request, bp_id, f"Файл .xls не прочитан: {type(e).__name__}: {e}. "
+                                            "Сохраните его в Excel как xlsx и загрузите снова.")
         metadata = list_import.detect_metadata(tmp_path)
         parsed, warnings = list_import.parse_list(tmp_path)
         try:

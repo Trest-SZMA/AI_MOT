@@ -160,14 +160,28 @@ def build(conn: sqlite3.Connection, snapshot_path: str | Path) -> dict:
     reg_div: dict[str, str] = {}
     for r in conn.execute("SELECT deal_no, division, amount FROM stat_fact_costs_div ORDER BY amount DESC"):
         reg_div.setdefault(r["deal_no"], r["division"])
-    # книги: выбранная версия, иначе последняя в архиве
-    books: dict[str, dict] = {}
+    # книги: все версии сделки; выбор — после того, как известен факт тоннажа
+    versions: dict[str, list[dict]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM stat_book_plan ORDER BY id"):
-        rec = dict(r)
-        no = rec["deal_no"]
+        versions[r["deal_no"]].append(dict(r))
+
+    def pick_book(no: str, bought: float) -> dict | None:
+        """Версия, отправленная заказчику, если её тоннаж сходится с купленным
+        по 1С; иначе версия с ближайшим к факту тоннажом (в книге 1887 «по
+        умолчанию» стоял лист-шаблон другого лота на 618 т); иначе последняя."""
+        vs = versions.get(no) or []
+        if not vs:
+            return None
         want = chosen.get(no)
-        if no not in books or (want and rec["version"] == want and books[no]["version"] != want):
-            books[no] = rec
+        def ok(v):
+            return bought > 0 and TONS_RATIO[0] <= v["volume_t"] / bought <= TONS_RATIO[1]
+        dflt = next((v for v in vs if v["version"] == want), None)
+        if dflt and ok(dflt):
+            return dflt
+        fit = [v for v in vs if ok(v)]
+        if fit:
+            return min(fit, key=lambda v: abs(v["volume_t"] / bought - 1.0))
+        return dflt or vs[-1]
     deal_names = {r["deal_no"]: (r["name"], r["kind"]) for r in conn.execute(
         "SELECT deal_no, name, kind FROM ref_deals")}
     # факт по номеру запроса — суммируем серии одной сделки
@@ -208,9 +222,9 @@ def build(conn: sqlite3.Connection, snapshot_path: str | Path) -> dict:
             mix[no].append((key, sold))
     rows: list[dict] = []
     for no, f in fact.items():
-        b = books.get(no)
         if f["sold"] <= 0 or f["rev"] <= 0:
             continue
+        b = pick_book(no, f["bought"])
         site = smap.get(reg_div.get(no, ""))
         if not site and f["dirs"]:
             for dv, _v in sorted(f["dirs"].items(), key=lambda kv: -kv[1]):

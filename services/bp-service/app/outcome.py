@@ -98,6 +98,14 @@ def build(conn: sqlite3.Connection, snapshot_path: str) -> dict:
                 c, top = max(tons.items(), key=lambda kv: kv[1])
                 code = c if top / total * 100.0 + 1e-9 >= dominance else "mixed"
         site = smap.get(divs.get(no, ""), None)
+        if not site:
+            # До 2025 г. регистра затрат нет — площадка по направлению снимка
+            # («База Осенцы», «Южный регион» — те же имена, что у подразделений).
+            dirs = ((bp_nm.get(r.get("s")) or {}).get("т") or {}).get("d") or {}
+            for dv, _v in sorted(dirs.items(), key=lambda kv: -float(kv[1] or 0)):
+                if smap.get(dv):
+                    site = smap[dv]
+                    break
         sc = costs.get(no, 0.0)
         conn.execute(
             "INSERT INTO stat_outcome_train (deal_no, bp_type, site, bought_t, sold_t, revenue, "

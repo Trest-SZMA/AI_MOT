@@ -254,6 +254,8 @@ def evaluate(bp, items: list, conn: sqlite3.Connection) -> dict:
     # пояса дальности из рейсов «Отвесной» (лот 1888: 410 т за 1 300 км
     # медиана типа оценивала в 61 тыс., плечо даёт 2,6 млн).
     km_part = _transport_by_km(conn, bp, items, bp_type)
+    site_early, _ = resolve_site(conn, bp, items)
+    ship_site = fact_costs.ship_rate_by_site(conn, bp_type, site_early)
     for (section, item), r in rates.items():
         amount = float(r["rub_per_t"] or 0) * tons
         if item == MOVE_ITEM and km_part["tons_km"] > 0:
@@ -266,6 +268,16 @@ def evaluate(bp, items: list, conn: sqlite3.Connection) -> dict:
                                    + (f"; {rest:,.0f} т без расстояния — медиана типа".replace(",", " ") if rest > 0.5 else ""),
                           "samples": km_part["trips"], "scope": km_part["scope"],
                           "source": "рейсы «Отвесной» по плечу"})
+            continue
+        if item == fact_costs.SHIP_ITEM and ship_site:
+            # Отгрузка к покупателю зависит от площадки (куда обычно продают
+            # с неё), а не только от типа: ставка тип+площадка, если сделок хватает.
+            amount = ship_site["rub_per_t"] * tons
+            articles[(section, item)] += amount
+            lines.append({"section": section, "item": item, "amount": round(amount, 2),
+                          "rate": ship_site["rub_per_t"], "basis": "тоннаж сделки на долю",
+                          "samples": ship_site["deals"], "scope": f"тип {bp_type}, площадка {ship_site['site']}",
+                          "source": "регистр затрат по сериям"})
             continue
         if amount <= 0.5:
             continue

@@ -514,3 +514,34 @@ def site_shares(conn: sqlite3.Connection, site: str, months: int = 12) -> dict[s
             total = sum(a for _, a in d["items"]) or 1.0
             return {name: a / total for name, a in d["items"]}
     return {}
+
+
+SHIP_ITEM = "Транспортные расходы на отгрузку"
+
+
+def ship_rate_by_site(conn: sqlite3.Connection, bp_type: str | None, site: str | None,
+                      min_deals: int = 3) -> dict | None:
+    """Ставка отгрузки к покупателю руб/т по типу И площадке: с площадки Юг
+    лом уезжает за 150 руб/т, труба из Когалыма на Урал — за 1 600. Медиана
+    по закрытым сделкам того же типа с той же площадкой, у которых регистр
+    разнёс хотя бы три статьи по серии (иначе это «не разнесли»). None —
+    сделок меньше min_deals, тогда действует медиана типа из матрицы."""
+    if not bp_type or not site:
+        return None
+    from statistics import median
+    smap = site_of_division(conn)
+    try:
+        divs: dict[str, str] = {}
+        for r in conn.execute("SELECT deal_no, division FROM stat_fact_costs_div ORDER BY amount DESC"):
+            divs.setdefault(r["deal_no"], r["division"])
+        rows = conn.execute(
+            "SELECT deal_no, SUM(CASE WHEN item = ? THEN amount ELSE 0 END) AS a, MAX(sold_t) AS st, "
+            "COUNT(DISTINCT item) AS k FROM stat_fact_costs WHERE bp_type = ? AND closed = 1 "
+            "AND item IS NOT NULL GROUP BY deal_no HAVING k >= 3 AND st > 0 AND a > 0",
+            (SHIP_ITEM, bp_type)).fetchall()
+    except sqlite3.Error:
+        return None
+    vals = [r["a"] / r["st"] for r in rows if smap.get(divs.get(r["deal_no"], "")) == site]
+    if len(vals) < min_deals:
+        return None
+    return {"rub_per_t": round(median(vals), 2), "deals": len(vals), "site": site}

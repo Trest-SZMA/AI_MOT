@@ -105,6 +105,41 @@ def category_from_text(text: str) -> str | None:
     return None
 
 
+def xls_to_xlsx(src: str | Path, dst: str | Path) -> Path:
+    """Старый .xls (Excel 97–2003, в нём приходят перечни Лукойла) → .xlsx с
+    теми же листами и значениями: парсеру нужны только значения ячеек и
+    порядок строк, стили и формулы не переносятся. Скрытые листы остаются
+    скрытыми — detect_metadata их пропускает."""
+    import xlrd
+    from openpyxl import Workbook
+    book = xlrd.open_workbook(str(src), formatting_info=False)
+    wb = Workbook()
+    wb.remove(wb.active)
+    for sh in book.sheets():
+        ws = wb.create_sheet(title=(sh.name or "Лист")[:31])
+        if sh.visibility:
+            ws.sheet_state = "hidden"
+        for r in range(sh.nrows):
+            row = []
+            for c in range(sh.ncols):
+                cell = sh.cell(r, c)
+                v = cell.value
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    try:
+                        v = xlrd.xldate.xldate_as_datetime(v, book.datemode)
+                    except (ValueError, OverflowError):
+                        pass
+                elif cell.ctype == xlrd.XL_CELL_EMPTY:
+                    v = None
+                elif cell.ctype == xlrd.XL_CELL_BOOLEAN:
+                    v = bool(v)
+                row.append(v)
+            ws.append(row)
+    dst = Path(dst)
+    wb.save(dst)
+    return dst
+
+
 def detect_metadata(path: str | Path) -> dict[str, str | None]:
     """Извлекает реквизиты перечня из верхних строк книги: продавец, номер."""
     wb = load_workbook(path, data_only=True, read_only=True)
@@ -131,7 +166,10 @@ def detect_metadata(path: str | Path) -> dict[str, str | None]:
     if seller:
         meta["seller_name"] = seller.group(1).replace("«", "\"").replace("»", "\"")
     else:
-        generic = re.search(r"(ООО\s+[\"«][^\"»]+[\"»])\s+к\s+реализации",
+        # Кавычки бывают вложенными: ООО "НК "Югранефтепром" к реализации
+        # (перечни ЮНП 16.09.2026) — берём до последней кавычки перед
+        # «к реализации», не жадно.
+        generic = re.search(r"((?:ООО|АО|ПАО|ЗАО|ОАО)\s+[\"«].{2,80}?[\"»])\s+к\s+реализации",
                             joined, flags=re.IGNORECASE)
         if generic:
             meta["seller_name"] = generic.group(1).replace("«", "\"").replace("»", "\"")
