@@ -1878,8 +1878,13 @@ def bp_lot(request: Request, bp_id: int):
     # у нас — только объём. Показываем фактический руб/т по типу сделки рядом
     # с полем засора, чтобы план продажи и деньги в сверке не расходились.
     contam_hint = cost_matrix.hint(conn, bp["bp_type"], "Переменные", "Списание засора")
+    # Ориентир цены по КОНКРЕТНОЙ номенклатуре 1С (регистр продаж): в группе
+    # «цветной лом» медь и алюминий различаются вдвое (КП 1956).
+    nomen_hints = {it["id"]: pricing.nomen_price_hint(conn, it["nomen_1c"])
+                   for it in items if it["nomen_1c"]}
     ctx.update({
         "contam_hint": contam_hint,
+        "nomen_hints": {k: v for k, v in nomen_hints.items() if v},
         "cost_matrix_from": cost_matrix.period_from(conn),
         "pnl_rows": page["rows"],
         "items_grp": items_grp,

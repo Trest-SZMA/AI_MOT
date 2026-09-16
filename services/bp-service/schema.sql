@@ -1155,3 +1155,18 @@ CREATE TABLE IF NOT EXISTS stat_type_plan (
     profit_pct   REAL,
     generated_at TEXT
 );
+
+-- Факт продаж по НОМЕНКЛАТУРЕ 1С (регистр продаж, последние 24 месяца):
+-- ориентир цены для позиции точнее группы — в «цветном ломе» медь и алюминий
+-- различаются вдвое (КП 1956).
+CREATE TABLE IF NOT EXISTS stat_sale_price_nomen (
+    nomen_norm    TEXT NOT NULL,         -- нормализованное имя номенклатуры 1С
+    nomen         TEXT NOT NULL,
+    cargo_group   TEXT,
+    period        TEXT NOT NULL,         -- ГГГГ-ММ
+    samples       INTEGER NOT NULL,
+    total_qty_t   REAL,
+    total_revenue REAL,
+    rub_per_t     REAL,
+    PRIMARY KEY (nomen_norm, period)
+);

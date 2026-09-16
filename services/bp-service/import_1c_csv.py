@@ -611,6 +611,7 @@ def import_sales_register(conn, path: Path) -> int:
     _kg_re = re.compile(r"\(кг\)|\bкг\b", re.IGNORECASE)
     agg = defaultdict(lambda: [0, 0.0, 0.0])
     hist = defaultdict(lambda: [0, 0.0, 0.0])
+    by_nomen = defaultdict(lambda: [0, 0.0, 0.0, "", ""])   # (norm, period) → n, qty, rev, name, grp
     skipped = 0
     for r in iter_rows(path):
         name = _s(r.get("Номенклатура")) or ""
@@ -643,6 +644,11 @@ def import_sales_register(conn, path: Path) -> int:
             h[0] += int(_f(r.get("Строк")) or 1)
             h[1] += qty
             h[2] += rev
+            bn = by_nomen[(normalize(name), period)]
+            bn[0] += int(_f(r.get("Строк")) or 1)
+            bn[1] += qty
+            bn[2] += rev
+            bn[3], bn[4] = name, grp
     if not agg:
         print("  продажи (регистр): ни одной строки с группой — таблицы не тронуты")
         return 0
@@ -661,7 +667,13 @@ def import_sales_register(conn, path: Path) -> int:
             "period, samples, total_qty_t, total_revenue, rub_per_t) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (grp, div, buyer, period, cnt, round(qty, 3), round(rev, 2), round(rev / qty, 2)))
-    print(f"  продажи (регистр): без группы пропущено строк {skipped}")
+    conn.execute("DELETE FROM stat_sale_price_nomen")
+    for (norm, period), (cnt, qty, rev, name, grp) in by_nomen.items():
+        conn.execute(
+            "INSERT OR REPLACE INTO stat_sale_price_nomen (nomen_norm, nomen, cargo_group, period, "
+            "samples, total_qty_t, total_revenue, rub_per_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (norm, name, grp, period, cnt, round(qty, 3), round(rev, 2), round(rev / qty, 2)))
+    print(f"  продажи (регистр): без группы пропущено строк {skipped}; номенклатур {len({k[0] for k in by_nomen})}")
     return n
 
 

@@ -21,8 +21,23 @@ _STOP = {"б/у", "бу", "т", "тн", "шт", "м", "мм", "кг", "общ", 
          "назначения", "общего", "категория", "вид", "и"}
 
 
+# Сокращения продавцов → полные слова справочника 1С («нерж. сталей» →
+# «нержавеющих сталей», «черн. мет.» → «черных металлов»).
+_ABBR = [
+    (re.compile(r"\bнерж\.?\s*(стал\w*)"), r"нержавеющих сталей"),
+    (re.compile(r"\bнерж\.(?=\s|$)"), "нержавеющ"),
+    (re.compile(r"\bчерн\.\s*метал\w*"), "черных металлов"),
+    (re.compile(r"\bцвет\.\s*метал\w*"), "цветных металлов"),
+    (re.compile(r"\bотх\b\.?"), "отходы"),
+    (re.compile(r"\bзагр\.\s*н/п"), "загрязненные нефтепродуктами"),
+    (re.compile(r"\bалюм\.(?=\s|$)"), "алюминия"),
+]
+
+
 def normalize(s: str) -> str:
     s = (s or "").lower().replace("ё", "е")
+    for rx, rep in _ABBR:
+        s = rx.sub(rep, s)
     s = s.replace("*", "х").replace("x", "х")          # 73*5,5 / 73x5.5 → 73х5,5
     s = s.replace(",", ".")
     s = re.sub(r"[_()\[\]«»\"']", " ", s)
@@ -34,6 +49,38 @@ def normalize(s: str) -> str:
 def tokens(s: str) -> set[str]:
     return {t for t in re.split(r"[\s\-/]+", normalize(s))
             if t and t not in _STOP and len(t) > 1}
+
+
+# Металл в названии решает: «Лом алюминия ГОСТ Р 54564» не должен сопоставляться
+# с «Лом меди A-I-3 ГОСТ Р 54564» только потому, что совпали «лом», «гост» и
+# номер стандарта (КП 1956, 16.09.2026). Группы взаимоисключающие.
+_METALS = {
+    "алюмин": "al", "алюм": "al", "медь": "cu", "меди": "cu", "медн": "cu",
+    "латун": "brass", "бронз": "bronze", "свинц": "pb", "свинец": "pb",
+    "нерж": "ss", "нержав": "ss", "чугун": "cast", "титан": "ti", "цинк": "zn",
+    "никел": "ni", "магни": "mg",
+}
+
+
+# После normalize между цифрой и буквой стоит пробел («20 а»), а «10%» и
+# «№ 1» категорией не являются.
+_CATEGORY = re.compile(r"(?<![\wа-я%.])(\d{1,2}) ?([абв])(?![\wа-я/])|(?<![\wа-я])б ?(\d{2})(?![\wа-я])", re.IGNORECASE)
+
+
+def category_code(name: str) -> str | None:
+    """Категория лома в имени: «20А», «5А», «Б26» — самый точный признак."""
+    m = _CATEGORY.search(normalize(name))
+    if not m:
+        return None
+    return (m.group(1) + m.group(2)).lower() if m.group(1) else "б" + m.group(3)
+
+
+def metal_of(name: str) -> str | None:
+    n = normalize(name)
+    for word, code in _METALS.items():
+        if word in n:
+            return code
+    return None
 
 
 def _similarity(a: str, b: str) -> float:
@@ -89,6 +136,10 @@ def suggest(conn: sqlite3.Connection, seller_name: str,
 
     # 3. Нечёткий подбор: кандидаты по самым длинным токенам
     toks = sorted(tokens(seller_name), key=len, reverse=True)[:3]
+    # Категория лома («20 а») в кандидаты — токен короткий, по длине не попадает.
+    cat = category_code(seller_name)
+    if cat:
+        toks.append(cat[:-1] + " " + cat[-1] if cat[0].isdigit() else cat)
     if not toks:
         return []
     seen: dict[str, sqlite3.Row] = {}
@@ -98,10 +149,36 @@ def suggest(conn: sqlite3.Connection, seller_name: str,
                 "WHERE norm LIKE ? LIMIT 400", (f"%{t}%",)).fetchall():
             seen.setdefault(c["guid"] or c["name"], c)
     scored = []
+    want_metal = metal_of(seller_name)
+    # Из двух похожих имён справочника предпочитаем то, которым реально
+    # торгуют: «Лом алюминия» (409 т продаж) против «Лом алюминия ГОСТ 1639-93»
+    # (0 т) — у первого есть факт цены, у второго нет.
+    try:
+        traded = {r["nomen_norm"]: float(r["q"] or 0) for r in conn.execute(
+            "SELECT nomen_norm, SUM(total_qty_t) AS q FROM stat_sale_price_nomen GROUP BY nomen_norm")}
+    except sqlite3.Error:
+        traded = {}
     for c in seen.values():
+        have_metal = metal_of(c["name"])
+        if want_metal and have_metal and want_metal != have_metal:
+            continue                              # другой металл — не кандидат
+        if want_metal and not have_metal and want_metal in ("al", "cu", "ss"):
+            continue                              # цветмет/нерж без металла в имени — не то
+            # (чугун в 1С часто идёт по категории «20А» без слова — не режем)
         score = _similarity(seller_name, c["name"])
         if c["unit"] == "т":                      # металлолом ведём в тоннах
             score += 0.05
+        q = traded.get(normalize(c["name"]), 0.0)
+        if q >= 5:                                 # есть факт продаж — надёжнее
+            score += 0.08 if q >= 50 else 0.04
+        # Категория лома («20А», «Б26») совпала — это точнее любого слова;
+        # не совпала при заданной у продавца — кандидат не тот.
+        want_cat, have_cat = category_code(seller_name), category_code(c["name"])
+        if want_cat and have_cat:
+            if want_cat == have_cat:
+                score += 0.15
+            else:
+                continue
         if score >= 0.45:
             scored.append({"name": c["name"], "guid": c["guid"], "_raw": score,
                            "score": round(min(score, 0.98), 2),

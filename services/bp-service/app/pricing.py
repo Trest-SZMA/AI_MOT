@@ -255,3 +255,51 @@ def price_matrix(conn: sqlite3.Connection, groups: list[str],
                                 and abs(c["price"] - best) < 0.01)
         matrix.append({"group": grp, "cells": cells, "best": best})
     return {"buyers": buyers, "rows": matrix}
+
+
+def nomen_price_hint(conn: sqlite3.Connection, nomen_1c: str | None,
+                     min_qty_t: float = 5.0, months: int = 24) -> dict | None:
+    """Ориентир цены по конкретной номенклатуре 1С из регистра продаж.
+
+    Свежие месяцы весят больше (полураспад FRESH_HALFLIFE), окно `months`.
+    None — если номенклатуры нет или продано меньше `min_qty_t` тонн: тогда
+    остаётся ориентир по группе.
+    """
+    if not nomen_1c:
+        return None
+    from .matcher import normalize
+    try:
+        rows = conn.execute(
+            "SELECT period, samples, total_qty_t, total_revenue FROM stat_sale_price_nomen "
+            "WHERE nomen_norm = ? ORDER BY period DESC", (normalize(nomen_1c),)).fetchall()
+    except sqlite3.Error:
+        return None
+    if not rows:
+        return None
+    now = _now_index()
+    w_sum = q_sum = v_sum = 0.0
+    n = 0
+    p_from = p_to = None
+    for r in rows:
+        try:
+            y, m = int(r["period"][:4]), int(r["period"][5:7])
+        except ValueError:
+            continue
+        age = now - (y * 12 + m)
+        if age < 0 or age > months:
+            continue
+        w = 0.5 ** (age / FRESH_HALFLIFE)
+        q = float(r["total_qty_t"] or 0)
+        v = float(r["total_revenue"] or 0)
+        if q <= 0 or v <= 0:
+            continue
+        w_sum += w * q
+        v_sum += w * v
+        q_sum += q
+        n += int(r["samples"] or 0)
+        p_from = r["period"] if p_from is None or r["period"] < p_from else p_from
+        p_to = r["period"] if p_to is None or r["period"] > p_to else p_to
+    if q_sum < min_qty_t or w_sum <= 0:
+        return None
+    return {"price": round(v_sum / w_sum, 2), "qty": round(q_sum, 1), "samples": n,
+            "period_from": p_from, "period_to": p_to, "nomen": nomen_1c}

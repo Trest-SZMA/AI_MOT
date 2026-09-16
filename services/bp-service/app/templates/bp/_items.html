@@ -223,6 +223,13 @@
           {% endif %}
         </span>
         {% else %}<span class="cell-sub">{{ '%.0f' % r['sale_price'] }} руб/тн</span>{% endif %}
+        {% set nh = nomen_hints.get(r['id']) if nomen_hints is defined else none %}
+        {% if nh %}
+        <span class="cell-sub matrix-hint" data-tip="Факт продаж именно этой номенклатуры 1С «{{ nh['nomen'] }}» из регистра «Выручка и себестоимость продаж»: {{ '%.0f' % nh['qty'] }} тн за {{ nh['period_from'] }}…{{ nh['period_to'] }}, свежие месяцы весят больше. Точнее ориентира по группе.">
+          факт <b>{{ '{:,.0f}'.format(nh['price']).replace(',', ' ') }}</b>
+          {%- if r['sale_price'] and nh['price'] %}{% set d = (r['sale_price'] - nh['price']) / nh['price'] * 100 %}
+          <span class="{{ 'neg' if d < -15 else ('pos' if d > 15 else 'muted') }}">{{ '%+.0f' % d }}%</span>{% endif %}</span>
+        {% endif %}
         {# Указание продавца из перечня («БП ДСП»/«БП Лукойл»/«ШУМЕЙКО»):
            показывается рядом с ценой, чтобы расхождение было видно сразу —
            «указано: с места 22 500 + НДС», а в поле цены 13 500. #}
