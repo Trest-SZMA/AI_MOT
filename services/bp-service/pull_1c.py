@@ -390,6 +390,10 @@ def pull_fact(dry: bool = False) -> dict:
             ba = book_archive.build(conn, ba_path, FACT_JSON)
             conn.commit()
             print(f"  архив книг: {ba['versions']} версий, {ba['deals']} сделок, типов {ba['types']}")
+        from app import outcome
+        oc = outcome.build(conn, FACT_JSON)
+        conn.commit()
+        print(f"  обучающая выборка результата: {oc['deals']} закрытых сделок")
             print(f"  факт затрат: {fc['series']} серий, {fc['rows']} строк, "
                   f"{round(fc['amount'] / 1e6, 1)} млн; не сопоставлено статей: {len(fc['unmapped'])}; "
                   f"матрица: {cm['rows']} строк из {cm['observations']} наблюдений")

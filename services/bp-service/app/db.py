@@ -288,6 +288,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     from . import bp_types, fact_costs, loading, type_margin
     type_margin.seed_groups(conn)
     fact_costs.seed_map(conn)
+    from . import fact_model
+    fact_model.seed_sites(conn)
     bp_types.seed(conn)
     loading.seed_categories(conn)
     # Уже заведённым сделкам тип проставляется один раз по составу лота:

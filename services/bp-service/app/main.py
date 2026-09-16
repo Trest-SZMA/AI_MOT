@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, type_margin,
+from . import (auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -1738,7 +1738,7 @@ def bp_base(request: Request, conn, bp_id: int, tab: str):
         "lot_share": deals.describe(conn, bp),
         # Площадка компании (для распределяемых по факту): вручную или по регистру.
         "site_info": {"sites": fact_costs.sites(conn), "current": bp["site"],
-                      "detected": fact_model.detect_site(conn, bp)},
+                      "detected": fact_model.detect_site(conn, bp, items)},
         **readiness.build(bp_gaps(conn, bp, items, costs, pnl, variant), tab),
     }
     return ctx, bp, items, costs, variant
@@ -1983,6 +1983,10 @@ def bp_economics(request: Request, bp_id: int):
         # Фактический слой: ставки факта × тоннаж сделки — рядом с моделью по
         # нормативам и с суммами в статьях (три слоя: книга / нормативы / факт).
         "fact_layer": fact_model.evaluate(bp_v, items_v, conn),
+        # Независимая модель результата: что покажет сделка, если пойдёт как
+        # похожие закрытые (тип + площадка), с диапазоном и точностью модели.
+        "outcome": outcome.expect(conn, bp_v, items_v, fact_model.resolve_site(conn, bp_v, items_v)[0]),
+        "outcome_accuracy": {r["bp_type"]: r for r in outcome.accuracy(conn)},
         "book_type_plan": book_archive.for_type(conn, bp["bp_type"]),
         "book_versions": book_archive.for_deal(conn, deals.request_no(bp)),
         "cost_hints": cost_hints_for_items(items),
@@ -6340,6 +6344,8 @@ def references(request: Request):
         # Фактическая рентабельность по типам сделок (сборка «Реализации»).
         "type_margins": type_margin.rows(conn),
         "type_plans": {r["bp_type"]: r for r in book_archive.type_rows(conn)},
+        "outcome_accuracy_rows": outcome.accuracy(conn),
+        "outcome_train_n": (conn.execute("SELECT COUNT(*) AS n FROM stat_outcome_train").fetchone() or {"n": 0})["n"],
         "type_margin_closed_pct": type_margin.closed_pct(conn),
         "neighbor_fact": os.path.join(os.environ.get("BP_NEIGHBOR_DIR", "/neighbor"), "out", "sales_data.json"),
         "cost_matrix_updated": (conn.execute(

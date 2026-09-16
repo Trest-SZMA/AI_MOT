@@ -25,7 +25,40 @@
     {% endif %}
   </div>
   <div class="table-scroll table-gap">
-  <table>
+  {# Независимая оценка по факту закрытых сделок — третий слой рядом с книгой и
+   нормативами. Не подставляет ничего: показывает, что покажет сделка, если
+   пойдёт как похожие, с диапазоном и с честной точностью модели на прошлых. #}
+{% if outcome and outcome['ok'] %}
+{% set acc = outcome_accuracy.get(bp['bp_type'] or '') or outcome_accuracy.get('') %}
+<div class="card-sub" id="outcome">
+  <div class="sec-head"><h3>Независимая оценка по факту похожих сделок</h3>
+    <div class="sec-aside"><span class="role-tag">{{ outcome['n'] }} закрытых · {{ outcome['level'] }}</span></div>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-tile"><div class="label">Цена реализации, руб/тн</div>
+      <div class="value">{{ '{:,.0f}'.format(outcome['price']['median']).replace(',', ' ') }}</div>
+      <div class="muted">половина сделок {{ '{:,.0f}'.format(outcome['price']['p25'] or outcome['price']['median']).replace(',', ' ') }}–{{ '{:,.0f}'.format(outcome['price']['p75'] or outcome['price']['median']).replace(',', ' ') }} · у нас {{ '{:,.0f}'.format(pnl['revenue_per_t']).replace(',', ' ') }}</div></div>
+    <div class="summary-tile"><div class="label">Валовая маржа продаж</div>
+      <div class="value">{{ '%.0f' % outcome['gross']['median'] }}%</div>
+      <div class="muted">{{ '%.0f' % (outcome['gross']['p25'] or outcome['gross']['median']) }}–{{ '%.0f' % (outcome['gross']['p75'] or outcome['gross']['median']) }} · у нас {{ '%.0f' % pnl['gross_margin_pct'] }}%</div></div>
+    <div class="summary-tile"><div class="label">Затраты, руб/тн</div>
+      <div class="value">{{ '{:,.0f}'.format(outcome['costs_per_t']['median'] + (outcome['site_rate'] or 0)).replace(',', ' ') }}</div>
+      <div class="muted">по серии {{ '%.0f' % outcome['costs_per_t']['median'] }} + площадка {{ '%.0f' % (outcome['site_rate'] or 0) }} · у нас {{ '{:,.0f}'.format(pnl['direct_costs'] / pnl['sale_volume'] if pnl['sale_volume'] else 0).replace(',', ' ') }}</div></div>
+    <div class="summary-tile {{ 'good' if outcome['profit'] > 0 else 'bad' }}"><div class="label">Ожидаемый результат</div>
+      <div class="value">{{ '{:,.0f}'.format(outcome['profit']).replace(',', ' ') }}</div>
+      <div class="muted">от {{ '{:,.0f}'.format(outcome['profit_lo']).replace(',', ' ') }} до {{ '{:,.0f}'.format(outcome['profit_hi']).replace(',', ' ') }} · маржа {{ '%.1f' % (outcome['margin_pct'] or 0) }}% · в расчёте опер. прибыль {{ '{:,.0f}'.format(pnl['operating_profit']).replace(',', ' ') }}</div></div>
+  </div>
+  <p class="muted">Медианы и квартили по закрытым сделкам компании (продано не меньше порога),
+    выручка − себестоимость продаж − затраты по серии − распределяемые площадки,
+    на {{ '%.1f' % outcome['tons'] }} тн нашей доли. Это не подстановка, а ориентир того,
+    что реально получалось.
+    {% if acc %}Точность модели на прошлых сделках этого типа (прогноз без самой сделки):
+    цена ±{{ '%.0f' % acc['price_err'] }}%, валовая ±{{ '%.0f' % acc['gross_err'] }}%{% if acc['costs_err'] %}, затраты ±{{ '%.0f' % acc['costs_err'] }}%{% endif %}
+    по {{ acc['n'] }} сделкам.{% endif %}
+    {% if outcome['neighbors'] %}Похожие: {% for nb in outcome['neighbors'][:6] %}№ {{ nb['deal_no'] }} ({{ '%.0f' % nb['sold_t'] }} тн, {{ '%.0f' % nb['price_per_t'] }} руб/тн, валовая {{ '%.0f' % nb['gross_pct'] }}%){{ '; ' if not loop.last }}{% endfor %}.{% endif %}</p>
+</div>
+{% endif %}
+<table>
     <thead><tr><th>Показатель</th><th class="num">Тоннаж</th><th class="num">Суммарно, руб</th><th class="num">На 1 тн, руб</th></tr></thead>
     <tbody>
     <tr><td data-tip="Сумма по позициям: объём продажи × цена реализации варианта. Объём продажи чёрного лома = объём закупки × (1 − засор {{ '%.1f' % (bp['contamination_pct'] or 0) }}%) — засор применяется по типу ПРОДАЖИ (труба, проданная ломом, тоже теряет объём). Быстро заполнить цены: колонка «Цена реализ.» в составе лота, ориентиры — подсказки блока «Лот»."><b>1. Выручка от реализации без НДС</b></td>

@@ -94,13 +94,63 @@ def _split_items(items_1c: list[tuple[str, float]]) -> dict[tuple, float]:
     return {k: v / total for k, v in shares.items()} if total else {}
 
 
-def detect_site(conn: sqlite3.Connection, bp) -> dict:
+# Начальные слова адресов по площадкам — география компании; дальше
+# правится в справочнике «Площадки».
+SITE_WORDS = {
+    "Усинск (База + Цех)": "усинск; печора; возей; харьяг; баяндыс; ламбейшор; инзырей; варандей; ухтинск-усинск",
+    "Ухта (База + Цех)": "ухта; сосногорск; ярега; вуктыл; троицко-печорск",
+    "Пермь (Цех + База Осенцы)": "пермь; осенцы; чернушка; оса; кунгур; полазна; краснокамск; чайковск; добрянк; уральск; лысьва; пермск",
+    "Березники": "березники; соликамск; усолье",
+    "База СВК": "свк; майский; каменск; сысерть; екатеринбург; свердловск",
+    "База Оса": "г. оса; осинск",
+    "Когалым (База + Цех)": "когалым; покачи; повх; тевлин; ватьеган; дружн",
+    "Лангепас": "лангепас; урьев; локосов",
+    "Советский (База + Цех)": "советский; урай; убинк; шаим; югорск; нягань; талинк",
+    "Юг": "волгоград; котово; жирновск; фролов; арчед; котовск; самар; кошки; ибрайкин; татарстан; астрахан; саратов; ростов; краснодар; ставропол; ставролен; будённовск; буденновск",
+    "Коломна": "коломна; москов; моск. обл; подольск; тула; рязан",
+    "База МГМ": "мгм; магнитогорск; челябинск",
+}
+
+
+def seed_sites(conn: sqlite3.Connection) -> None:
+    for site, words in SITE_WORDS.items():
+        conn.execute("INSERT OR IGNORE INTO ref_sites (site, match_words, note) VALUES (?, ?, ?)",
+                     (site, words, "типовые слова адресов, 16.09.2026"))
+
+
+def site_by_address(conn: sqlite3.Connection, items: list) -> dict:
+    """Площадка по адресам позиций лота: считаем тоннаж по площадкам, чьи
+    слова встретились в подразделении/складе/поставщике позиции."""
+    try:
+        rules = [(r["site"], [w.strip().lower() for w in (r["match_words"] or "").split(";") if w.strip()])
+                 for r in conn.execute("SELECT site, match_words FROM ref_sites WHERE is_active = 1")]
+    except sqlite3.Error:
+        return {"site": None, "reason": "справочник площадок пуст"}
+    tons: dict[str, float] = defaultdict(float)
+    for it in items:
+        text = " ".join(str(_row_get(it, k) or "") for k in ("division", "warehouse", "supplier", "nomenclature")).lower()
+        vol = _f(_row_get(it, "volume_t")) or 0.001
+        for site, words in rules:
+            if any(w in text for w in words):
+                tons[site] += vol
+                break
+    if not tons:
+        return {"site": None, "reason": "адреса лота не совпали со словами площадок"}
+    site, top = max(tons.items(), key=lambda kv: kv[1])
+    total = sum(tons.values())
+    return {"site": site, "reason": f"по адресам лота: {top / total * 100:.0f} % тоннажа ({site})"}
+
+
+def detect_site(conn: sqlite3.Connection, bp, items: list | None = None) -> dict:
     """Площадка сделки по факту: подразделение регистра затрат с наибольшей
     суммой по серии сделки → площадка из «Цеха и базы». Нет серии — None."""
     from . import deals
     no = deals.request_no(bp)
     if not no:
-        return {"site": None, "reason": "номер запроса не найден"}
+        if items is None:
+            items = conn.execute("SELECT * FROM bp_items WHERE bp_id = ?", (bp["id"],)).fetchall()
+        d = site_by_address(conn, items)
+        return d if d["site"] else {"site": None, "reason": "номер запроса не найден, " + d["reason"]}
     smap = fact_costs.site_of_division(conn)
     rows = conn.execute(
         "SELECT division, SUM(amount) AS a FROM stat_fact_costs_div WHERE deal_no = ? "
@@ -109,8 +159,14 @@ def detect_site(conn: sqlite3.Connection, bp) -> dict:
         site = smap.get(r["division"])
         if site:
             return {"site": site, "reason": f"по регистру затрат: {r['division']} ({r['a'] / 1e3:,.0f} тыс.)".replace(",", " ")}
-    return {"site": None, "reason": "в регистре затрат нет строк по серии" if not rows
-            else "подразделения серии не привязаны к площадке"}
+    # Серии в 1С ещё нет (новое КП) — по адресам лота.
+    if items is None:
+        items = conn.execute("SELECT * FROM bp_items WHERE bp_id = ?", (bp["id"],)).fetchall()
+    by_addr = site_by_address(conn, items)
+    if by_addr["site"]:
+        return by_addr
+    return {"site": None, "reason": ("в регистре затрат нет строк по серии, " if not rows
+            else "подразделения серии не привязаны к площадке, ") + by_addr["reason"]}
 
 
 def _has_div_table(conn) -> bool:
@@ -121,12 +177,12 @@ def _has_div_table(conn) -> bool:
         return False
 
 
-def resolve_site(conn: sqlite3.Connection, bp) -> tuple[str | None, str]:
-    """Площадка сделки: заданная вручную, иначе по факту."""
+def resolve_site(conn: sqlite3.Connection, bp, items: list | None = None) -> tuple[str | None, str]:
+    """Площадка сделки: вручную → по регистру затрат серии → по адресам лота."""
     site = _row_get(bp, "site")
     if site and site != "auto":
         return site, "задана вручную"
-    d = detect_site(conn, bp)
+    d = detect_site(conn, bp, items)
     return d["site"], d["reason"]
 
 
@@ -159,7 +215,7 @@ def evaluate(bp, items: list, conn: sqlite3.Connection) -> dict:
 
     # 2. Распределяемые — ставка ПЛОЩАДКИ сделки × тоннаж, разложенная по статьям.
     overhead = None
-    site, site_reason = resolve_site(conn, bp)
+    site, site_reason = resolve_site(conn, bp, items)
     matched = next((d for d in fact_costs.site_overhead_rates(conn) if d["site"] == site), None) if site else None
     if matched and matched.get("rate_per_t"):
         split = _split_items(matched["items"])

@@ -1170,3 +1170,32 @@ CREATE TABLE IF NOT EXISTS stat_sale_price_nomen (
     rub_per_t     REAL,
     PRIMARY KEY (nomen_norm, period)
 );
+
+-- Площадки компании (аналитические базы из «Цеха и базы» 1С) и слова
+-- адресов, по которым новая сделка без серии привязывается к площадке
+-- (Чернушка, Оса → Пермь; Усинск, Печора → Усинск). Правится на «Справочниках».
+CREATE TABLE IF NOT EXISTS ref_sites (
+    site        TEXT PRIMARY KEY,
+    match_words TEXT,                 -- через «;», регистр не важен
+    is_active   INTEGER NOT NULL DEFAULT 1,
+    note        TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Обучающая выборка независимой модели результата (app/outcome.py):
+-- закрытые сделки компании с фактом — тип, площадка, тоннаж, выручка,
+-- себестоимость продаж, затраты по серии и удельные величины.
+CREATE TABLE IF NOT EXISTS stat_outcome_train (
+    deal_no       TEXT PRIMARY KEY,
+    bp_type       TEXT,
+    site          TEXT,
+    bought_t      REAL,
+    sold_t        REAL,
+    revenue       REAL,
+    cost_of_sales REAL,
+    series_costs  REAL,
+    price_per_t   REAL,
+    gross_pct     REAL,
+    costs_per_t   REAL,
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);

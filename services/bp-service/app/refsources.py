@@ -31,6 +31,7 @@ REGISTRY = [
     ("stat_overhead_div", "Распределяемые расходы по подразделениям (регистр 1С)", EXPORT, "stat_overhead_div", "month", 3),
     ("stat_division_tons", "Тоннаж через подразделения (отвесная)", EXPORT, "stat_division_tons", "month", 3),
     ("stat_book_plan", "Архив книг экономистов: что закладывали", EXPORT, "stat_book_plan", None, 10),
+    ("stat_outcome_train", "Обучающая выборка: закрытые сделки с фактом", DERIVED, "stat_outcome_train", None, 3),
     ("ref_nomen_groups", "Группы аналитического учёта", EXPORT, "ref_nomen_groups", None, 90),
     ("ref_counterparties", "Контрагенты", EXPORT, "ref_counterparties", None, 30),
     ("ref_warehouses", "Склады", EXPORT, "ref_warehouses", None, 90),

@@ -240,6 +240,30 @@
     </tbody>
   </table>
   </div>
+  {% if outcome_accuracy_rows %}
+  <h3>Точность независимой модели результата</h3>
+  <p class="muted">Обучающая выборка — {{ outcome_train_n }} закрытых сделок компании. Для каждой
+    прогноз строится по похожим (тип + площадка) без неё самой и сравнивается с её
+    фактом; показана медиана ошибки в процентах. Так измеряется, чему сервис
+    научился на прошлых сделках. Затраты по серии предсказуемы плохо: у части сделок
+    регистр 1С не содержит строк по серии.</p>
+  <div class="table-scroll table-gap">
+  <table>
+    <thead><tr><th>Тип сделки</th><th class="num">Сделок</th><th class="num">Ошибка цены, %</th><th class="num">Ошибка валовой, %</th><th class="num">Ошибка затрат по серии, %</th></tr></thead>
+    <tbody>
+    {% for a in outcome_accuracy_rows %}
+    <tr {% if not a['bp_type'] %}class="row-accent"{% endif %}>
+      <td><b>{{ bp_type_names.get(a['bp_type'], 'Все сделки' if not a['bp_type'] else a['bp_type']) }}</b></td>
+      <td class="num">{{ a['n'] }}</td>
+      <td class="num">{{ '%.0f' % a['price_err'] if a['price_err'] is not none else '—' }}</td>
+      <td class="num">{{ '%.0f' % a['gross_err'] if a['gross_err'] is not none else '—' }}</td>
+      <td class="num">{{ '%.0f' % a['costs_err'] if a['costs_err'] is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
   <p class="muted">Валовая плана = (выручка − закупка) / выручка книги; валовая факта =
     (выручка − себестоимость продаж) / выручка 1С, где себестоимость включает закупку
     и переработку. Разница в скобках — факт минус план.</p>
