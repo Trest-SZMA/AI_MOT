@@ -624,3 +624,42 @@
   </form>
   {% endif %}
 </div>
+
+{# Спорные сопоставления с 1С — предложения помощника ИИ строго из кандидатов
+   матчера; применяются отдельным подтверждением, низкая уверенность пропускается. #}
+{% if can_edit['items'] %}
+<div class="card-sub" id="assist-matches">
+  <div class="sec-head"><h3>Спорные сопоставления с 1С</h3>
+    <div class="sec-aside">
+      <form method="post" action="/bp/{{ bp['id'] }}/assist/match" class="inline-form">
+        <button type="submit" class="secondary" {% if not assist_on %}disabled{% endif %}
+          data-tip="ИИ выберет номенклатуру 1С для позиций без подтверждённого сопоставления — только из кандидатов матчера, с объяснением. Ничего не записывается до вашего подтверждения.">
+          {{ icon('search') }} Спросить ИИ по спорным позициям</button>
+      </form>
+    </div>
+  </div>
+  {% if not assist_on %}<p class="muted">Помощник ИИ не подключён (ANTHROPIC_API_KEY).</p>{% endif %}
+  {% if assist_matches %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Позиция продавца</th><th>Предложение 1С</th><th>Уверенность</th><th>Почему</th></tr></thead>
+    <tbody>
+    {% for m in assist_matches %}
+    {% set it = items_by_id.get(m['item_id']) %}
+    <tr class="{{ 'muted' if m['confidence'] == 'низкая' or not m['nomen_1c'] }}">
+      <td>{{ it['nomenclature'] if it else m['item_id'] }}</td>
+      <td><b>{{ m['nomen_1c'] or '— не нашёл —' }}</b></td>
+      <td>{{ m['confidence'] }}</td>
+      <td class="muted">{{ m['why'] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form method="post" action="/bp/{{ bp['id'] }}/assist/match/apply" class="inline-form">
+    <button type="submit">{{ icon('save') }} Применить высокую и среднюю уверенность</button>
+    <span class="muted">Пары попадут в историю сопоставлений и будут узнаваться в следующих лотах.</span>
+  </form>
+  {% endif %}
+</div>
+{% endif %}

@@ -26,6 +26,49 @@
       где они есть в файле. Файл не хранится как отдельный документ. Незаполненные
       поля можно уточнить вручную.</span>
   </form>
+  {# Разбор КП любого формата помощником ИИ: pdf, скан, письмо, xlsx с
+     произвольной шапкой → предпросмотр → подтверждение. Деньги не трогает. #}
+  <form method="post" action="/bp/{{ bp['id'] }}/assist/parse" enctype="multipart/form-data" class="upload-panel" id="assist-parse">
+    <div><label>Любой другой формат — разбор помощником ИИ</label>
+      <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xlsm,.docx,.csv,.txt,.eml" required class="file-input" {% if not assist_on %}disabled{% endif %}></div>
+    <button type="submit" class="secondary" {% if not assist_on %}disabled{% endif %}>{{ icon('search') }} Разобрать через ИИ</button>
+    <span class="muted upload-hint">{% if assist_on %}Скан, pdf, письмо, таблица с любой шапкой. ИИ только извлекает позиции,
+      количество, единицы и адреса — вы проверяете и подтверждаете, дальше работает штатная загрузка.
+      {% else %}Помощник ИИ не подключён: нужен ключ ANTHROPIC_API_KEY в окружении контейнера.{% endif %}</span>
+  </form>
+  {% if assist_preview %}
+  <div class="card-sub" id="assist-preview">
+    <div class="sec-head"><h3>Разбор «{{ assist_preview['file'] }}» — проверьте перед загрузкой</h3>
+      <div class="sec-aside"><span class="role-tag">{{ assist_preview['items'] | length }} позиций</span>
+        {% if assist_preview['seller'] %}<span class="role-tag">{{ assist_preview['seller'] }}</span>{% endif %}
+        {% if assist_preview['request_no'] %}<span class="role-tag">№ {{ assist_preview['request_no'] }}</span>{% endif %}</div>
+    </div>
+    {% if assist_preview['warnings'] %}
+    <p class="warn-note">{{ icon('warn', 'icon-s') }} {{ assist_preview['warnings'] | join('; ') }}</p>
+    {% endif %}
+    {% if assist_preview['notes'] %}<p class="muted">Условия: {{ assist_preview['notes'] }}</p>{% endif %}
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Наименование</th><th>Код</th><th class="num">Кол-во</th><th>Ед.</th><th>Место</th><th>Состояние</th><th class="num">Цена продавца</th></tr></thead>
+      <tbody>
+      {% for it in assist_preview['items'] %}
+      <tr><td>{{ it['name'] }}</td><td class="muted">{{ it['code'] or '' }}</td>
+        <td class="num">{{ it['qty'] }}</td><td>{{ it['unit'] }}</td>
+        <td class="muted">{{ it['place'] }}</td><td class="muted">{{ it['condition'] or '' }}</td>
+        <td class="num">{{ it['price'] or '' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <form method="post" action="/bp/{{ bp['id'] }}/assist/apply" class="upload-panel">
+      <div><label>Поставщик для строк (необязательно)</label><input name="supplier_default" placeholder="из разбора: {{ assist_preview['seller'] or '' }}"></div>
+      <div><label class="check-line"><input type="checkbox" name="replace" value="1"> заменить текущие позиции</label></div>
+      <button type="submit">{{ icon('upload') }} Загрузить эти позиции</button>
+      <button type="submit" class="secondary" formaction="/bp/{{ bp['id'] }}/assist/discard">Отбросить</button>
+      <span class="muted upload-hint">Килограммы переводятся в тонны; сопоставление с 1С, тип сделки, точки и доля — как при обычной загрузке.</span>
+    </form>
+  </div>
+  {% endif %}
   {% else %}
   <p class="muted">Загрузка КП / спецификации недоступна для текущей роли или статуса.</p>
   {% endif %}

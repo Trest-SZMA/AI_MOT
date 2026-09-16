@@ -27,7 +27,7 @@ from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse)
 from fastapi.templating import Jinja2Templates
 
-from . import (auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
+from . import (assist, auth, book_archive, bp_types, deals, calc, cost_matrix, fact_costs, fact_import, fact_model, factsnap, forms, geo, norm_calib, outcome, type_margin,
                list_import, loading, logistics, origin, refsources,
                matcher, norms, pricing, rates, readiness, versions, workflow)
 from .db import ATTACH_DIR, BASE_DIR, OUTPUT_DIR, connect, get_setting, init_db, log
@@ -1885,6 +1885,9 @@ def bp_lot(request: Request, bp_id: int):
     ctx.update({
         "contam_hint": contam_hint,
         "nomen_hints": {k: v for k, v in nomen_hints.items() if v},
+        "assist_on": assist.enabled(),
+        "assist_preview": _read_assist_json(bp, "parsed.json"),
+        "assist_matches": _read_assist_json(bp, "matches.json"),
         "cost_matrix_from": cost_matrix.period_from(conn),
         "pnl_rows": page["rows"],
         "items_grp": items_grp,
@@ -2009,6 +2012,8 @@ def bp_economics(request: Request, bp_id: int):
                            cost_matrix.hint_pair(conn, bp["bp_type"], c["section"], c["article"])
                            for c in cost_model["components"]},
         "cost_matrix_from": cost_matrix.period_from(conn),
+        "assist_on": assist.enabled(),
+        "assist_explain": _read_assist(bp, "explain.txt"),
         "rate_hints": rates.hints_for_edges(conn, rate_edges),
         "rates_loaded": rates.summary(conn)["total"],
         # Объём реализации: по нему статьи затрат переводятся в руб/тн.
@@ -3029,6 +3034,225 @@ def insert_parsed_items(conn, bp_id: int, parsed: list, buyer_name,
                                  cur.lastrowid))
             matched += 1
     return matched, priced
+
+
+# ── Помощник ИИ (app/assist.py): разбор КП, спорные позиции, объяснение ─────
+
+def _read_assist(bp, name: str) -> str | None:
+    p = ATTACH_DIR / bp["bp_number"] / "_assist" / name
+    try:
+        return p.read_text(encoding="utf-8") if p.is_file() else None
+    except OSError:
+        return None
+
+
+def _read_assist_json(bp, name: str):
+    t = _read_assist(bp, name)
+    try:
+        return json.loads(t) if t else None
+    except ValueError:
+        return None
+
+
+def _assist_dir(bp) -> Path:
+    d = ATTACH_DIR / bp["bp_number"] / "_assist"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@app.post("/bp/{bp_id}/assist/parse")
+async def assist_parse(request: Request, bp_id: int, file: UploadFile):
+    """Разбор КП любого формата через ИИ → предпросмотр позиций (ничего не
+    записывается, пока человек не подтвердит)."""
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("items", role, bp["status"]):
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет прав на загрузку позиций.")
+    fname = Path(file.filename or "kp").name
+    d = _assist_dir(bp)
+    path = d / fname
+    path.write_bytes(await file.read())
+    res = assist.parse_kp(conn, path, actor(request), bp_id)
+    conn.commit()
+    conn.close()
+    if not res.get("ok"):
+        return redirect(f"/bp/{bp_id}/lot", f"Разбор не удался: {res.get('reason')}")
+    (d / "parsed.json").write_text(json.dumps(res, ensure_ascii=False), encoding="utf-8")
+    return redirect(f"/bp/{bp_id}/lot#assist-preview",
+                    f"ИИ разобрал «{fname}»: {len(res['items'])} позиций. Проверьте и подтвердите загрузку.")
+
+
+@app.post("/bp/{bp_id}/assist/apply")
+def assist_apply(request: Request, bp_id: int, supplier_default: str = Form(""),
+                 replace: str = Form("")):
+    """Подтверждение: позиции из предпросмотра → штатная вставка (та же, что
+    у загрузки xlsx: сопоставление с 1С, тип сделки, точки, доля)."""
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("items", role, bp["status"]):
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет прав на загрузку позиций.")
+    pj = _assist_dir(bp) / "parsed.json"
+    if not pj.is_file():
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет разобранного перечня — сначала загрузите файл для разбора.")
+    res = json.loads(pj.read_text(encoding="utf-8"))
+    parsed = []
+    for it in res["items"]:
+        unit = (it.get("unit") or "тн").strip().lower()
+        qty = float(it.get("qty") or 0)
+        if unit in ("кг", "kg"):
+            unit, qty = "тн", qty / 1000.0
+        parsed.append({"name": it.get("name") or "", "code": it.get("code") or None,
+                       "unit": unit, "qty": qty, "place": it.get("place") or "",
+                       "note": (it.get("condition") or "") or None,
+                       "purchase_price": it.get("price")})
+    if replace == "1":
+        conn.execute("DELETE FROM bp_items WHERE bp_id = ?", (bp_id,))
+    seller = (res.get("seller") or "").strip() or None
+    matched, priced = insert_parsed_items(conn, bp_id, parsed, None,
+                                          supplier_default.strip() or seller or "", seller)
+    if seller and not (bp["seller_name"] or "").strip():
+        conn.execute("UPDATE business_plans SET seller_name = ? WHERE id = ?", (seller, bp_id))
+    if res.get("request_no") and not (bp["tender_ref"] or "").strip():
+        conn.execute("UPDATE business_plans SET tender_ref = ? WHERE id = ?", (res["request_no"], bp_id))
+    if not (bp["source_name"] or "").strip():
+        conn.execute("UPDATE business_plans SET source_name = ?, source_type = ? WHERE id = ?",
+                     (f"{res.get('request_no') or ''} {res.get('file') or ''} (разбор ИИ)".strip(), "Перечень продавца", bp_id))
+    loaded = conn.execute("SELECT * FROM bp_items WHERE bp_id = ? ORDER BY id", (bp_id,)).fetchall()
+    for it in loaded:
+        try:
+            logistics.register_point(conn, it["division"] or it["warehouse"] or "")
+        except Exception:
+            pass
+    detected = bp_types.apply_auto(conn, bp_id, loaded)
+    deals.apply_auto(conn, bp_id)
+    log(conn, actor(request), bp_id, "assist_apply", f"{len(parsed)} позиций из «{res.get('file')}»")
+    conn.commit()
+    conn.close()
+    pj.unlink(missing_ok=True)
+    msg = f"Загружено позиций: {len(parsed)}, сопоставлено с 1С: {matched}."
+    if detected.get("code"):
+        msg += f" Тип сделки: {detected['code']}."
+    if res.get("warnings"):
+        msg += " ИИ отметил: " + "; ".join(res["warnings"][:3])
+    return redirect(f"/bp/{bp_id}/lot", msg)
+
+
+@app.post("/bp/{bp_id}/assist/discard")
+def assist_discard(request: Request, bp_id: int):
+    conn = connect()
+    bp = conn.execute("SELECT * FROM business_plans WHERE id = ?", (bp_id,)).fetchone()
+    conn.close()
+    if bp is not None:
+        (_assist_dir(bp) / "parsed.json").unlink(missing_ok=True)
+    return redirect(f"/bp/{bp_id}/lot", "Разобранный перечень отброшен.")
+
+
+@app.post("/bp/{bp_id}/assist/match")
+def assist_match(request: Request, bp_id: int):
+    """Спорные позиции (не сопоставлены или сопоставлены нечётко) → предложения
+    ИИ строго из кандидатов матчера; применяются отдельным подтверждением."""
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("items", role, bp["status"]):
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет прав на изменение позиций.")
+    doubtful = [it for it in items if not it["match_confirmed"] and
+                (not it["nomen_1c"] or (it["match_source"] or "").startswith("авто (похожее"))]
+    res = assist.suggest_matches(conn, doubtful, actor(request), bp_id)
+    conn.commit()
+    if not res.get("ok"):
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", f"Подсказки не получены: {res.get('reason')}")
+    (_assist_dir(bp) / "matches.json").write_text(json.dumps(res["matches"], ensure_ascii=False), encoding="utf-8")
+    conn.close()
+    return redirect(f"/bp/{bp_id}/lot#assist-matches",
+                    f"ИИ предложил сопоставление для {len(res['matches'])} позиций — проверьте и примените.")
+
+
+@app.post("/bp/{bp_id}/assist/match/apply")
+def assist_match_apply(request: Request, bp_id: int):
+    role = current_role(request)
+    conn = connect()
+    bp, items, _ = load_bp(conn, bp_id)
+    if bp is None or not workflow.can_edit_section("items", role, bp["status"]):
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет прав на изменение позиций.")
+    mj = _assist_dir(bp) / "matches.json"
+    if not mj.is_file():
+        conn.close()
+        return redirect(f"/bp/{bp_id}/lot", "Нет предложений ИИ.")
+    matches = json.loads(mj.read_text(encoding="utf-8"))
+    by_id = {it["id"]: it for it in items}
+    applied = 0
+    for m in matches:
+        it = by_id.get(int(m["item_id"]))
+        if not it or not m.get("nomen_1c") or m.get("confidence") == "низкая":
+            continue
+        row = conn.execute("SELECT name, guid FROM ref_nomenclature_1c WHERE name = ? LIMIT 1",
+                           (m["nomen_1c"],)).fetchone()
+        if not row:
+            continue
+        conn.execute("UPDATE bp_items SET nomen_1c = ?, nomen_1c_guid = ?, match_source = ? WHERE id = ?",
+                     (row["name"], row["guid"], f"ИИ ({m['confidence']}): {m['why']}"[:120], it["id"]))
+        matcher.confirm(conn, it["nomenclature"], row["name"], row["guid"], it["seller_code"])
+        applied += 1
+    log(conn, actor(request), bp_id, "assist_match_apply", f"{applied} из {len(matches)}")
+    conn.commit()
+    conn.close()
+    mj.unlink(missing_ok=True)
+    return redirect(f"/bp/{bp_id}/lot", f"Применено сопоставлений: {applied} (низкая уверенность пропущена).")
+
+
+@app.post("/bp/{bp_id}/assist/explain")
+def assist_explain(request: Request, bp_id: int):
+    """Объяснение расхождений четырёх слоёв — из уже посчитанного."""
+    conn = connect()
+    bp, items, costs = load_bp(conn, bp_id)
+    if bp is None:
+        conn.close()
+        return redirect("/", "БП не найден.")
+    variant = resolve_variant(request, bp)
+    bp_v, items_v, costs_v = calc.apply_variant(bp, items, costs, variant)
+    pnl = calc.pnl(bp_v, items_v, costs_v, conn)
+    fl = fact_model.evaluate(bp_v, items_v, conn)
+    site = fact_model.resolve_site(conn, bp_v, items_v)[0]
+    oc = outcome.expect(conn, bp_v, items_v, site)
+    tp = book_archive.for_type(conn, bp["bp_type"])
+    ctx = {
+        "сделка": {"номер": bp["bp_number"], "источник": bp["source_name"], "тип": bp["bp_type"],
+                   "доля лота %": pnl["lot_share_pct"], "площадка": site, "вариант": calc.VARIANTS.get(variant),
+                   "тоннаж на долю": pnl["purchase_volume"]},
+        "расчёт (текущие суммы в карточке)": {
+            "выручка": pnl["revenue"], "стоимость лота": pnl["lot_cost"], "прямые затраты": pnl["direct_costs"],
+            "операционная прибыль": pnl["operating_profit"], "чистая прибыль": pnl["net_profit"],
+            "ROS %": pnl["ros_pct"], "валовая маржа %": pnl["gross_margin_pct"],
+            "затраты по статьям": {f"{c['section']} / {c['item']}": calc._f(c["amount"]) for c in costs_v if calc._f(c["amount"])},
+            "цены реализации руб/т": {it["nomenclature"]: it["sale_price"] for it in items_v if it["sale_price"]},
+        },
+        "факт 1С (ставки × тоннаж)": {"итого": fl.get("total"), "площадка": fl.get("site"),
+                                      "статьи": {f"{l['section']} / {l['item']}": l["amount"] for l in fl.get("lines", [])},
+                                      "распределяемые руб/т": fl.get("overhead", {}).get("rate_per_t") if fl.get("overhead") else None},
+        "независимая оценка по похожим закрытым сделкам": (
+            {"похожих": oc["n"], "уровень": oc["level"], "цена руб/т медиана": oc["price"]["median"],
+             "валовая % медиана": oc["gross"]["median"], "ожидаемый результат": oc["profit"],
+             "диапазон": [oc["profit_lo"], oc["profit_hi"]]} if oc.get("ok") else None),
+        "в книгах экономистов по типу": ({"сделок": tp["n"], "затраты % выручки": tp["costs_pct"],
+                                          "валовая %": tp["gross_pct"], "прибыль %": tp["profit_pct"]} if tp else None),
+        "факт по типу (медиана валовой)": pnl.get("type_fact"),
+    }
+    res = assist.explain(conn, ctx, actor(request), bp_id)
+    conn.commit()
+    conn.close()
+    if not res.get("ok"):
+        return redirect(f"/bp/{bp_id}/economics", f"Объяснение не получено: {res.get('reason')}")
+    (_assist_dir(bp) / "explain.txt").write_text(res["text"], encoding="utf-8")
+    return redirect(f"/bp/{bp_id}/economics#assist-explain", "ИИ объяснил расхождения — ниже, под P&L.")
 
 
 @app.post("/bp/{bp_id}/items/upload")

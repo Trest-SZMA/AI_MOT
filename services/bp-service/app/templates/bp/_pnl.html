@@ -54,6 +54,22 @@
     что реально получалось.
     {% if acc %}Точность модели на прошлых сделках этого типа (прогноз без самой сделки):
     цена ±{{ '%.0f' % acc['price_err'] }}%, валовая ±{{ '%.0f' % acc['gross_err'] }}%{% if acc['costs_err'] %}, затраты ±{{ '%.0f' % acc['costs_err'] }}%{% endif %}
+<div class="card-sub" id="assist-explain">
+  <div class="sec-head"><h3>Объяснение расхождений</h3>
+    <div class="sec-aside">
+      <form method="post" action="/bp/{{ bp['id'] }}/assist/explain" class="inline-form">
+        <button type="submit" class="secondary" {% if not assist_on %}disabled{% endif %}
+          data-tip="Помощник ИИ объяснит по-русски, где и почему расходятся книга, нормативы, факт 1С и независимая оценка. Цифры берёт только из этой карточки, ничего не считает и не меняет.">
+          {{ icon('search') }} Объяснить расхождения словами</button>
+      </form>
+    </div>
+  </div>
+  {% if not assist_on %}<p class="muted">Помощник ИИ не подключён (ANTHROPIC_API_KEY в окружении контейнера).</p>
+  {% elif assist_explain %}
+  <div class="assist-text">{% for para in assist_explain.split('\n\n') %}<p>{{ para }}</p>{% endfor %}</div>
+  <p class="muted">Текст составлен ИИ по цифрам этой карточки на момент нажатия; при изменении расчёта нажмите ещё раз.</p>
+  {% else %}<p class="muted">Нажмите кнопку — объяснение появится здесь.</p>{% endif %}
+</div>
     по {{ acc['n'] }} сделкам.{% endif %}
     {% if outcome['neighbors'] %}Похожие: {% for nb in outcome['neighbors'][:6] %}№ {{ nb['deal_no'] }} ({{ '%.0f' % nb['sold_t'] }} тн, {{ '%.0f' % nb['price_per_t'] }} руб/тн, валовая {{ '%.0f' % nb['gross_pct'] }}%){{ '; ' if not loop.last }}{% endfor %}.{% endif %}</p>
 </div>

@@ -7,3 +7,4 @@ python-docx>=1.1
 Pillow>=10          # фотографии лота: миниатюры и дата съёмки из EXIF
 fpdf2>=2.8          # печатная форма БП в PDF (шрифты DejaVu в app/docgen/fonts)
 python-tds>=1.15    # ночная выгрузка 1С из MSSQL «Extractor» (pull_1c.py); чистый Python, пароль в UTF-16
+anthropic>=1.0    # помощник ИИ (app/assist.py): разбор КП из любого файла, объяснение расхождений, спорные позиции; ключ ANTHROPIC_API_KEY в env контейнера

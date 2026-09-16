@@ -148,3 +148,18 @@ MTU хоста 1450 запросы к pypi.org молча обрываются �
 `ReadTimeoutError ... pypi.org`). Поэтому у всех `build:` в compose стоит
 `network: host` — сборка ходит в интернет как сам хост. Если собираете вручную:
 `docker build --network host -f deploy/docker/Dockerfile --build-arg SERVICE=bp-service --build-arg LINKS="bp.db attachments 1c output backups" -t ai_mot/bp-service .`
+
+### bp-service: помощник ИИ (Claude API)
+
+С 16.09.2026 в сервисе бизнес-планов есть три функции по кнопке (разбор КП из
+любого файла, спорные сопоставления с 1С, объяснение расхождений). Деньги ИИ
+не считает. Для включения в `env/bp-service.env` добавить:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+# необязательно: BP_ASSIST_MODEL=claude-opus-5
+```
+
+и `docker compose up -d bp-service`. Без ключа кнопки отключены с подписью.
+Контейнеру нужен выход на https://api.anthropic.com (проверено: доступен).
+Каждый вызов пишется в журнал сервиса с числом токенов.
