@@ -6985,6 +6985,30 @@ TABS.stock = function(app){
     const V = GVAR(vkey);
     return !V.sites.length || V.sites.includes(SK_SITE[w]||'—');
   };
+  /* ---- ШТУКИ → ТОННЫ ПО КОЭФФИЦИЕНТУ 1С — ТОЛЬКО ЗДЕСЬ (заказчик 16.09.2026:
+     «можем сделать это только для вкладки остатки, а в остальном это правило
+     не применялось»). 1С в отчёте «в тоннах» переводит штанги, трансформаторы,
+     крышки люков по коэффициенту справочника (DATA.nm_coef: код → шт в тонне);
+     во всём сервисе правило §7 «штуки в тонны не превращаются» остаётся, и
+     Ганта, дерево, сводные этих тонн не видят. Строки таких кодов без тоннажа
+     прогоняются через тот же aggRow с величиной qty / коэф. и складываются в
+     отдельный агрегат — он подмешивается в дерево и подписывается. */
+  const NM_COEF = DATA.nm_coef || {};
+  const pcsAgg = (()=>{
+    let B = null;
+    return ()=>{
+      if(B) return B;
+      B = newAgg();
+      if(curMeasure() !== MMAIN || !Object.keys(NM_COEF).length) return B;
+      for(const r of MOVES){
+        const c = mst(r,'code'); const k = NM_COEF[c];
+        if(!k || Math.abs(r[MC.tonnes]) > 1e-9) continue;   /* тоннаж уже есть — не дублировать */
+        if(mst(r,'mc') !== 'шт') continue;
+        aggRow(B, r, r[MC.qty] / k, true);
+      }
+      return B;
+    };
+  })();
   /* порядок колонок — как в дереве (LC_COLS), редкие потоки — следом */
   const ORDER = LC_COLS.map(c=>c[0]).filter(k=>k!=='остаток');
   const colLabel = k => LC_LABEL[k] || MSHORT[k] || k.replace(/_/g,' ');
@@ -6995,6 +7019,8 @@ TABS.stock = function(app){
   function draw(){
     const V = GVAR(vkey);
     const B = flowAgg();
+    const PC = pcsAgg();                       /* штуки по коэффициенту 1С */
+    const pcsTot = {};                          /* сколько добавили штуки — для карточки и сверки с Гантой */
     const filt = ($('#stf').value||'').trim().toLowerCase();
     const fm = qMatcher(filt);
     /* ДЕРЕВО РОДИТЕЛЬ → РЕБЁНОК (заказчик 14.09.2026: «Усинск, Ухта — это
@@ -7009,7 +7035,7 @@ TABS.stock = function(app){
     const tot = {};
     const flowsSeen = new Set();
     const mk = (m, k) => { let o = m.get(k); if(!o){ o = {v:{}, kids:new Map(), w:new Set()}; m.set(k, o); } return o; };
-    B.C.forEach((agg, key)=>{
+    const put = (agg, key, pcs) => {
       const [s, , w, c] = key.split(SEP);
       if(!keyOk(s, w)) return;
       const tr   = SK_TREE[w] || ['ПРОЧЕЕ', '—'];
@@ -7021,10 +7047,13 @@ TABS.stock = function(app){
       if(!sel) path.push([s, nameOf(s)]);
       let m = T; const chain = [];
       for(const [k, label] of path){ const n = mk(m, k); n.name = label; n.key = k; chain.push(n); m = n.kids; }
-      chain.forEach(n=>{ addInto(n.v, agg); n.w.add(w); });
+      chain.forEach(n=>{ addInto(n.v, agg); n.w.add(w); if(pcs) n.pcs = true; });
       addInto(tot, agg);
+      if(pcs) addInto(pcsTot, agg);
       for(const k in agg) if(k!=='_born' && NZ(agg[k])) flowsSeen.add(k);
-    });
+    };
+    B.C.forEach((agg, key)=>put(agg, key, false));
+    PC.C.forEach((agg, key)=>put(agg, key, true));
     const DEPTH_MAX = sel ? 4 : 5;              /* глубина листа */
     const LVL_TIP = ['корень справочника подразделений 1С', 'регион / база',
                      'подразделение как в 1С', 'группа аналитического учёта', 'код ', 'серия '];
@@ -7041,15 +7070,17 @@ TABS.stock = function(app){
     const g = sel ? G_BY.get(sel) : null;
     const gv = g && g.v && g.v[vkey] && g.v[vkey][curMeasure()] ? g.v[vkey][curMeasure()] : null;
     const restT = bal(tot);
-    /* узлы Ганты округлены до трёх знаков, отсюда допуск в пару тысячных */
-    const same = gv ? Math.abs((gv.rest||0) - restT) <= 0.005 : null;
+    const restP = bal(pcsTot);                  /* вклад штук по коэффициенту */
+    /* узлы Ганты округлены до трёх знаков, отсюда допуск в пару тысячных.
+       Ганта штуки в тонны не переводит — сверяем без них. */
+    const same = gv ? Math.abs((gv.rest||0) - (restT - restP)) <= 0.005 : null;
     cards.innerHTML =
         '<div class="card lead"><div class="k">ОСТАТОК'+(sel?' по бизнес-плану':' по компании')+'</div>'
         + '<div class="v'+(restT<-0.0005?' bad':'')+'">'+fmt(restT)+' <span class="unit">'+esc(unit)+'</span></div>'
         + '<div class="s">'+esc(String(V.title).replace(/^\s*\d+\s*[—-]\s*/,''))+(filt?' · с фильтром строк':'')+'</div></div>'
       + (gv ? '<div class="card"><div class="k">на Ганте</div><div class="v'+(same?'':' bad')+'">'
             + fmt(gv.rest||0)+' <span class="unit">'+esc(unit)+'</span></div>'
-            + '<div class="s">'+(same ? '✓ совпадает с итогом вкладки'
+            + '<div class="s">'+(same ? '✓ совпадает с итогом вкладки'+(NZ(restP)?' без штук по коэф.':'')
                 : filt ? 'итог с фильтром строк — не сравнивать' : '✗ не совпадает: разбираться')+'</div></div>'
           : sel ? '<div class="card"><div class="k">на Ганте</div><div class="v small">—</div>'
             + '<div class="s">в этом варианте и единице строки на Ганте нет</div></div>' : '')
@@ -7057,6 +7088,8 @@ TABS.stock = function(app){
         + '<div class="s">за вычетом возврата поставщику</div></div>'
       + '<div class="card"><div class="k">Продали</div><div class="v">'+fmt(tot['продано']||0)+' <span class="unit">'+esc(unit)+'</span></div>'
         + '<div class="s">по складам варианта</div></div>'
+      + (NZ(restP) ? '<div class="card"><div class="k">в т.ч. штуки по коэф. 1С</div><div class="v">'+fmt(restP)+' <span class="unit">'+esc(unit)+'</span></div>'
+          + '<div class="s">штанги, трансформаторы, крышки люков… — как в отчёте 1С «в тоннах»; только на этой вкладке</div></div>' : '')
       + '<div class="card"><div class="k">Подразделений</div><div class="v">'+cnt(nPodr)+'</div>'
         + '<div class="s">'+cnt([...T.values()].reduce((a,n)=>a+n.w.size,0))+' складов</div></div>';
     slimCards(app);
@@ -7086,6 +7119,9 @@ TABS.stock = function(app){
           + (hasKids ? '<span class="rtog">▸</span> ' : '<span class="rtog"></span> ')
           + (depth<=1 ? '<b>'+esc(n.name)+'</b>' : esc(n.name))
           + (depth<=2 && n.w.size>1 ? ' <span class="muted">'+cnt(n.w.size)+' скл.</span>' : '')
+          + (n.pcs && depth>=4 ? ' <span class="tag pcs" title="штуки переведены в тонны по коэффициенту '
+              + 'справочника 1С («единица для отчётов = т»): '+esc(NM_COEF[n.key] ? NM_COEF[n.key]+' шт/т' : '')
+              + '. Только на этой вкладке; на Ганте и в дереве эти тонны не считаются">шт→т</span>' : '')
         + '</td>' + cells(n.v) + '</tr>';
     };
     const sortK = m => [...m.entries()].sort((x,y)=>Math.abs(bal(y[1].v))-Math.abs(bal(x[1].v))

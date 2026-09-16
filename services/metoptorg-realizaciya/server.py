@@ -547,6 +547,15 @@ def admin_page(user: str = Depends(auth_write)):
     return HTMLResponse(open(page, encoding="utf-8").read())
 
 
+@app.get("/admin/rules", response_class=HTMLResponse)
+def admin_rules(user: str = Depends(auth_write)):
+    """Алгоритмы расчётов и действующие правила — вкладка страницы управления
+    (заказчик 16.09.2026). Фрагмент web/rules.html, admin.html вставляет его в
+    свою разметку."""
+    page = os.path.join(ROOT, "web", "rules.html")
+    return HTMLResponse(open(page, encoding="utf-8").read())
+
+
 @app.get("/api/state")
 def api_state(user: str = Depends(auth),
               cred: HTTPBasicCredentials = Depends(security)):

@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="ru" data-theme="light">
 <head>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI2IiBmaWxsPSIjMTQyMjQ4Ii8+PGcgZmlsbD0iI2ZmZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTgzLjIsMTQuMSkgc2NhbGUoMC44NikiPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE1MSw5NC43OTQgMjE0Ljk3LDc4Ljk3NyAxOTkuMDg2LDYzLjA5NCIvPjxwb2x5Z29uIHBvaW50cz0iMTk5LjE3LDI1LjkxMyAxODMuMzUzLDQxLjczMSAxOTkuMjM1LDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMjMzLjU4OCw2MC44NTUgMjE3Ljc3MSw0NS4wMzggMjAxLjg4OCw2MC45MiIvPjxwb2x5Z29uIHBvaW50cz0iMTY0LjYxLDYwLjg1NSAxODAuNDI3LDQ1LjAzOCAxOTYuMzEsNjAuOTIiLz48cG9seWdvbiBwb2ludHM9IjE2NC42MSwyMi40ODMgMTgwLjQyNywzOC4zIDE5Ni4zMSwyMi40MTgiLz48cG9seWdvbiBwb2ludHM9IjE2MS4zNzUsMjUuOTEzIDE3Ny4xOTQsNDEuNzMxIDE2MS4zMTIsNTcuNjEzIi8+PHBvbHlnb24gcG9pbnRzPSIxMzMuOTc5LDIyLjQ2IDE1Ni4zNTEsMjIuNDYgMTU2LjM1MSwwIi8+PHBvbHlnb24gcG9pbnRzPSIxMzEuMDkzLDIyLjQ2IDEwOC43MjMsMjIuNDYgMTA4LjcyMywwIi8+PHBvbHlnb24gcG9pbnRzPSIxMTcuMTQzLDI3LjEzMSAxMzIuOTYsNDIuOTQ5IDE0OC44NDMsMjcuMDY4Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDguOTk1LDI1LjkxMyAxMjQuODEzLDQxLjczMSAxMDguOTMyLDU3LjYxMyIvPjxwb2x5Z29uIHBvaW50cz0iMTU2LjIwOSwyNS45MTMgMTQwLjM5Miw0MS43MzEgMTU2LjI3Miw1Ny42MTMiLz48cG9seWdvbiBwb2ludHM9IjIxNC45MDUsODQuMzUgMTk5LjA4NiwxMDAuMTY2IDIxNC45NjgsMTE2LjA0NyIvPjwvZz48L3N2Zz4=">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>МЕТОПТОРГ · Обновление отчёта по реализации</title>
@@ -54,6 +53,28 @@ main{padding:var(--sp-4);max-width:1180px;margin:0 auto}
 .panel{background:var(--s-1);border:1px solid var(--line-1);border-radius:var(--r-3);
   padding:var(--sp-3);margin-bottom:var(--sp-4)}
 h3{margin:0 0 var(--sp-2);font-size:var(--fs-md);font-weight:600;letter-spacing:-.2px}
+/* вкладки страницы управления */
+.atabs{display:flex;gap:0;align-items:center;border-bottom:1px solid var(--line-1);margin:0 0 var(--sp-4)}
+.atabs button{font:inherit;font-size:var(--fs-base);background:none;border:none;
+  border-bottom:2px solid transparent;padding:var(--sp-2) var(--sp-4);color:var(--t-2);cursor:pointer}
+.atabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.atabs button:hover{color:var(--t-1)}
+.atabs a.dash{margin-left:auto;font-size:var(--fs-sm);color:var(--t-3);text-decoration:none}
+.atabs a.dash:hover{color:var(--accent)}
+/* текст правил (web/rules.html) */
+.rules h3{margin:var(--sp-5) 0 var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--line-1)}
+.rules h3:first-of-type{border-top:none;margin-top:var(--sp-2)}
+.rules p,.rules li{font-size:var(--fs-base);line-height:1.5;max-width:100ch}
+.rules ul,.rules ol{padding-left:22px;margin:var(--sp-2) 0}
+.rules li{margin:var(--sp-1) 0}
+.rules .rnav{font-size:var(--fs-sm);color:var(--t-3);margin:var(--sp-2) 0 var(--sp-4);line-height:1.8}
+.rules .rnav a{color:var(--accent);text-decoration:none}
+.rules table.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);margin:var(--sp-2) 0}
+.rules table.rt th,.rules table.rt td{text-align:left;vertical-align:top;padding:var(--sp-1) var(--sp-2);
+  border-bottom:1px solid var(--line-1)}
+.rules table.rt th{color:var(--t-2);font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px}
+.rules b{color:var(--t-1)}
+.rules code{font-family:var(--mono);font-size:var(--fs-sm);background:var(--s-2);padding:0 3px;border-radius:3px}
 .hint{font-size:var(--fs-sm);color:var(--t-3);margin:var(--sp-1) 0 var(--sp-3)}
 .btn,.btn2,.tbtn{font:inherit;border-radius:var(--r-2);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
@@ -178,6 +199,16 @@ pre.log{background:var(--s-2);border:1px solid var(--line-1);color:var(--t-2);
 </header>
 
 <main>
+  <!-- ВКЛАДКИ СТРАНИЦЫ УПРАВЛЕНИЯ (заказчик 16.09.2026: «все алгоритмы расчётов
+       и действующие правила напиши на отдельной вкладке в управлении»).
+       Правила лежат в web/rules.html и подгружаются с /admin/rules при первом
+       открытии — файл длинный, держать его в разметке этой страницы незачем. -->
+  <nav class="atabs">
+    <button class="on" data-a="main">Пересборка и источники</button>
+    <button data-a="rules">Алгоритмы и правила</button>
+    <a class="dash" href="/">← к отчёту</a>
+  </nav>
+  <section id="secMain">
   <!-- ⚠️ Ручная загрузка выгрузок убрана 12.08.2026 вместе с разделом входных
        данных: данные приходят из SQL. Ручку /api/upload оставили на сервере —
        она пригодится для файла Битрикса, который не из 1С. -->
@@ -261,6 +292,10 @@ pre.log{background:var(--s-2);border:1px solid var(--line-1);color:var(--t-2);
       <th class="num">Размер</th><th>Файлы</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
+  </section>
+  <section id="secRules" hidden>
+    <div class="panel" id="rulesBox"><div class="hint">Загружаю…</div></div>
+  </section>
 </main>
 
 <script>
@@ -268,6 +303,29 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 /* Тема общая с дашбордом: экономист переключает её один раз, а страниц две. */
 if(localStorage.mo_theme) document.documentElement.dataset.theme = localStorage.mo_theme;
+/* вкладки: правила грузятся один раз, адрес #rules открывает их сразу */
+(()=>{
+  const btns=[...document.querySelectorAll('.atabs button')];
+  let loaded=false;
+  async function show(a){
+    btns.forEach(b=>b.classList.toggle('on', b.dataset.a===a));
+    document.getElementById('secMain').hidden = a!=='main';
+    document.getElementById('secRules').hidden = a!=='rules';
+    history.replaceState(null,'', a==='rules' ? '#rules' : '#');
+    if(a==='rules' && !loaded){
+      loaded=true;
+      try{
+        const r=await fetch('/admin/rules'); if(!r.ok) throw new Error(r.status);
+        document.getElementById('rulesBox').innerHTML = await r.text();
+      }catch(e){
+        loaded=false;
+        document.getElementById('rulesBox').innerHTML='<div class="hint">Не удалось загрузить правила: '+(e.message||e)+'</div>';
+      }
+    }
+  }
+  btns.forEach(b=>b.addEventListener('click', ()=>show(b.dataset.a)));
+  if(location.hash==='#rules') show('rules');
+})();
 document.getElementById('themeBtn').addEventListener('click', ()=>{
   const r = document.documentElement;
   r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
